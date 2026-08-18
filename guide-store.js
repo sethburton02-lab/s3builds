@@ -127,10 +127,11 @@ async function loadMe(){
   if(!SB.on || !session()){ ME = null; return null; }
   try{
     const u = await sbFetch("/auth/v1/user");
-    ME = u && u.id
-      ? {id: u.id, email: u.email || "",
-         name: (u.user_metadata && u.user_metadata.name) || (u.email || "").split("@")[0]}
-      : null;
+    /* No name here. The profile is the only place a display name lives,
+       and it is filled in by loadStore() a moment later. Defaulting to the
+       email prefix is what produced a name nobody chose, stamped onto
+       every guide they published. `named` is how the UI knows to ask. */
+    ME = u && u.id ? {id: u.id, email: u.email || "", name: "", named: false} : null;
   }catch(_){
     /* An expired or rejected token is not an error to shout about — it is
        just being signed out. */
@@ -158,7 +159,23 @@ async function signOutRemote(){
 
 let CACHE = {};          /* slug -> record, in guide-load.js's own shape */
 let MY_VOTES = new Set();
+let PROFILES = {};       /* user id -> {id, name, avatar, joined} */
 let LOADED = false;
+
+/* Every profile, loaded once. There is one row per person who has ever
+   published, which for a long time will be a smaller table than the
+   guides one — so fetching all of them costs less than fetching the
+   handful a page happens to need, and keeps the accessors synchronous
+   like everything else the renderers call. Revisit at a few thousand. */
+const profileOf = id => PROFILES[id] || null;
+const profileName = id => (PROFILES[id] || {}).name || "";
+function profileByName(name){
+  const want = String(name || "").toLowerCase();
+  return Object.values(PROFILES).find(p => p.name.toLowerCase() === want) || null;
+}
+const fromProfileRow = r => ({id: r.id, name: r.name,
+                              avatar: r.avatar_champ || null,
+                              joined: Date.parse(r.created_at) || 0});
 
 /* The table stores listing fields as columns and the guide itself as one
    jsonb document. These two put the record together and take it apart. */
@@ -194,12 +211,18 @@ async function loadStore(){
   captureSession();
   await loadMe();
   try{
-    const rows = await sbFetch("/rest/v1/guides?select=*", {auth: false});
+    const [rows, profs] = await Promise.all([
+      sbFetch("/rest/v1/guides?select=*", {auth: false}),
+      sbFetch("/rest/v1/profiles?select=*", {auth: false})
+    ]);
     CACHE = Object.fromEntries((rows || []).map(r => [r.slug, fromRow(r)]));
+    PROFILES = Object.fromEntries((profs || []).map(r => [r.id, fromProfileRow(r)]));
     if(ME){
       const mine = await sbFetch(
         `/rest/v1/guide_votes?select=guide_slug&user_id=eq.${encodeURIComponent(ME.id)}`);
       MY_VOTES = new Set((mine || []).map(r => r.guide_slug));
+      const p = PROFILES[ME.id];
+      if(p){ ME.name = p.name; ME.avatar = p.avatar; ME.named = true; }
     }
     LOADED = true;
     return true;
@@ -223,6 +246,35 @@ const STORE = {
   me(){ return ME; },
 
   votedOn(slug){ return MY_VOTES.has(slug); },
+
+  /* The profile. Creating and editing are the same call — a new account
+     has no row until it picks a name, and after that the same form edits
+     it, so upsert rather than two paths that can disagree. */
+  async saveProfile({name, avatar}){
+    if(!ME) throw new Error("Sign in first.");
+    const clean = String(name || "").trim();
+    if(clean.length < 2)  throw new Error("Pick a name of at least 2 characters.");
+    if(clean.length > 24) throw new Error("That name is too long — 24 characters at most.");
+
+    const row = {id: ME.id, name: clean, avatar_champ: avatar || null};
+    await sbFetch("/rest/v1/profiles", {
+      method: "POST", body: row,
+      headers: {Prefer: "resolution=merge-duplicates,return=minimal"}
+    });
+    PROFILES[ME.id] = {...(PROFILES[ME.id] || {}), id: ME.id, name: clean,
+                       avatar: avatar || null,
+                       joined: (PROFILES[ME.id] || {}).joined || Date.now()};
+    ME.name = clean; ME.avatar = avatar || null; ME.named = true;
+    /* A rename updates every guide already published, via a database
+       trigger — so the local cache has to follow or the page would still
+       show the old byline until reload. */
+    for(const g of Object.values(CACHE)) if(g.authorId === ME.id) g.author = clean;
+    return ME;
+  },
+
+  profile: profileOf,
+  profileByName,
+  allProfiles: () => PROFILES,
 
   async publish(guide, slug){
     if(!ME) throw new Error("Sign in to publish a guide.");
@@ -277,4 +329,4 @@ const STORE = {
 };
 
 if(typeof module !== "undefined" && module.exports)
-  module.exports = {STORE, fromRow, toRow, friendlyError};
+  module.exports = {STORE, fromRow, toRow, friendlyError, fromProfileRow};

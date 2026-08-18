@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=87">
+<link rel="stylesheet" href="site.css?v=90">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -4277,6 +4277,16 @@ $("btnPublish").onclick=async()=>{
   /* Publishing is something an account does, so ask who is publishing
      before writing the record — otherwise the guide lands with no author
      and never appears under My guides. */
+  /* A name is required to publish, not merely encouraged: author_name is
+     copied onto the guide row, and an empty byline is not something the
+     author can fix later without noticing it first. */
+  const who = currentUser();
+  if(who && who.named === false){
+    toast("Pick a display name first — it goes on the guide.");
+    setTimeout(() => { location.href = "account.html"; }, 1200);
+    return;
+  }
+
   if(!signedIn()){
     const name = prompt("Publishing needs a name to put on it:", "Summoner");
     if(name === null) return;

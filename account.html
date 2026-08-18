@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Your S3 Builds profile — display name, avatar and the guides you've written.">
+<title>Your account — S3 Builds</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="S3 Builds">
+<meta property="og:title" content="Your account — S3 Builds">
+<meta property="og:description" content="Your S3 Builds profile.">
+<meta property="og:image" content="https://s3builds.net/logo-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="site.css?v=90">
+</head>
+<body>
+<div id="main" class="wrap"></div>
+
+<script src="site.js"></script>
+<script src="config.js"></script>
+<script src="guide-sanitise.js"></script>
+<script src="guide-store.js"></script>
+<script src="guide-load.js"></script>
+<script>
+renderChrome("Guides");
+
+/* ============================================================
+   YOUR ACCOUNT
+
+   Three things, in the order they matter: who you are, what you've
+   written, and the way out. Everything a signed-in person might want to
+   change about themselves lives here, and the header dropdown is a
+   shortcut to it rather than a second place to do the same jobs.
+   ============================================================ */
+
+let picking = false;          /* is the avatar grid open */
+
+function paint(){
+  const el = document.getElementById("main");
+  const me = currentUser();
+
+  if(accountPending()){
+    el.innerHTML = `<div class="state"><h3>One moment</h3><p>Checking your session…</p></div>`;
+    return;
+  }
+  if(!me){
+    el.innerHTML = `<div class="state">
+      <h3>You're not signed in</h3>
+      <p>Sign in from the header and you'll come back here.</p>
+      <p><a class="btn" href="index.html">Back to the site</a></p></div>`;
+    return;
+  }
+
+  const mine = listPublished({mine: true});
+  const votes = mine.reduce((n, g) => n + (g.votes || 0), 0);
+  const champ = me.avatar ? (CHAMPIONS || []).find(c => c.id === me.avatar) : null;
+
+  el.innerHTML = `
+  <p class="crumb" style="padding-top:20px"><a href="index.html">Home</a> › Your account</p>
+
+  <div class="acct-page">
+    <section class="card acct-you">
+      <div class="acct-face-lg">${
+        champ ? champImgTag(champ, "")
+              : `<span class="acct-initial">${esc((me.name || "?").slice(0, 1).toUpperCase())}</span>`
+      }</div>
+
+      <div class="acct-fields">
+        <label class="fld">
+          <span>Display name</span>
+          <input type="text" id="nameIn" maxlength="24" value="${esc(me.name || "")}"
+                 placeholder="What should guides call you?" autocomplete="nickname">
+        </label>
+        <p class="fld-note">This is the byline on everything you publish. Changing
+          it updates guides you've already written.</p>
+
+        <p class="fld-note">Signed in as <b>${esc(me.email)}</b></p>
+
+        <div class="acct-actions">
+          <button type="button" class="btn btn-gold" id="saveBtn">Save</button>
+          <button type="button" class="btn" id="avatarBtn">${
+            champ ? "Change avatar" : "Choose an avatar"}</button>
+          <span id="saveMsg" class="fld-msg" aria-live="polite"></span>
+        </div>
+      </div>
+    </section>
+
+    ${picking ? `<section class="card">
+      <h3>Pick a champion</h3>
+      <p class="fld-note" style="margin-top:-6px">Any champion in the mode. This is
+        just your face on the site — it doesn't claim you main them.</p>
+      <div class="acct-champs" id="champGrid">
+        <button type="button" class="acct-champ ${me.avatar ? "" : "on"}" data-champ="">
+          <span class="acct-none">None</span><span>No avatar</span></button>
+        ${(CHAMPIONS || []).map(c => `
+          <button type="button" class="acct-champ ${me.avatar === c.id ? "on" : ""}"
+                  data-champ="${esc(c.id)}" title="${esc(c.name)}">
+            ${champImgTag(c, "")}<span>${esc(c.name)}</span>
+          </button>`).join("")}
+      </div>
+    </section>` : ""}
+
+    <section class="card">
+      <h3>Your guides</h3>
+      ${mine.length ? `
+        <p class="fld-note" style="margin-top:-6px">${mine.length} published ·
+          ${votes} upvote${votes === 1 ? "" : "s"} between them.</p>
+        <ul class="stats-list champ-guides">${mine.map(g => `
+          <li><a href="guide.html?g=${encodeURIComponent(g.slug)}">
+            <b>${esc(g.title)}</b>
+            <span>${esc(g.champ || "No champion")}${g.role ? " · " + esc(g.role) : ""}
+              · ${g.votes || 0} upvote${g.votes === 1 ? "" : "s"}</span>
+          </a></li>`).join("")}</ul>`
+        : `<p class="fld-note" style="margin-top:-6px">Nothing published yet.
+             <a href="create.html" style="color:var(--gold-hi)">Write your first →</a></p>`}
+    </section>
+
+    <section class="card">
+      <h3>Signing out</h3>
+      <p class="fld-note" style="margin-top:-6px">Your guides stay published. Sign
+        back in with the same email to manage them again.</p>
+      <p style="margin:10px 0 0"><button type="button" class="btn" id="outBtn">Sign out</button></p>
+    </section>
+  </div>`;
+
+  wire();
+}
+
+function wire(){
+  const msg = document.getElementById("saveMsg");
+  const say = (text, bad) => {
+    if(!msg) return;
+    msg.textContent = text;
+    msg.className = "fld-msg" + (bad ? " bad" : " good");
+  };
+
+  const save = document.getElementById("saveBtn");
+  if(save) save.onclick = async () => {
+    const name = document.getElementById("nameIn").value;
+    save.disabled = true; say("Saving…");
+    try{
+      await STORE.saveProfile({name, avatar: currentUser().avatar || null});
+      say("Saved.");
+      paintAccount();               /* the header carries the name too */
+    }catch(err){
+      say(err.message, true);
+    }finally{ save.disabled = false; }
+  };
+
+  const av = document.getElementById("avatarBtn");
+  if(av) av.onclick = () => { picking = !picking; paint(); };
+
+  const grid = document.getElementById("champGrid");
+  if(grid) grid.onclick = async e => {
+    const b = e.target.closest("[data-champ]");
+    if(!b) return;
+    /* Saved immediately. A picker with its own Save button asks people to
+       confirm a choice they already made by clicking a face. */
+    try{
+      await STORE.saveProfile({name: currentUser().name,
+                               avatar: b.dataset.champ || null});
+      picking = false; paint(); paintAccount();
+    }catch(err){ say(err.message, true); }
+  };
+
+  const out = document.getElementById("outBtn");
+  if(out) out.onclick = async () => {
+    await signOutRemote();
+    location.href = "index.html";
+  };
+}
+
+(async function(){
+  await loadStore();
+  paintAccount();
+  paint();
+  /* The roster arrives separately; the avatar grid needs it, the rest of
+     the page does not, so the page is drawn twice rather than made to
+     wait. */
+  loadChampions().then(paint).catch(err => console.warn("Roster unavailable:", err.message));
+})();
+</script>
+</body>
+</html>

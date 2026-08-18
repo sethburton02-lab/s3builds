@@ -956,15 +956,53 @@ function signOut(){
   if(typeof signOutRemote === "function") signOutRemote();
 }
 
-/* With a backend configured, who you are is whoever the token says — the
+/* With a backend configured, who you are is whoever the token says. The
    local record above is the offline stand-in and is ignored entirely.
-   Everything downstream asks currentUser(), so this is the only place that
-   has to know which of the two is in play. */
-const realAccounts = () => typeof STORE !== "undefined" && STORE.live();
+
+   THIS IS KEYED ON CONFIGURATION, NOT ON LOAD STATE, and that distinction
+   is the whole bug it fixes. It used to ask STORE.live(), which is false
+   until loadStore() has finished — so the header painted once from the
+   leftover local record (showing whatever name had been typed into the old
+   prompt), then again from the real session, and the username visibly
+   changed a second after every page load. Two identity systems taking
+   turns.
+
+   Now: backend configured means the local record is never consulted, even
+   before the network answers. */
+function realAccounts(){
+  /* try/catch, not a typeof guard. SB is a `const` in guide-store.js,
+     which loads after this file, and `typeof` on a const in its temporal
+     dead zone THROWS rather than returning "undefined" — the usual
+     defensive check is no defence at all here. Pages that never load the
+     store never define SB, and land in the same catch. */
+  try{ return typeof SB !== "undefined" && SB.on; }
+  catch(_){ return false; }
+}
 const _localUser = currentUser;
 currentUser = function(){
-  return realAccounts() ? STORE.me() : _localUser();
+  try{
+    if(realAccounts()) return typeof STORE !== "undefined" ? STORE.me() : null;
+  }catch(_){}
+  return _localUser();
 };
+
+/* Whether we simply don't know yet. Between first paint and loadStore()
+   resolving there is no answer, and guessing produces the flicker above. */
+function accountPending(){
+  try{ return realAccounts() && typeof STORE !== "undefined" && !STORE.live(); }
+  catch(_){ return false; }
+}
+
+/* A leftover from before real accounts existed. Left in place it does
+   nothing visible, but it is a second source of truth for "who am I",
+   which is what caused the flicker in the first place. Cleared on first
+   paint rather than at load: at load, SB does not exist yet. */
+let legacyCleared = false;
+function clearLegacyAccount(){
+  if(legacyCleared || !realAccounts()) return;
+  legacyCleared = true;
+  try{ localStorage.removeItem(ACCOUNT_KEY); }catch(_){}
+}
 const signedIn = () => !!currentUser();
 
 /* `cta` replaces the header's call to action for pages where "Write a
@@ -1038,17 +1076,40 @@ function paintPatch(){
 function paintAccount(){
   const box = document.getElementById("account");
   if(!box) return;
+  clearLegacyAccount();
+
+  /* Say nothing rather than something wrong. The session is one round trip
+     away and a wrong name for that second is worse than a blank space. */
+  if(accountPending()){
+    box.innerHTML = `<span class="acct-wait" aria-live="polite">…</span>`;
+    return;
+  }
+
   const user = currentUser();
+
+  /* Signed in but nameless. Every guide they publish would be bylined with
+     nothing, so this is a prompt rather than a preference — but a link,
+     not a modal: interrupting someone mid-page to demand a nickname is
+     worse than a button that waits. */
+  if(user && user.named === false){
+    box.innerHTML = `<a class="btn btn-sm btn-gold acct-setup" href="account.html">
+      Pick a display name</a>`;
+    return;
+  }
+
   box.innerHTML = user
     ? `<button type="button" class="acct-btn" id="acctBtn" aria-haspopup="true">
-         <span class="acct-face">${esc(user.name.slice(0, 1).toUpperCase())}</span>
+         ${user.avatar && typeof champByName === "function" && (CHAMPIONS || []).length
+             ? (() => { const c = (CHAMPIONS || []).find(x => x.id === user.avatar);
+                        return c ? champImgTag(c, "acct-face img") : ""; })()
+             : `<span class="acct-face">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span>`}
          <span class="acct-name">${esc(user.name)}</span>
          <span class="acct-caret">▾</span>
        </button>
        <div class="acct-menu" id="acctMenu" hidden>
+         <a href="account.html">Your account</a>
          <a href="guide.html?list=1">My guides</a>
          <a href="create.html">Write a guide</a>
-         <button type="button" data-acct="rename">Change name</button>
          <button type="button" data-acct="out">Sign out</button>
        </div>`
     : realAccounts()
