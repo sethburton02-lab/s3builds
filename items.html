@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Items — S3 Builds</title>
+<meta name="description" content="Every League Classic item, with the mode's own art, prices and stats.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="S3 Builds">
+<meta property="og:title" content="Items — S3 Builds">
+<meta property="og:description" content="Every item in the League of Legends Classic shop, with the mode's own prices, stats and recipes.">
+<meta property="og:image" content="https://s3builds.net/logo-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="site.css?v=87">
+</head>
+<body>
+
+<div class="page-head">
+  <div class="wrap">
+    <p class="crumb"><a href="index.html">Home</a> › Items</p>
+    <h1>Items</h1>
+    <p id="lede">The League Classic shop — names, prices and stats as the mode ships them.</p>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="toolbar" id="toolbar" hidden>
+      <label class="search">
+        <span class="ico">⌕</span>
+        <input id="q" type="search" placeholder="Search items…" autocomplete="off">
+      </label>
+      <div class="pills" id="tierFilters"></div>
+      <select class="sel" id="sort">
+        <option value="cost-desc">Most expensive</option>
+        <option value="cost-asc">Cheapest</option>
+        <option value="name">A–Z</option>
+      </select>
+      <span class="count-note" id="count"></span>
+    </div>
+    <div class="toolbar" id="toolbar2" hidden style="margin-top:-6px;align-items:flex-start">
+      <div class="pills" id="tagFilters"></div>
+    </div>
+    <div class="filter-state" id="filterState" hidden></div>
+    <div id="main"></div>
+  </div>
+</section>
+
+<script src="site.js"></script>
+<script>
+renderChrome("Items");
+
+/* Category filters, in shop order. Data Dragon and Community Dragon use
+   different vocabularies, so each source gets its own list. */
+const FILTERS = {
+  classic: [["all","All"],["Damage","Attack damage"],["SpellDamage","Ability power"],
+    ["AttackSpeed","Attack speed"],["CriticalStrike","Crit"],["LifeSteal","Life steal"],
+    ["Armor","Armor"],["SpellBlock","Magic resist"],["Health","Health"],["Mana","Mana"],
+    ["ManaRegen","Mana regen"],["HealthRegen","Health regen"],["CooldownReduction","CDR"],
+    ["ArmorPenetration","Armor pen"],["MagicPenetration","Magic pen"],["Boots","Boots"],
+    ["Aura","Auras"],["Active","Actives"],["GoldPer","Gold income"],["Consumable","Consumables"],
+    ["Vision","Vision"],["Tenacity","Tenacity"],["Slow","Slow"],["NonbootsMovement","Movement"]],
+  season3: [["all","All"],["Damage","Attack damage"],["SpellDamage","Ability power"],
+    ["AttackSpeed","Attack speed"],["CriticalStrike","Crit"],["LifeSteal","Life steal"],
+    ["Armor","Armor"],["SpellBlock","Magic resist"],["Health","Health"],["Mana","Mana"],
+    ["ManaRegen","Mana regen"],["CooldownReduction","CDR"],["Movement","Movement"],
+    ["Boots","Boots"],["GoldPer","Gold income"],["Aura","Auras"],["Active","Actives"],
+    ["Consumable","Consumables"]]
+};
+
+let ALL = [], SOURCE = "season3", tier = "all", sortBy = "cost-desc", query = "";
+/* Stat filters combine. `match` decides whether an item needs every
+   selected stat or just one of them. */
+let sel = new Set(), match = "all";
+
+boot("#main", async (el) => {
+  const {byId, source} = await loadItems();
+  SOURCE = source;
+  /* The shared index, which is how a component id on a card or in a
+     tooltip gets turned back into an item. This page used to keep the map
+     to itself, so ITEM_BY_ID stayed empty and every item tooltip here
+     resolved to nothing and silently declined to open. */
+  ITEM_BY_ID = byId;
+  ALL = [...byId.values()].filter(it => it.inStore && it.total > 0);
+
+  if(source === "classic"){
+    $("#lede").textContent =
+      `The League Classic shop, straight from the mode's own item table — ${ALL.length} items ` +
+      `with its art, prices and stat lines.`;
+  } else {
+    $("#lede").innerHTML =
+      `Couldn't reach the mode's item table, so this is the Season 3 archive at patch ${DD.patch}. ` +
+      `Names and stats may differ from what League Classic ships.`;
+  }
+
+  /* Tier is derived once, up front. */
+  ALL.forEach(it => it.tier = itemTier(it));
+
+  const tierCounts = {};
+  ALL.forEach(it => tierCounts[it.tier] = (tierCounts[it.tier] || 0) + 1);
+  $("#tierFilters").innerHTML =
+    `<button class="pill on" data-tier="all">All tiers</button>` +
+    ITEM_TIERS.filter(t => tierCounts[t.key])
+      .map(t => `<button class="pill" data-tier="${t.key}" title="${esc(t.blurb)}">` +
+                `${esc(t.name)} (${tierCounts[t.key]})</button>`).join("");
+
+  const present = new Set(ALL.flatMap(i => i.tags));
+  STAT_FILTERS = (FILTERS[source] || FILTERS.season3)
+    .filter(([k]) => k !== "all" && present.has(k));
+
+  $("#toolbar").hidden = false;
+  $("#toolbar2").hidden = false;
+  render(el);
+
+  $("#q").addEventListener("input", e => { query = e.target.value; render(el) });
+  $("#sort").addEventListener("change", e => { sortBy = e.target.value; render(el) });
+
+  $("#tierFilters").addEventListener("click", e => {
+    const b = e.target.closest("[data-tier]"); if(!b) return;
+    $$("#tierFilters .pill").forEach(p => p.classList.remove("on"));
+    b.classList.add("on"); tier = b.dataset.tier; render(el);
+  });
+
+  /* Stat pills toggle instead of replacing each other. */
+  $("#tagFilters").addEventListener("click", e => {
+    const b = e.target.closest("[data-tag]"); if(!b || b.disabled) return;
+    const k = b.dataset.tag;
+    if(k === "__all") sel.clear();
+    else sel.has(k) ? sel.delete(k) : sel.add(k);
+    render(el);
+  });
+
+  $("#filterState").addEventListener("click", e => {
+    const m = e.target.closest("[data-match]"), c = e.target.closest("[data-clear]");
+    if(m){ match = m.dataset.match; render(el); }
+    if(c){ sel.clear(); render(el); }
+  });
+});
+
+let STAT_FILTERS = [];
+
+/* Everything except the stat filters — the pool each stat pill counts against. */
+function basePool(){
+  const q = normKey(query);
+  return ALL.filter(it =>
+    (tier === "all" || it.tier === tier) &&
+    /* Guarded: one item without a description used to throw here and take
+       the whole grid with it, which is a lot of page to lose to a blank
+       field. */
+    (normKey(it.name).includes(q) ||
+     normKey(String(it.descHtml || "").replace(/<[^>]*>/g,"")).includes(q)));
+}
+function matchesStats(it, set = sel){
+  if(!set.size) return true;
+  return match === "all"
+    ? [...set].every(t => it.tags.includes(t))
+    : [...set].some(t => it.tags.includes(t));
+}
+
+/* First line of the description doubles as a one-line summary.
+   Descriptions are joined with <br>, so split on that — not on <div>.
+   Returns "" when there's nothing useful, and the caller omits the row
+   rather than printing a placeholder dash. */
+function summary(it){
+  if(it.blurb) return it.blurb.trim();
+  const first = String(it.descHtml || "").split(/<br\s*\/?>/i)[0];
+  const text = first.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  if(!text) return "";
+  return text.length > 74 ? text.slice(0, 72).trimEnd() + "…" : text;
+}
+
+const byOrder = (a, b) =>
+  sortBy === "name"     ? a.name.localeCompare(b.name) :
+  sortBy === "cost-asc" ? a.total - b.total || a.name.localeCompare(b.name)
+                        : b.total - a.total || a.name.localeCompare(b.name);
+
+/* What it's built from, on the card itself. Only the components — what an
+   item builds INTO stays on hover, because a basic like Long Sword feeds
+   most of the shop and a card is not the place for eighteen icons.
+
+   Components are what you actually need while shopping: they tell you what
+   to buy first, which is the question the grid is being scanned for. */
+const RECIPE_CAP = 4;
+function recipeHtml(it){
+  const parts = (it.from || []).map(id => ITEM_BY_ID.get(String(id))).filter(Boolean);
+  if(!parts.length) return "";
+  const shown = parts.slice(0, RECIPE_CAP);
+  const rest  = parts.length - shown.length;
+  return `<span class="recipe" aria-label="Builds from ${esc(shown.map(p => p.name).join(", "))}">
+    ${shown.map(p => art({s3: p.icon, classic: p.icon, alt: p.name, cls: "ri", lazy: true}))
+           .join(`<i>+</i>`)}
+    ${rest ? `<em>+${rest}</em>` : ""}
+  </span>`;
+}
+
+/* data-tip-item is the whole opt-in: site.js owns the panel, the placing
+   and the hover wiring. No title attribute alongside it — the browser's
+   own tooltip would fade in over the top of ours saying less. */
+const card = it => `
+  <a class="row-item" href="item.html?i=${encodeURIComponent(it.id)}"
+     data-tip-item="${esc(it.id)}">
+    <div class="ico">${art({s3: it.icon, classic: it.icon, alt: it.name, lazy: true})}</div>
+    <div class="meta">
+      <b>${esc(it.name)}</b>
+      ${summary(it) ? `<span>${esc(summary(it))}</span>` : ""}
+      ${recipeHtml(it)}
+    </div>
+    <span class="gold">${it.total}g</span>
+  </a>`;
+
+function renderFilters(pool, list){
+  /* Each pill shows how many items you'd be left with if you clicked it.
+     In "all" mode most pairs are empty, so dead ends are disabled rather
+     than left to click into a blank page. */
+  $("#tagFilters").innerHTML =
+    `<button class="pill ${sel.size ? "" : "on"}" data-tag="__all">All stats</button>` +
+    STAT_FILTERS.map(([k, label]) => {
+      const on = sel.has(k);
+      const next = new Set(sel);
+      on ? next.delete(k) : next.add(k);
+      const n = pool.filter(it => matchesStats(it, next)).length;
+      const dead = !on && n === 0;
+      return `<button class="pill ${on ? "on" : ""}" data-tag="${esc(k)}" ${dead ? "disabled" : ""}
+        title="${on ? "Remove" : dead ? "No items also have this" : "Add"} ${esc(label)}">${esc(label)}` +
+        `<span class="pill-n">${n}</span></button>`;
+    }).join("");
+
+  const bar = $("#filterState");
+  if(!sel.size){ bar.hidden = true; return; }
+  bar.hidden = false;
+  const chosen = STAT_FILTERS.filter(([k]) => sel.has(k)).map(([, l]) => l);
+  bar.innerHTML = `
+    <span class="fs-label">Showing items with
+      ${sel.size > 1 ? `<b>${match === "all" ? "all" : "any"}</b> of` : ""}
+      <b>${chosen.map(esc).join(match === "all" ? " + " : " / ")}</b>
+      — ${list.length} result${list.length === 1 ? "" : "s"}</span>
+    ${sel.size > 1 ? `<span class="seg">
+      <button data-match="all" class="${match === "all" ? "on" : ""}">Match all</button>
+      <button data-match="any" class="${match === "any" ? "on" : ""}">Match any</button>
+    </span>` : ""}
+    <button class="fs-clear" data-clear="1">Clear</button>`;
+}
+
+function render(el){
+  const pool = basePool();
+  const list = pool.filter(it => matchesStats(it));
+
+  renderFilters(pool, list);
+
+  $("#count").innerHTML = `<span class="src-badge ${SOURCE === "classic" ? "classic" : ""}">` +
+    `${list.length} of ${ALL.length} · <b>${SOURCE === "classic" ? "Classic data" : "Season 3 archive"}</b></span>`;
+
+  if(!list.length){
+    const chosen = STAT_FILTERS.filter(([k]) => sel.has(k)).map(([, l]) => l);
+    el.innerHTML = `<div class="state">
+      <h3>No items match that</h3>
+      ${sel.size > 1 && match === "all"
+        ? `Nothing gives ${esc(chosen.join(" and "))} together.
+           <button class="btn btn-sm" data-try-any style="margin-left:6px">Match any instead</button>`
+        : "Try a different search or filter."}</div>`;
+    const anyBtn = el.querySelector("[data-try-any]");
+    if(anyBtn) anyBtn.onclick = () => { match = "any"; render(el); };
+    return;
+  }
+
+  /* Showing every tier: break the page into shop-style sections.
+     Filtered to one tier: a plain grid reads better. */
+  if(tier === "all"){
+    el.innerHTML = ITEM_TIERS.map(t => {
+      const group = list.filter(it => it.tier === t.key).sort(byOrder);
+      if(!group.length) return "";
+      return `<div class="tier-group">
+        <div class="tier-head">
+          <span class="bar" style="background:${t.colour}"></span>
+          <h2>${esc(t.name)}</h2>
+          <span class="n">${group.length} item${group.length === 1 ? "" : "s"}</span>
+        </div>
+        <p class="tier-blurb">${esc(t.blurb)}</p>
+        <div class="grid-items">${group.map(card).join("")}</div>
+      </div>`;
+    }).join("");
+  } else {
+    const t = TIER_BY_KEY[tier];
+    el.innerHTML = `<p class="tier-blurb" style="padding-left:0;margin-bottom:14px">${esc(t.blurb)}</p>
+      <div class="grid-items">${list.slice().sort(byOrder).map(card).join("")}</div>`;
+  }
+}
+</script>
+</body>
+</html>

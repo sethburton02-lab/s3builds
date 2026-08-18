@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Champions — S3 Builds</title>
+<meta name="description" content="Every champion in the League Classic roster, with Season 3 art and stats.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="S3 Builds">
+<meta property="og:title" content="Champions — S3 Builds">
+<meta property="og:description" content="Every champion in League of Legends Classic, with Season 3 base stats and abilities.">
+<meta property="og:image" content="https://s3builds.net/logo-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="site.css?v=87">
+</head>
+<body>
+
+<div class="page-head">
+  <div class="wrap">
+    <p class="crumb"><a href="index.html">Home</a> › Champions</p>
+    <h1>Champions</h1>
+    <p>The full League Classic roster with the mode's own portraits from Community Dragon.
+      Stats and abilities come from the Season 3 archive, so some numbers may differ from
+      the mode's tuning.</p>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="toolbar" id="toolbar" hidden>
+      <label class="search">
+        <span class="ico">⌕</span>
+        <input id="q" type="search" placeholder="Search champions…" autocomplete="off">
+      </label>
+      <div class="pills" id="tagFilters"></div>
+      <select class="sel" id="sort">
+        <option value="name">A–Z</option>
+        <option value="attack">Highest attack</option>
+        <option value="magic">Highest magic</option>
+        <option value="defense">Highest defense</option>
+        <option value="difficulty">Hardest to play</option>
+      </select>
+      <span class="count-note" id="count"></span>
+    </div>
+    <div id="main"></div>
+  </div>
+</section>
+
+<script src="site.js"></script>
+<script>
+renderChrome("Champions");
+
+let ALL = [], tag = "all", sortBy = "name", query = "";
+
+boot("#main", async (el) => {
+  const data = (await DD.champions()).data;
+  ALL = Object.values(data).filter(inRoster)
+        .map(c => ({...c, info: c.info || {}}));
+
+  const missing = CLASSIC_ROSTER.filter(n =>
+    !ALL.some(c => normKey(c.name) === normKey(n) || normKey(c.id) === normKey(n)));
+  if(missing.length) console.warn("Not in patch " + DD.patch + ":", missing);
+
+  const tags = [...new Set(ALL.flatMap(c => c.tags || []))].sort();
+  $("#tagFilters").innerHTML =
+    `<button class="pill on" data-tag="all">All</button>` +
+    tags.map(t => `<button class="pill" data-tag="${esc(t)}">${esc(t)}</button>`).join("");
+
+  $("#toolbar").hidden = false;
+  render(el);
+
+  $("#q").addEventListener("input", e => { query = e.target.value; render(el) });
+  $("#sort").addEventListener("change", e => { sortBy = e.target.value; render(el) });
+  $("#tagFilters").addEventListener("click", e => {
+    const b = e.target.closest("[data-tag]"); if(!b) return;
+    $$("#tagFilters .pill").forEach(p => p.classList.remove("on"));
+    b.classList.add("on"); tag = b.dataset.tag; render(el);
+  });
+});
+
+function render(el){
+  let list = ALL.filter(c =>
+    (tag === "all" || (c.tags || []).includes(tag)) &&
+    normKey(c.name).includes(normKey(query)));
+
+  list.sort((a, b) => sortBy === "name"
+    ? a.name.localeCompare(b.name)
+    : (b.info[sortBy] || 0) - (a.info[sortBy] || 0) || a.name.localeCompare(b.name));
+
+  $("#count").textContent = `${list.length} of ${ALL.length} champions`;
+
+  el.innerHTML = list.length
+    ? `<div class="grid-champs">${list.map(c => `
+        <a class="tile" href="champion.html?c=${encodeURIComponent(c.id)}" title="${esc(c.name)} — ${esc(c.title)}">
+          <div class="art">${art({
+            s3: DD.champImg(c.id),
+            classic: CLASSIC.champIcon(c.key, c.name),
+            alt: c.name, lazy: true })}</div>
+          <b>${esc(c.name)}</b>
+          ${sortBy !== "name" ? `<small>${esc(sortBy)} ${c.info[sortBy] ?? "–"}</small>` : ""}
+        </a>`).join("")}</div>`
+    : `<div class="state"><h3>No champions match that</h3>Try a different search or filter.</div>`;
+}
+</script>
+</body>
+</html>

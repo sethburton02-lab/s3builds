@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Champion stats, abilities and published build guides for League of Legends Classic.">
+<title>Champion — S3 Builds</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="S3 Builds">
+<meta property="og:title" content="Champion — S3 Builds">
+<meta property="og:description" content="Champion stats, abilities and published build guides for League of Legends Classic.">
+<meta property="og:image" content="https://s3builds.net/logo-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="site.css?v=87">
+</head>
+<body>
+<div id="main" class="wrap"></div>
+
+<script src="site.js"></script>
+<script src="guide-sanitise.js"></script>
+<script src="config.js"></script>
+<script src="guide-store.js"></script>
+<script src="guide-load.js"></script>
+<script>
+renderChrome("Champions");
+
+const ID = qs("c");
+let C = null, level = 1;
+
+boot("#main", async (el) => {
+  if(!ID) throw new Error("No champion given in the address.");
+  /* The guide store, before anything paints. Without this the cache stays
+     empty, backendLive() answers false, and every page falls back to this
+     browser's localStorage — a site that looks like it works and quietly
+     isn't using the database at all. */
+  await loadStore();
+  const res = await DD.champion(ID);
+  C = res.data[Object.keys(res.data)[0]];
+  document.title = `${C.name}, ${C.title} — S3 Builds`;
+  paint(el);
+});
+
+/* Season 3 used linear per-level growth: base + growth × (level − 1). */
+const at = (base, per) => num((base || 0) + (per || 0) * (level - 1));
+
+const STATS = [
+  ["Health",         "hp",           "hpperlevel"],
+  ["Health regen",   "hpregen",      "hpregenperlevel",   "per 5s"],
+  ["Resource",       "mp",           "mpperlevel"],
+  ["Resource regen", "mpregen",      "mpregenperlevel",   "per 5s"],
+  ["Attack damage",  "attackdamage", "attackdamageperlevel"],
+  ["Armor",          "armor",        "armorperlevel"],
+  ["Magic resist",   "spellblock",   "spellblockperlevel"],
+  ["Move speed",     "movespeed",    null],
+  ["Attack range",   "attackrange",  null]
+];
+
+function paint(el){
+  const s = C.stats, info = C.info || {};
+  const spells = C.spells || [];
+
+  el.innerHTML = `
+  <p class="crumb" style="padding-top:20px">
+    <a href="index.html">Home</a> › <a href="champions.html">Champions</a> › ${esc(C.name)}</p>
+
+  <div class="detail">
+    <aside class="side">
+      <div class="hero-art">${art({
+        s3: DD.champImg(C.id),
+        classic: CLASSIC.champIcon(C.key, C.name),
+        alt: C.name })}</div>
+
+      <div class="card">
+        <h3>Base stats <span style="text-transform:none;letter-spacing:0;color:var(--muted-2)">
+          — level <b id="lvlOut" style="color:var(--gold-hi)">1</b></span></h3>
+        <div class="lvl-row">
+          <input type="range" id="lvl" min="1" max="18" value="1" aria-label="Champion level">
+          <b id="lvlLabel">Level 1</b>
+        </div>
+        <ul class="stats-list" id="statList"></ul>
+      </div>
+
+      <div class="card">
+        <h3>Difficulty</h3>
+        <ul class="stats-list">
+          ${["attack","magic","defense","difficulty"].map(k => `
+            <li><span>${k[0].toUpperCase()+k.slice(1)}</span><b>${info[k] ?? "–"} / 10</b></li>`).join("")}
+        </ul>
+      </div>
+
+      ${C.skins && C.skins.length > 1 ? `<div class="card">
+        <h3>Skins in the ${DD.patch} archive</h3>
+        <ul class="stats-list">${C.skins.filter(k => k.num !== 0)
+          .map(k => `<li><span>${esc(k.name)}</span><b>#${k.num}</b></li>`).join("")}</ul>
+      </div>` : ""}
+    </aside>
+
+    <main>
+      <!-- No portrait here. The same square icon already runs full-width at
+           the top of the sidebar, level with this heading, so a 60px copy
+           beside the name was the same picture twice. -->
+      <div class="title-row">
+        <div>
+          <h1>${esc(C.name)}</h1>
+          <div class="sub">${esc(C.title)}</div>
+        </div>
+      </div>
+      <div class="tagrow">
+        ${(C.tags || []).map(t => `<span class="chip gold">${esc(t)}</span>`).join("")}
+        <span class="chip">${esc(C.partype || "No resource")}</span>
+        <span class="chip" data-patch>${patchLabel()}</span>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <h3>Abilities</h3>
+
+        <div class="ability">
+          <div class="ico"><img src="${DD.passImg(C.passive.image.full)}" alt="">
+            <span class="key">P</span></div>
+          <div>
+            <h4>${esc(C.passive.name)}</h4>
+            <div class="dd">${ddText(C.passive.description)}</div>
+          </div>
+        </div>
+
+        ${spells.map((sp, i) => `
+          <div class="ability">
+            <div class="ico"><img src="${DD.spellImg(sp.image.full)}" alt="">
+              <span class="key">${"QWER"[i]}</span></div>
+            <div style="min-width:0">
+              <h4>${esc(sp.name)}</h4>
+              <div class="dd">${ddText(sp.description)}</div>
+              <div class="nums">
+                <span>Cooldown <b>${esc(sp.cooldownBurn || "–")}s</b></span>
+                <span>Cost <b>${esc(sp.costBurn || "–")}</b> ${esc(sp.costType || "")}</span>
+                <span>Range <b>${esc(sp.rangeBurn || "–")}</b></span>
+                <span>Max rank <b>${sp.maxrank}</b></span>
+              </div>
+            </div>
+          </div>`).join("")}
+      </div>
+
+      ${(C.allytips || []).length ? tipCard("Playing as " + C.name, C.allytips) : ""}
+      ${(C.enemytips || []).length ? tipCard("Playing against " + C.name, C.enemytips) : ""}
+
+      <div class="card" style="margin-top:14px">
+        <h3>Guides</h3>
+        ${guidesCardHtml(C.name)}
+      </div>
+    </main>
+  </div>`;
+
+  const slider = $("#lvl");
+  slider.addEventListener("input", e => { level = +e.target.value; paintStats(); });
+  paintStats();
+  paintPatch();
+}
+
+/* This used to say "no published guides yet" unconditionally — it never
+   asked. Now it lists what has actually been published for this champion. */
+function guidesCardHtml(name){
+  const rows = guidesFor(name);
+  if(!rows.length)
+    return `<p style="margin:0;color:var(--muted);font-size:13.5px">
+      No published ${esc(name)} guides yet.
+      <a href="create.html" style="color:var(--gold-hi)">Write the first one →</a></p>`;
+  return `<ul class="stats-list champ-guides">${rows.map(g =>
+    `<li><a href="guide.html?g=${encodeURIComponent(g.slug)}">
+       <b>${esc(g.title)}</b>
+       <span>${esc(g.role || "")}${g.author ? " · " + esc(g.author) : ""}</span>
+     </a></li>`).join("")}</ul>
+    <p style="margin:10px 0 0;font-size:13px">
+      <a href="create.html" style="color:var(--gold-hi)">Write another →</a></p>`;
+}
+
+function tipCard(title, tips){
+  return `<div class="card" style="margin-top:14px">
+    <h3>${esc(title)}</h3>
+    <div class="dd"><ul>${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>
+  </div>`;
+}
+
+function paintStats(){
+  const s = C.stats;
+  $("#lvlLabel").textContent = "Level " + level;
+  $("#lvlOut").textContent = level;
+  $("#statList").innerHTML = STATS.map(([label, base, per, unit]) => {
+    if(s[base] === undefined) return "";
+    const val = per ? at(s[base], s[per]) : num(s[base]);
+    const growth = per && s[per] ? `<em>+${num(s[per])}/lvl</em>` : "";
+    return `<li><span>${label}${unit ? ` <em>${unit}</em>` : ""}</span><b>${val}${growth}</b></li>`;
+  }).join("");
+}
+</script>
+</body>
+</html>

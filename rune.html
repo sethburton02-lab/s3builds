@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Rune values and tiers for League of Legends Classic.">
+<title>Rune — S3 Builds</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="S3 Builds">
+<meta property="og:title" content="Rune — S3 Builds">
+<meta property="og:description" content="Rune values and tiers for League of Legends Classic.">
+<meta property="og:image" content="https://s3builds.net/logo-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="site.css?v=87">
+</head>
+<body>
+<div id="main" class="wrap"></div>
+
+<script src="site.js"></script>
+<script src="data-rune-icons.js"></script>
+<script src="data-runes.js"></script>
+<script>
+renderChrome("Runes");
+
+const R = CLASSIC_RUNES.find(x => x.id === qs("r"));
+const main = $("#main");
+
+if(!R){
+  main.innerHTML = `<div class="state" style="padding-top:60px">
+    <h3>Rune not found</h3>
+    That rune isn't in League Classic's book.
+    <a class="btn" href="runes.html" style="margin-top:14px">Back to runes</a></div>`;
+} else {
+  document.title = `${R.name} — S3 Builds`;
+  paint();                          /* CSS badges first… */
+  loadRuneArt().then(paint);        /* …then real art once it arrives */
+}
+
+function paint(){
+  const s = SLOT_BY_KEY[R.slot];
+  const full = s.per;
+
+  /* Same slot, same tier — the runes you'd actually weigh this against. */
+  const siblings = CLASSIC_RUNES
+    .filter(x => x.id !== R.id && x.slot === R.slot && x.tier === R.tier)
+    .sort((a, b) => a.stat.localeCompare(b.stat));
+
+  /* The same stat elsewhere, which is how you spot what a minor rune costs you. */
+  const elsewhere = CLASSIC_RUNES
+    .filter(x => x.id !== R.id && x.stat === R.stat && !!x.scaling === !!R.scaling)
+    .sort((a, b) => RUNE_SLOTS.findIndex(z => z.key === a.slot) - RUNE_SLOTS.findIndex(z => z.key === b.slot));
+
+  main.innerHTML = `
+  <p class="crumb" style="padding-top:20px">
+    <a href="index.html">Home</a> › <a href="runes.html">Runes</a> › ${esc(R.name)}</p>
+
+  <div class="detail">
+    <aside class="side">
+      <div class="card">
+        <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
+          ${runeBadge(R, "lg")}
+          <div>
+            <h1 style="margin:0;font-size:18px;line-height:1.25">${esc(R.name)}</h1>
+            <div style="color:var(--muted);font-size:12.5px">${esc(runeEffect(R))}</div>
+          </div>
+        </div>
+        <div class="tagrow" style="margin-bottom:12px">
+          <span class="chip" style="border-color:${s.colour}66;color:${s.colour}">${esc(s.name)}</span>
+          <span class="chip ${R.tier === "minor" ? "" : "gold"}">${R.tier === "minor" ? "Minor" : "Standard"}</span>
+          <span class="chip">${R.scaling ? "Scales with level" : "Flat"}</span>
+        </div>
+        <ul class="stats-list">
+          <li><span>Cost</span><b class="ip">${R.ip} IP</b></li>
+          <li><span>Slots per page</span><b>${full}</b></li>
+          <li><span>Full set costs</span><b class="ip">${R.ip * full} IP</b></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>A full set of ${full}</h3>
+        <ul class="stats-list">
+          ${R.scaling ? `
+            <li><span>Per level</span><b>${esc(runeEffect(R, full))}</b></li>
+            <li><span>At level 18</span><b>${esc(runeAt18(R, full))}</b></li>
+            <li><span>At level 1</span><b>nothing yet</b></li>
+          ` : `
+            <li><span>Total</span><b>${esc(runeEffect(R, full))}</b></li>
+            <li><span>From level 1</span><b>full value</b></li>
+          `}
+        </ul>
+        <p style="margin:11px 0 0;color:var(--muted-2);font-size:12px">${esc(s.note)}.</p>
+      </div>
+    </aside>
+
+    <main>
+      <div class="card">
+        <h3>What it does</h3>
+        <p style="margin:0 0 10px;font-size:14px">${esc(runeEffect(R))} per rune.</p>
+        <p style="margin:0;color:var(--muted);font-size:13.5px">
+          ${R.scaling
+            ? `A scaling rune — worth nothing at level 1 and most at level 18, where a full set gives
+               ${esc(runeAt18(R, full))}. Pages usually mix flat runes for a contested lane with
+               scaling ones when laning is safe.`
+            : `A flat rune — the full ${esc(runeEffect(R, full))} from a set of ${full} applies the
+               moment the game starts, which is why flat pages were the default for lanes you expect
+               to be fought over.`}
+          ${R.tier === "minor"
+            ? ` This is a <b>minor</b> rune: ${esc(R.stat)} isn't what a ${esc(s.name.toLowerCase())}
+                specialises in, so it gives less than the native slot would and costs
+                ${RUNE_PRICES.minor} IP instead of ${RUNE_PRICES.standard}.`
+            : ""}
+        </p>
+      </div>
+
+      ${elsewhere.length ? `<div class="card" style="margin-top:14px">
+        <h3>${esc(R.stat)} in other slots</h3>
+        <ul class="stats-list">
+          ${[R, ...elsewhere].map(x => {
+            const xs = SLOT_BY_KEY[x.slot];
+            const isThis = x.id === R.id;
+            return `<li>
+              <span>${isThis ? "<b style='color:var(--gold-hi)'>" : ""}${esc(xs.name)}${
+                x.tier === "minor" ? " (minor)" : ""}${isThis ? "</b>" : ""}</span>
+              <b>${esc(runeEffect(x))} <em>· ${x.ip} IP</em></b></li>`;
+          }).join("")}
+        </ul>
+        <p style="margin:10px 0 0;color:var(--muted-2);font-size:12px">
+          Per rune, before multiplying by slot count.</p>
+      </div>` : ""}
+
+      ${siblings.length ? `<div class="card" style="margin-top:14px">
+        <h3>Other ${R.tier === "minor" ? "minor " : ""}${esc(s.plural.toLowerCase())}</h3>
+        <div class="grid-runes">${siblings.map(x => `
+          <a class="rune-row" href="rune.html?r=${encodeURIComponent(x.id)}">
+            ${runeBadge(x, "sm")}
+            <div class="meta">
+              <b>${esc(x.stat)}${x.scaling ? " (scaling)" : ""}</b>
+              <span>${esc(runeEffect(x))}</span>
+            </div>
+            <span class="ip">${x.ip}</span>
+          </a>`).join("")}</div>
+      </div>` : ""}
+    </main>
+  </div>`;
+}
+</script>
+</body>
+</html>

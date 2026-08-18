@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Item stats, cost and full recipe tree for League of Legends Classic.">
+<title>Item — S3 Builds</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="S3 Builds">
+<meta property="og:title" content="Item — S3 Builds">
+<meta property="og:description" content="Item stats, cost and full recipe tree for League of Legends Classic.">
+<meta property="og:image" content="https://s3builds.net/logo-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="site.css?v=87">
+</head>
+<body>
+<div id="main" class="wrap"></div>
+
+<script src="site.js"></script>
+<script>
+renderChrome("Items");
+
+const ID = qs("i");
+let BY_ID = null, SOURCE = "season3", IT = null;
+
+/* Only used for the Season 3 fallback — Community Dragon keeps stats in the
+   description markup rather than a structured map. */
+const STAT_LABELS = {
+  FlatHPPoolMod:["Health",""], FlatMPPoolMod:["Mana",""],
+  FlatHPRegenMod:["Health regen","per 5s"], FlatMPRegenMod:["Mana regen","per 5s"],
+  FlatPhysicalDamageMod:["Attack damage",""], FlatMagicDamageMod:["Ability power",""],
+  FlatArmorMod:["Armor",""], FlatSpellBlockMod:["Magic resist",""],
+  FlatCritChanceMod:["Critical chance","%",100], FlatCritDamageMod:["Critical damage","%",100],
+  FlatMovementSpeedMod:["Move speed",""], PercentMovementSpeedMod:["Move speed","%",100],
+  PercentAttackSpeedMod:["Attack speed","%",100], PercentLifeStealMod:["Life steal","%",100],
+  PercentSpellVampMod:["Spell vamp","%",100], PercentHPPoolMod:["Health","%",100],
+  PercentArmorMod:["Armor","%",100], PercentMagicDamageMod:["Ability power","%",100],
+  PercentPhysicalDamageMod:["Attack damage","%",100],
+  FlatEXPBonus:["Experience",""], PercentDodgeMod:["Dodge","%",100]
+};
+
+boot("#main", async (el) => {
+  if(!ID) throw new Error("No item given in the address.");
+  const {byId, source} = await loadItems();
+  BY_ID = byId; SOURCE = source;
+  /* The shared index too, or the tooltips on the tree nodes would resolve
+     to nothing and never open — the same way the shop grid's did. */
+  ITEM_BY_ID = byId;
+  IT = byId.get(String(ID));
+  if(!IT) throw new Error(`Item ${ID} isn't in the ${source === "classic" ? "League Classic" : "Season 3"} item list.`);
+  document.title = `${IT.name} — S3 Builds`;
+  paint(el);
+});
+
+/* data-tip-item rather than a title: the "Builds into" row had the
+   browser's own tooltip, which says the name and nothing else, while the
+   recipe tree beside it had the full shop panel. Two hover behaviours on
+   one page, and the weaker one on the list you're most likely to be
+   shopping from. */
+const node = id => {
+  const it = BY_ID.get(String(id));
+  if(!it) return "";
+  return `<a class="node" href="item.html?i=${encodeURIComponent(it.id)}"
+      data-tip-item="${esc(it.id)}">
+    ${art({s3: it.icon, classic: it.icon, alt: it.name, lazy: true})}
+    <small>${esc(it.name)}</small>
+    <small class="gold" style="font-size:10px">${it.total}g</small></a>`;
+};
+
+/* ---------- the recipe tree ----------
+   The shop's "Requires:" panel: the finished item on top, everything it is
+   made of branching underneath, all the way down to the basics. The old
+   "Builds from" row was one level deep — it told you Blade of the Ruined
+   King needs a Bilgewater Cutlass, and left you to click through to find
+   out that the Cutlass is itself a Dagger plus a Long Sword plus 400g.
+   Reading a full recipe was a navigation exercise; now it's a glance.
+
+   Gold under each node is the item's TOTAL cost, which is what the shop
+   shows and what you actually pay if you buy that branch outright.
+
+   `seen` guards against a cycle in the data. An item can't contain itself
+   in any sane table, but a bad row shouldn't hang the page — and depth is
+   capped for the same reason. */
+const TREE_MAX_DEPTH = 5;
+
+function treeNode(id, seen, depth){
+  const it = BY_ID.get(String(id));
+  if(!it) return "";
+  const kids = depth < TREE_MAX_DEPTH && !seen.has(String(id))
+    ? it.from.filter(c => BY_ID.has(String(c)))
+    : [];
+  const next = new Set(seen).add(String(id));
+  return `<li>
+    <a class="tnode" href="item.html?i=${encodeURIComponent(it.id)}"
+       data-tip-item="${esc(it.id)}">
+      ${art({s3: it.icon, classic: it.icon, alt: it.name, lazy: true})}
+      <span class="g">${it.total}g</span>
+    </a>
+    ${kids.length ? `<ul>${kids.map(c => treeNode(c, next, depth + 1)).join("")}</ul>` : ""}
+  </li>`;
+}
+
+function recipeTree(rootId){
+  return `<div class="tree"><ul>${treeNode(rootId, new Set(), 0)}</ul></div>`;
+}
+
+function paint(el){
+  const from = IT.from.filter(id => BY_ID.has(String(id)));
+  const into = IT.to.filter(id => BY_ID.has(String(id)));
+  /* Components the recipe names but the shop list doesn't carry. Counting
+     them is what lets the page tell the difference between "this item has
+     no recipe" and "this page can't show you the recipe it has". */
+  const hidden = IT.from.length - from.length;
+  const componentCost = from.reduce((n, id) => n + (BY_ID.get(String(id)).total || 0), 0);
+  /* Community Dragon's `price` is already the combine cost; Data Dragon's
+     `gold.base` is too, but only once components are accounted for. */
+  const combine = from.length ? (IT.combine ?? (IT.total - componentCost)) : null;
+  const stats = SOURCE === "season3"
+    ? Object.entries(IT.stats || {}).filter(([, v]) => v) : [];
+  const T = TIER_BY_KEY[itemTier(IT)];
+
+  el.innerHTML = `
+  <p class="crumb" style="padding-top:20px">
+    <a href="index.html">Home</a> › <a href="items.html">Items</a> › ${esc(IT.name)}</p>
+
+  <div class="detail">
+    <aside class="side">
+      <div class="card">
+        <div style="display:flex;gap:13px;align-items:center;margin-bottom:14px">
+          ${art({s3: IT.icon, classic: IT.icon, alt: IT.name,
+                 style:"width:64px;height:64px;border-radius:10px;border:1px solid var(--line);flex:none"})}
+          <div>
+            <h1 style="margin:0;font-size:19px;line-height:1.25">${esc(IT.name)}</h1>
+            <!-- Only when there is one. Classic's table carries no blurb, so
+                 this was an empty line under the name of every Classic
+                 item, pushing the icon and title out of alignment. -->
+            ${IT.blurb ? `<div style="color:var(--muted);font-size:12.5px">${esc(IT.blurb)}</div>` : ""}
+          </div>
+        </div>
+        <div class="tagrow" style="margin:0 0 12px">
+          <span class="chip tier" style="border-color:${T.colour}66;color:${T.colour}">${esc(T.name)}</span>
+        </div>
+        <p style="margin:0 0 12px;color:var(--muted-2);font-size:12px">${esc(T.blurb)}</p>
+        <ul class="stats-list">
+          <li><span>Total cost</span><b class="gold">${IT.total}g</b></li>
+          ${combine !== null ? `<li><span>Combine cost</span><b class="gold">${combine}g</b></li>` : ""}
+          ${IT.sell !== null && IT.sell !== undefined ? `<li><span>Sells for</span><b>${IT.sell}g</b></li>` : ""}
+        </ul>
+        <p style="margin:11px 0 0">
+          <span class="src-badge ${SOURCE === "classic" ? "classic" : ""}">
+            <b>${SOURCE === "classic" ? "League Classic data" : "Season 3 archive"}</b></span></p>
+      </div>
+
+      ${stats.length ? `<div class="card">
+        <h3>Stats</h3>
+        <ul class="stats-list">${stats.map(([k, v]) => {
+          const def = STAT_LABELS[k];
+          const label = def ? def[0] : k.replace(/([A-Z])/g," $1").replace(/^Flat |^Percent /,"").trim();
+          const unit  = def ? def[1] : "";
+          const mult  = def && def[2] ? def[2] : 1;
+          return `<li><span>${esc(label)}</span><b>+${num(v * mult)}${unit}</b></li>`;
+        }).join("")}</ul>
+      </div>` : ""}
+
+      ${IT.tags.length ? `<div class="card">
+        <h3>Categories</h3>
+        <div class="tagrow">${IT.tags.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+      </div>` : ""}
+    </aside>
+
+    <main>
+      ${IT.descHtml ? `<div class="card">
+        <h3>${SOURCE === "classic" ? "Stats &amp; effects" : "Description"}</h3>
+        <div class="dd">${IT.descHtml}</div>
+      </div>` : ""}
+
+      ${from.length ? `<div class="card" style="margin-top:14px">
+        <h3>Requires</h3>
+        ${recipeTree(IT.id)}
+        <p style="margin:12px 0 0;color:var(--muted-2);font-size:12.5px">${
+          /* Only claim the sum when it is one. A component that the shop
+             list filters out — a champion-locked piece, say — is missing
+             from `from`, and the sentence would then have said the parts
+             cost less than they do and left the arithmetic not adding up
+             in front of the reader. */
+          hidden === 0 && combine !== null
+            ? `Components cost ${componentCost}g, plus ${combine}g to combine.`
+            : `${esc(IT.name)} costs ${IT.total}g in total.` +
+              (hidden ? ` ${hidden} of its component${hidden > 1 ? "s aren't" : " isn't"} in
+                 the shop list, so the tree above is partial.` : "")
+        }</p>
+      </div>` : ""}
+
+      ${into.length ? `<div class="card" style="margin-top:14px">
+        <h3>Builds into</h3>
+        <div class="path">${into.map(node).join("")}</div>
+      </div>` : ""}
+
+      ${!from.length && !into.length ? `<div class="card" style="margin-top:14px">
+        <h3>Build path</h3>
+        <p style="margin:0;color:var(--muted);font-size:13.5px">${
+          /* "Standalone" is a claim about the item. When the recipe exists
+             but its parts aren't in the shop list, the truthful statement
+             is about this page, not about the item. */
+          hidden
+            ? `This item has a recipe, but ${hidden === 1 ? "its component isn't" :
+               "none of its " + hidden + " components are"} in the shop list, so there's
+               nothing to draw.`
+            : "A standalone item — it neither builds from nor into anything."
+        }</p>
+      </div>` : ""}
+    </main>
+  </div>`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Only the pages that stand on their own. Champion, item and rune detail
+     pages are query-string views over one file each, so they are not listed
+     individually: there is no static URL per champion to submit, and a
+     sitemap full of ?c= parameters is worth less than the four real pages
+     that link to all of them. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://s3builds.net/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://s3builds.net/champions</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://s3builds.net/items</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://s3builds.net/runes</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://s3builds.net/spells</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://s3builds.net/write</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+</urlset>

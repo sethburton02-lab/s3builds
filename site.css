@@ -1,0 +1,1159 @@
+/* ============================================================
+   S3 Builds — shared styles
+   ============================================================ */
+
+/* ---------- the client's own typefaces ----------
+   rcp-fe-lol-jade.css sets the mastery UI in --font-frizquadrata, with
+   Gill Sans MT for requirement text and, oddly but deliberately, Times New
+   Roman for the little rank badge on each icon. The .ttf/.otf files come
+   from the plugin's fonts/ folder.
+
+   WORTH KNOWING BEFORE PUBLISHING: Friz Quadrata and Gill Sans MT are
+   third-party commercial typefaces (ITC and Monotype) that Riot licenses
+   for the client. Riot's fan-content policy covers Riot's own art, not
+   those foundries' licences, so serving these files from a public site is
+   a different question from serving the game art. Locally it's fine.
+   To back it out, drop the two @font-face blocks — the stacks below fall
+   through to Georgia, which is close in weight and shape. */
+@font-face{font-family:"FrizQuadrata Pro";src:url("assets/fonts/frizquadratapro-regular.ttf") format("truetype");
+  font-weight:400;font-display:swap}
+@font-face{font-family:"FrizQuadrata Pro";src:url("assets/fonts/frizquadratapro-bold.ttf") format("truetype");
+  font-weight:700;font-display:swap}
+@font-face{font-family:"Gill Sans MT Pro";src:url("assets/fonts/gillsansmtpro-medium.otf") format("opentype");
+  font-weight:500;font-display:swap}
+:root{
+  --font-jade:"FrizQuadrata Pro",Georgia,"Times New Roman",serif;
+  --font-jade-body:"Gill Sans MT Pro","Gill Sans",Optima,Candara,sans-serif;
+}
+:root{
+  /* ---------- parchment palette ----------
+     Every colour here is one the client uses. The old dark tokens kept
+     their names, so the whole site moves with this block rather than
+     needing every rule rewritten:
+
+       surfaces  the sheet, the panels laid on it, the lists inside those
+       ink       #1e2328 for body, #7d5444 for secondary, #600 for titles
+       rules     #c9a23c is the parchment stroke, #cdbd7b the hairline
+       action    the client's blue for buttons, its orange for primary  */
+  --bg:#d9c9a3;          /* the sheet, under the parchment image        */
+  --bg-2:#f0e4b1;        /* list surfaces — .rune-list, .stats-header   */
+  --panel:hsla(43,47%,60%,.15);   /* panels laid on the sheet           */
+  --panel-2:#e8dec1;     /* rows inside a panel — .rune-item            */
+  --line:#c9a23c;        /* parchment stroke                            */
+  --line-soft:#cdbd7b;   /* hairline between rows                       */
+  --frame:hsla(40,45%,61%,.3);    /* the frame around a plate           */
+
+  --text:#1e2328;        /* body ink                                    */
+  --muted:#7d5444;       /* labels, secondary copy                      */
+  /* Measured: at 72% this washes out to 2.9:1 on parchment, which is under
+     the bar for the small text it's used on — counts, captions, hints. #8a6552
+     is the same hue holding 3.8:1. */
+  --muted-2:#8a6552;
+  --title:#600;          /* page titles, over the flame                 */
+
+  --gold:#987b2d;--gold-hi:#a46c34;
+  --teal:#0ac8b9;--blue:#2c66aa;--red:#c73e00;--purple:#c084fc;
+
+  --btn:linear-gradient(180deg,#154d8f,#0a2d5c);
+  --btn-hover:linear-gradient(180deg,#1a5ba5,#0c3468);
+  --btn-primary:linear-gradient(0deg,#c73e00 37.5%,#efa23a);
+  --btn-off:#5c5c5c;
+
+  --radius:2px;          /* the client squares its corners              */
+  --max:1220px;
+  --font:"Gill Sans MT Pro","Gill Sans",Optima,Candara,sans-serif;
+  --font-head:"FrizQuadrata Pro",Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+/* The sheet runs behind everything, cropped past its burnt border the same
+   way the builders crop theirs, and fixed so it doesn't slide as you read. */
+body{margin:0;color:var(--text);font-family:var(--font);
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
+  background:url("assets/parchment-panel.png") center/114% 114% no-repeat fixed,var(--bg);
+  background-attachment:fixed}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+button{font-family:inherit;cursor:pointer}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 20px}
+h1,h2,h3,h4{font-family:var(--font-head);font-weight:400;letter-spacing:0}
+
+/* ---------- header ----------
+   A parchment bar with a gold rule under it, the way the client bands its
+   pages. Nav items are flat until active, then they take the blue. */
+header.site{position:sticky;top:0;z-index:60;
+  background:rgba(240,228,177,.94);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(125,84,68,.25)}
+.hdr{display:flex;align-items:center;gap:26px;height:60px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--font-head);
+  font-size:19px;white-space:nowrap;color:var(--title)}
+/* The mark is an inline SVG now, not a lettered plate. Sized here rather
+   than in the markup so the header and any other placement stay in step. */
+.brand .brand-mark{flex:none;display:block;border-radius:2px}
+.brand em{font-style:normal;color:#7d5444}
+nav.main{display:flex;gap:4px;flex:1;overflow-x:auto;scrollbar-width:none}
+nav.main::-webkit-scrollbar{display:none}
+nav.main a{padding:6px 12px;border-radius:var(--radius);font-family:var(--font-head);
+  font-size:14px;color:var(--muted);white-space:nowrap;transition:.15s;
+  border:1px solid transparent}
+nav.main a:hover{color:var(--text);border-color:var(--line);background:hsla(43,47%,60%,.35)}
+nav.main a.on{background:var(--btn);border-color:hsla(0,0%,100%,.2);color:#f0e6d2}
+.patch-chip{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted);
+  border:1px solid var(--line);border-radius:var(--radius);padding:3px 9px;
+  background:hsla(43,47%,60%,.3);white-space:nowrap}
+.patch-chip b{color:var(--title);font-weight:700}
+
+/* ---------- account ----------
+   The signed-in corner of the header. There is no auth behind it yet; the
+   shape is what matters, so that wiring a real provider in later is a
+   change to currentUser() and nothing visual. */
+.account{position:relative;flex:none}
+.acct-btn{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 4px;
+  border:1px solid var(--line);border-radius:999px;background:hsla(43,47%,60%,.3);
+  font-family:var(--font-head);font-size:13.5px;color:var(--text);transition:.15s}
+.acct-btn:hover{background:hsla(43,47%,60%,.5);border-color:var(--gold)}
+.acct-face{width:26px;height:26px;border-radius:999px;flex:none;display:grid;
+  place-items:center;background:linear-gradient(180deg,#e0c070,#987b2d);
+  border:1px solid #7d5444;color:#2a1c08;font-size:13px;font-weight:700}
+.acct-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-caret{font-size:10px;color:var(--muted)}
+
+.acct-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:70;min-width:180px;
+  padding:5px;background:#f0e4b1;border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:0 14px 34px rgba(45,32,16,.28)}
+.acct-menu[hidden]{display:none}
+.acct-menu a,.acct-menu button{display:block;width:100%;padding:7px 10px;border:0;
+  border-radius:var(--radius);background:none;text-align:left;font-family:var(--font);
+  font-size:13.5px;color:var(--text)}
+.acct-menu a:hover,.acct-menu button:hover{background:hsla(43,47%,60%,.5)}
+.acct-menu button[data-acct="out"]{color:var(--muted);border-top:1px solid var(--line-soft);
+  border-radius:0 0 var(--radius) var(--radius);margin-top:3px}
+.acct-menu button[data-acct="out"]:hover{color:var(--red)}
+
+@media(max-width:640px){ .acct-name,.acct-caret{display:none} }
+
+/* buttons — the client's blue by default, orange for the one that matters */
+.btn{border:1px solid hsla(40,45%,61%,.3);background:var(--btn);color:#fff;
+  padding:8px 16px;border-radius:4px;font-family:var(--font-head);font-size:14px;
+  font-weight:400;transition:all .2s;display:inline-block}
+.btn:hover{background:var(--btn-hover);border-color:hsla(40,45%,61%,.5);color:#f0e6d2}
+.btn:disabled,.btn[disabled]{background:var(--btn-off);color:#000;border:none;cursor:default}
+.btn-gold{background:var(--btn-primary);color:#fff}
+.btn-gold:hover{background:var(--btn-primary);filter:brightness(1.1)}
+.btn-ghost{background:none;color:var(--muted);border-color:var(--line)}
+.btn-ghost:hover{background:hsla(43,47%,60%,.35);color:var(--text)}
+.btn-sm{padding:5px 11px;font-size:13px}
+
+/* ---------- page head ---------- */
+.page-head{border-bottom:1px solid var(--line);background:hsla(43,47%,60%,.25);
+  padding:22px 0 18px}
+.page-head h1{margin:0 0 4px;font-size:28px;color:var(--title)}
+.page-head p{margin:0;color:var(--muted);font-size:14px;max-width:70ch}
+.crumb{color:var(--muted-2);font-size:12.5px;margin-bottom:9px}
+.crumb a:hover{color:var(--title)}
+section{padding:26px 0 60px}
+
+/* ---------- toolbar / filters ---------- */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.search{position:relative;flex:1;min-width:190px;max-width:300px}
+.search input{width:100%;background:#fff;border:1px solid var(--line);color:var(--muted);
+  padding:8px 12px 8px 32px;border-radius:var(--radius);font-size:14px;
+  font-family:inherit;outline:none}
+.search input:focus{border-color:#c8aa6e;box-shadow:none}
+.search input::placeholder{color:rgba(125,84,68,.5)}
+.search .ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);
+  color:var(--muted-2);font-size:13px}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{border:1px solid hsla(0,0%,100%,.2);background:var(--btn);color:#f0e6d2;
+  padding:5px 13px;border-radius:var(--radius);font-family:var(--font-head);
+  font-size:13px;transition:.15s}
+.pill:hover{background:var(--btn-hover)}
+.pill.on{background:#1e3656;color:#fabe0a}
+.pill:disabled{opacity:.45;cursor:not-allowed}
+.pill:disabled:hover{background:var(--btn)}
+.pill-n{display:inline-block;margin-left:6px;font-size:11px;
+  color:hsla(45,95%,52%,.75);font-variant-numeric:tabular-nums}
+.pill.on .pill-n{color:#fabe0a}
+
+/* active stat-filter summary */
+.filter-state{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:hsla(43,47%,60%,.3);border:1px solid var(--line);
+  border-radius:var(--radius);padding:9px 12px;margin-bottom:18px}
+.fs-label{font-size:13px;color:var(--muted)}
+/* ---------- tiles ---------- */
+.grid-champs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:12px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:7px;transition:.15s}
+.tile:hover{transform:translateY(-2px)}
+.tile .art{width:100%;aspect-ratio:1;border-radius:var(--radius);overflow:hidden;
+  background:var(--panel-2);border:1px solid rgba(201,162,60,.5);position:relative}
+.tile .art img{width:100%;height:100%;object-fit:cover}
+.tile:hover .art{border-color:#c9a23c}
+.tile b{font-family:var(--font-head);font-size:12.5px;font-weight:400;color:var(--muted);
+  text-align:center;line-height:1.25;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:100%}
+.tile:hover b{color:var(--text)}
+.tile small{font-size:10.5px;color:var(--muted-2);margin-top:-4px}
+
+/* Aside box for a standing note on a page. */
+.note-box{display:flex;gap:10px;align-items:flex-start;background:hsla(43,47%,60%,.3);
+  border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;margin-bottom:16px}
+.note-box b{color:var(--title);font-size:12.5px;flex:none;font-family:var(--font-head)}
+.note-box span{color:var(--muted);font-size:12.5px}
+
+.grid-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.row-item{display:flex;gap:11px;align-items:center;background:var(--panel-2);
+  border:1px solid rgba(201,162,60,.5);border-radius:var(--radius);padding:9px 11px;
+  transition:.15s;min-width:0}
+.row-item:hover{border-color:#c9a23c;background:#efe6cd}
+.row-item .ico{width:42px;height:42px;border-radius:var(--radius);flex:none;
+  background:hsla(43,47%,60%,.35);border:1px solid rgba(201,162,60,.5);overflow:hidden}
+.row-item .ico img{width:100%;height:100%}
+.row-item .meta{min-width:0;flex:1}
+.row-item .meta b{display:block;font-family:var(--font-head);font-size:13.5px;
+  font-weight:400;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-item .meta span{font-size:12px;color:var(--muted-2)}
+/* The recipe strip under an item's summary: what it's built from. Its own
+   rule rather than inheriting .meta span, which is the summary's colour and
+   would tint the "+" signs to match the wrong thing. */
+.row-item .recipe{display:flex;align-items:center;gap:3px;margin-top:4px;flex-wrap:wrap}
+.row-item .recipe .ri{width:18px;height:18px;border-radius:2px;
+  border:1px solid rgba(201,162,60,.5);background:hsla(43,47%,60%,.35)}
+.row-item .recipe i{font-style:normal;font-size:10px;color:var(--muted-2);margin:0 1px}
+.row-item .recipe em{font-style:normal;font-size:11px;color:var(--muted-2);margin-left:2px}
+.gold{color:var(--gold-hi);font-weight:700;font-size:12.5px;white-space:nowrap}
+
+/* ---------- recipe tree ----------
+   The shop's "Requires:" panel. Pure CSS connectors: each row of children
+   draws a stub up to its parent, and each child draws half a horizontal
+   bar towards its siblings. The first child suppresses its left half and
+   the last its right, which is what turns a full-width bar into one that
+   stops at the outermost nodes instead of running off into space. */
+.tree{overflow-x:auto;padding:6px 0 2px}
+.tree ul{display:flex;justify-content:center;list-style:none;margin:0;padding:20px 0 0;
+  position:relative}
+.tree > ul{padding-top:0}
+.tree li{display:flex;flex-direction:column;align-items:center;
+  position:relative;padding:20px 7px 0}
+.tree > ul > li{padding-top:0}
+
+/* Down from the parent to the horizontal bar. */
+.tree ul ul::before{content:"";position:absolute;top:0;left:50%;
+  width:0;height:20px;border-left:1px solid var(--line)}
+/* Each child's half of the bar, plus its own stub down. */
+.tree ul ul > li::before,.tree ul ul > li::after{content:"";position:absolute;top:0;
+  width:50%;height:20px;border-top:1px solid var(--line)}
+.tree ul ul > li::before{right:50%}
+.tree ul ul > li::after{left:50%;border-left:1px solid var(--line)}
+/* An only child needs no bar at all — the parent's stub reaches it. */
+.tree ul ul > li:only-child::before{display:none}
+.tree ul ul > li:only-child::after{width:0;left:50%;border-top:0}
+/* Trim the bar at the two ends so it spans the children and no further. */
+.tree ul ul > li:first-child::before{border-top:0}
+.tree ul ul > li:last-child::after{border-top:0}
+
+.tree .tnode{display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:5px 6px;border:1px solid transparent;border-radius:var(--radius);transition:.13s}
+.tree .tnode:hover{border-color:var(--gold);background:hsla(43,47%,60%,.35)}
+.tree .tnode img{width:46px;height:46px;border-radius:var(--radius);display:block;
+  border:1px solid rgba(201,162,60,.5);background:hsla(43,47%,60%,.35)}
+.tree .tnode .g{font-size:11.5px;font-weight:700;color:var(--gold-hi);
+  font-variant-numeric:tabular-nums}
+/* The item you're already looking at, so you can find yourself in a deep
+   recipe without reading the icons. */
+.tree > ul > li > .tnode img{width:54px;height:54px;border-color:var(--gold);
+  box-shadow:0 0 0 1px var(--gold)}
+
+/* ---------- detail layout ---------- */
+.detail{display:grid;grid-template-columns:300px 1fr;gap:26px;align-items:start;padding:26px 0 60px}
+.side{position:sticky;top:76px}
+.card{background:hsla(43,47%,60%,.28);border:1px solid var(--line);
+  border-radius:var(--radius);padding:16px}
+.card + .card{margin-top:14px}
+.card h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-2)}
+.hero-art{width:100%;aspect-ratio:1;border-radius:12px;overflow:hidden;border:1px solid var(--line);
+  background:var(--panel-2);margin-bottom:14px}
+.hero-art img{width:100%;height:100%;object-fit:cover}
+/* Text only — the champion page carries its portrait in .hero-art, in the
+   sidebar. Kept as flex so a future page can put an icon back beside it. */
+.title-row{display:flex;align-items:center;gap:13px;margin-bottom:6px}
+.title-row img{width:60px;height:60px;border-radius:10px;border:1px solid var(--line);flex:none}
+.title-row h1{margin:0;font-size:28px}
+.title-row .sub{color:var(--muted);font-size:14px}
+.tagrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  padding:3px 8px;border-radius:5px;background:var(--panel-2);color:var(--muted);
+  border:1px solid var(--line)}
+.chip.gold{background:rgba(200,163,85,.14);border-color:rgba(200,163,85,.4);color:var(--gold-hi)}
+
+/* Guide tags. Drawn in three places — the creator's card preview, the home
+   list and a published guide's title — and until now only defined in the
+   creator, so a published guide showed an unstyled label. The inks are
+   parchment inks: the originals were pale blues carried over from the dark
+   theme and sat at about 1.6:1 on the cream card. */
+.tag{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;padding:2px 6px;border-radius:4px;white-space:nowrap;
+  margin-left:5px;vertical-align:2px;border:1px solid transparent}
+.tag.comp{background:rgba(44,102,170,.14);border-color:rgba(44,102,170,.42);color:#1d4a80}
+.tag.fun{background:rgba(10,140,125,.14);border-color:rgba(10,140,125,.42);color:#08544c}
+.tag.new{background:rgba(200,163,85,.2);border-color:rgba(200,163,85,.5);color:#6b400f}
+
+/* stat rows */
+.stats-list{list-style:none;margin:0;padding:0}
+.stats-list li{display:flex;justify-content:space-between;gap:12px;padding:5px 0;
+  border-bottom:1px solid var(--line-soft);font-size:13px}
+.stats-list li:last-child{border:0}
+.stats-list span{color:var(--muted)}
+.stats-list b{font-weight:600;font-variant-numeric:tabular-nums}
+.stats-list em{font-style:normal;color:var(--muted-2);font-size:11.5px;margin-left:5px}
+
+/* Guides listed on a champion page: title over its role and author, the
+   whole row a link. */
+.champ-guides li{display:block;padding:7px 0}
+.champ-guides a{display:block}
+.champ-guides b{display:block;font-family:var(--font-head);font-size:15px;font-weight:400;
+  line-height:1.3;color:var(--text)}
+.champ-guides a:hover b{color:var(--title)}
+.champ-guides span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+
+.lvl-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.lvl-row input[type=range]{flex:1;accent-color:var(--gold)}
+.lvl-row b{font-size:13px;color:var(--gold-hi);min-width:56px}
+
+/* abilities */
+.ability{display:flex;gap:13px;padding:14px 0;border-bottom:1px solid var(--line-soft)}
+.ability:last-child{border:0;padding-bottom:0}
+.ability .ico{width:52px;height:52px;border-radius:9px;flex:none;border:1px solid var(--line);
+  background:var(--bg-2);overflow:hidden;position:relative}
+.ability .ico img{width:100%;height:100%}
+.ability .key{position:absolute;bottom:-1px;right:-1px;background:var(--bg);
+  border:1px solid var(--line);border-radius:5px 0 8px 0;font-size:10px;font-weight:800;
+  padding:1px 5px;color:var(--gold-hi)}
+.ability h4{margin:0 0 3px;font-size:15.5px}
+.ability .desc{color:var(--muted);font-size:13.5px;margin:0 0 9px}
+.ability .nums{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted-2)}
+.ability .nums b{color:var(--text);font-weight:600}
+
+/* rich text from Data Dragon */
+/* Item and ability description text, on the page rather than in a tooltip.
+
+   This palette was the client's — bright inks meant for a near-black
+   panel — and it stayed put when the site went parchment. Measured against
+   the composited card, rgb(213,193,147), NOTHING here passed: the damage
+   types sat at 1.0–1.5:1, which is not "hard to read" so much as absent,
+   and even the ones that looked fine were under 4.5 (the gold used for
+   every number in every item's stat line was 2.49).
+
+   Rebuilt at 4.5:1 or better against both the card and the bare sheet,
+   keeping each hue's identity — magic blue, physical red, heal green,
+   shield yellow, speed teal, mana blue-violet — so the colours still say
+   what they said. True damage goes to a dark neutral: it was white in the
+   client because white reads as colourless there, and on parchment the
+   colourless ink is near-black.
+
+   The dark palette these came from is still in use, correctly, in the
+   tooltip block further down — those really are on a near-black panel. */
+.dd{font-size:13.5px;color:#5c3b2e;line-height:1.6}
+.dd b,.dd .u{color:var(--text);font-weight:600}
+.dd .stat{color:#6b400f;font-weight:600}
+.dd .active{color:#00564f;font-weight:600}
+.dd .passive{color:#1d4a80;font-weight:600}
+.dd .lim{color:#5c4335;font-size:12px}
+.dd ul{margin:6px 0;padding-left:18px}
+.dd .cd-stats{color:var(--text);font-weight:600}
+.dd .cd-num{color:#6b400f;font-weight:600}
+.dd .cd-gold{color:#6b400f;font-weight:600}
+.dd .cd-magic{color:#0b4c93;font-weight:600}
+.dd .cd-phys{color:#8c3410;font-weight:600}
+.dd .cd-true{color:#3b3a36;font-weight:600}
+.dd .cd-heal{color:#135d2e;font-weight:600}
+.dd .cd-shield{color:#585010;font-weight:600}
+.dd .cd-speed{color:#10574b;font-weight:600}
+.dd .cd-mana{color:#24409c;font-weight:600}
+.dd .cd-flavor{color:#5c4335;font-style:italic}
+.dd > div{margin-bottom:3px}
+.dd > div:last-child{margin-bottom:0}
+
+.src-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted-2);
+  border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.src-badge b{font-weight:700}
+.src-badge.classic{border-color:rgba(63,191,168,.4);color:var(--teal)}
+
+/* ---------- masteries ----------
+   Composited the way the client does it, using its own textures:
+     · masteries-background.png is one plate holding all three panels
+       side by side, ornate frames and recoloured art already baked in,
+       so each tree shows its third of it and draws no border of its own
+     · mastery-frame-{available,max,unavailable}.png are 60x60 corner
+       brackets that overlay each icon to signal its state
+   Assets extracted from the client's rcp-fe-lol-jade plugin.            */
+/* One continuous plate, the way the client draws it: masteries-background
+   .png behind all three trees at once (.mastery-trees:before, inset:0), not
+   three separate cards with a gap between them. The frame and the two
+   dividers are painted into the art, so there is nothing to line up — the
+   columns just have to be split where the art splits.
+
+   The dividers are two 15px gold bars centred at x=657 and x=1317 of the
+   1981px plate — measured by finding the gold pixels' column profile and
+   taking each bar's midpoint, not by dividing into thirds. The middle tree
+   is genuinely a few pixels narrower than the outer two.
+
+   Capped at 1168px, which puts each tree at ~387px — the same size the
+   separate panels were, so the icon and font ratios above are unaffected. */
+.mast-panels{display:grid;grid-template-columns:657fr 660fr 664fr;gap:0;
+  max-width:1168px;margin:0 auto;aspect-ratio:1981/1148;
+  background:url("assets/masteries-background.png") center/100% 100% no-repeat}
+
+/* ---------- mastery info panel ----------
+   The client's .mastery-info-panel, to the left of the trees. Its numbers,
+   verbatim: 214px wide, 20px between boxes; each box has a 1px #b09853
+   border, 6px radius and 8px padding; the page name is 14px bold #1e2328
+   over a #b09853 rule; tree totals are 20px black beside a 30px icon;
+   "Points Available" is 16px #a46c34; the button is the #154d8f-to-#0a2d5c
+   blue with a warm translucent border.
+
+   One parchment sheet runs behind the panel and the trees together, as
+   .jade-app-wrapper does in the client — the two aren't separate cards
+   sitting on a dark page. That means the boxes can take the client's own
+   fill again, hsla(43,47%,60%,.15), a tint that only reads over parchment.
+
+   bg_parchment.png has the same burnt border and curled corners as the
+   rune sheet: measured, the burn only clears at a 6% inset, which is a
+   background-size of 114%. Below that it is still visible — 35% of the
+   border at 4%, 32% at 5%. */
+.mast-build{display:grid;grid-template-columns:214px minmax(0,1fr);gap:14px;
+  align-items:start;max-width:1428px;margin:0 auto;padding:16px;border-radius:8px;
+  background:url("assets/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
+.mast-info{display:flex;flex-direction:column;gap:20px;font-family:var(--font-jade)}
+.mast-info .info-box{border:1px solid #b09853;border-radius:6px;padding:8px;
+  background:hsla(43,47%,60%,.15)}
+.mast-info .page-name{margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid #b09853;
+  color:#1e2328;font-size:14px;font-weight:700;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mast-info .tree-points{display:flex;flex-direction:row;gap:15px;justify-content:center;
+  margin-bottom:14px}
+.mast-info .tree-point{display:flex;align-items:center;gap:5px}
+.mast-info .tree-point img{width:30px;height:auto}
+.mast-info .tree-point b{color:#000;font-size:20px;font-weight:400;
+  font-variant-numeric:tabular-nums}
+.mast-info .points-left{display:flex;gap:8px;justify-content:center;align-items:baseline;
+  margin:0 0 10px;font-size:16px;color:#a46c34}
+.mast-info .points-left b{color:#a46c34;font-weight:700}
+.mast-info h4{margin:0 0 10px;color:#7d5444;font-size:16px;font-weight:400}
+.mast-info .info-box p:not(.page-name):not(.points-left){margin:5px 0;color:#000;
+  font-size:13px;line-height:1.5}
+/* .return-points-button */
+.jade-btn{width:100%;padding:8px 16px;border-radius:4px;font-size:14px;font-weight:400;
+  font-family:inherit;color:#fff;border:1px solid hsla(40,45%,61%,.3);
+  background:linear-gradient(180deg,#154d8f,#0a2d5c);transition:all .2s}
+.jade-btn:hover:not(:disabled){background:linear-gradient(180deg,#1a5ba5,#0c3468);
+  border-color:hsla(40,45%,61%,.5);color:#f0e6d2}
+.jade-btn:disabled{background:#5c5c5c;border:none;border-radius:2px;color:#000;cursor:default}
+/* .jade-btn is full width because .return-points-button fills its panel.
+   The skill order controls sit inline, so they take the same gradient,
+   border and hover at their own width. */
+.jade-btn.inline{width:auto;padding:7px 14px;font-size:13px}
+@media(max-width:1000px){ .mast-build{grid-template-columns:1fr} }
+
+/* The trees are transparent now — the plate behind them carries the frame,
+   the dividers and the per-tree artwork in one piece. The sliced
+   mastery-panel-*.png files are no longer referenced. */
+/* ---- spacing, taken from the client's own stylesheet ----
+   rcp-fe-lol-jade.css draws the three trees inside an 880px band, so one
+   tree slice is 293.3px, and inside it:
+
+       .mastery-icon        50px square      = 17.05% of the slice
+       .row-masteries gap   10px             =  3.41%
+       .mastery-row padding 10px top+bottom  =  6.82% between rows
+       tree component inset 14.6 + 20px      = 11.80% each side
+       .mastery-prereq-bar  18px wide        =  6.14%
+
+   Those are ratios of the panel width, so cqw (1% of the container's
+   inline size) reproduces them at any panel size. Each px value is
+   declared first as a fallback for browsers without container queries. */
+/* flex column + the footer's margin-top:auto pins the footer to the bottom
+   of the plate, as .mastery-tree-component does. */
+.mast-tree{position:relative;padding:7% 11.8% 3%;overflow:hidden;border:0;
+  display:flex;flex-direction:column;container-type:inline-size;background:none}
+.mast-tree > *{position:relative;z-index:1}
+
+.mast-tree{--row-gap:26px}
+@supports (width:1cqw){ .mast-tree{--row-gap:6.82cqw} }
+
+.mast-rows{display:flex;flex-direction:column;gap:var(--row-gap)}
+.mast-row{display:grid;grid-template-columns:repeat(4,1fr);column-gap:13px;
+  row-gap:0;position:relative;min-width:0}
+@supports (width:1cqw){ .mast-row{column-gap:3.41cqw} }
+/* Locked rows aren't dimmed or labelled — the _off icon art already reads
+   as unavailable, exactly as it does in the client. */
+/* min-width:0 is the fix for the row overflowing its panel. A 1fr track is
+   minmax(auto,1fr), and that auto floor resolves to the icon's intrinsic
+   58px — four of those plus gaps is wider than the panel, so the last
+   column spilled over the frame. Zeroing the floor lets 1fr do its job. */
+.mast-cell{position:relative;aspect-ratio:1;min-width:0}
+
+/* ---- prerequisite bars ----
+   The real art, req_bar_{short,long}_{available,disabled,max}.png from the
+   client's own plugin, rather than the CSS gradient I had here before.
+
+   Geometry is the client's too. It hangs the bar off the prerequisite node
+   with `top:100%; height:88px; transform:translate(-50%,-35%)`, which puts
+   the bar's top 30.8px *inside* the node above and its bottom 37.2px inside
+   the node below — the overlap at both ends is what makes it read as
+   joined. Drawing it from the dependent cell upward instead, the same
+   numbers relative to a 50px icon are: top -101.6%, height 176%, width 36%.
+   The long bar (two rows apart, 140px at top:120%) works out at -258% and
+   280%. All percentages of the cell, so they track the icon size. */
+.mast-cell.linked::before{content:"";position:absolute;left:50%;
+  transform:translateX(-50%);z-index:0;pointer-events:none;
+  width:36%;top:-101.6%;height:176%;
+  background:var(--bar) center/100% 100% no-repeat}
+.mast-cell.linked.long::before{top:-258%;height:280%}
+
+.mast{position:relative;z-index:1;width:100%;min-width:0;aspect-ratio:1;padding:0;border:0;
+  background:#0b0d10;transition:.13s}
+/* No CSS filter: the mode ships a real _off variant, so the icon swaps
+   file rather than being faked with greyscale. */
+.mast img{width:100%;height:100%;min-width:0;display:block;transition:.16s}
+
+/* The client's own frame art, overlaid. It sizes the 60x60 file to exactly
+   the 50px icon box (`.mastery-frame{width:50px;height:50px;
+   background-size:contain}`), so the brackets sit on the icon's corners
+   rather than outside them — inset:0, not the -9% I had guessed at. */
+.mast::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:var(--frame,none) center/contain no-repeat}
+.mast.off{--frame:url("assets/mastery-frame-unavailable.png");cursor:not-allowed}
+.mast.avail{--frame:url("assets/mastery-frame-available.png")}
+.mast.on{--frame:url("assets/mastery-frame-available.png")}
+.mast.max{--frame:url("assets/mastery-frame-max.png")}
+
+.mast.avail{box-shadow:0 0 8px rgba(73,224,90,.55)}
+.mast.avail:hover{box-shadow:0 0 13px rgba(73,224,90,.9)}
+.mast.max{box-shadow:0 0 9px rgba(232,205,138,.7)}
+
+/* Rank badge, straight from .mastery-node-component .mastery-points:
+   black fill, 1px border, 4px radius, 1px 4px padding, Times New Roman at
+   12px, and anchored bottom-right with translateY(50%) so it hangs half
+   below the icon. 12px against the client's 293px tree slice is 4.09%, so
+   it scales with the panel like everything else. */
+.mast .pts{position:absolute;bottom:10%;right:0;z-index:3;transform:translateY(50%);
+  background:#000;border:1px solid #3c3c41;border-radius:4px;
+  font-family:"Times New Roman",Times,serif;font-size:12px;font-weight:400;
+  padding:1px 4px;line-height:1.15;color:#a09b8c;white-space:nowrap}
+@supports (width:1cqw){ .mast .pts{font-size:4.09cqw} }
+/* available and part-spent both read as "you can put a point here" */
+.mast.avail .pts,.mast.on .pts{border-color:#39a53f;color:#39a53f}
+.mast.max .pts{border-color:#ad8e43;color:#ad8e43}
+.mast.off .pts{border-color:#3c3c41;color:#a09b8c}
+
+/* ---------- mastery, summoner-spell and item tooltip ----------
+   One shell, three users. .mastery-tooltip-content is the client's most
+   readable panel — 80% black, a single #c9a23c hairline, square corners,
+   an 18px name over 14px body, Gill Sans on the footer line — so the
+   summoner-spell and item tooltips borrow it rather than each keeping a
+   style of its own. Every rule below names all three classes.
+
+   Follows the icon rather than the cursor, and is fixed-position so it can
+   escape the panel's overflow. Never takes pointer events, so moving the
+   mouse toward it can't make it flicker. */
+.mast-tip,.spell-tip,.item-tip{position:fixed;z-index:80;min-width:200px;max-width:300px;width:auto;
+  pointer-events:none;font-family:var(--font-jade);
+  background:rgba(0,0,0,.8);border:1px solid #c9a23c;border-radius:0;padding:8px;
+  box-shadow:0 14px 38px rgba(0,0,0,.72);
+  opacity:0;transform:translateY(3px);transition:opacity .11s,transform .11s}
+.mast-tip.show,.spell-tip.show,.item-tip.show{opacity:1;transform:translateY(0)}
+.mast-tip[hidden],.spell-tip[hidden],.item-tip[hidden]{display:none}
+.mast-tip .tip-hd,.spell-tip .tip-hd,.item-tip .tip-hd{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+.mast-tip .tip-hd img,.spell-tip .tip-hd img,.item-tip .tip-hd img{width:36px;height:36px;flex:none;background:#0b0d10}
+/* .mastery-name is 18px, coloured by tree; the tree class comes from JS.
+   A summoner spell has no tree, so it keeps the default cream. */
+.mast-tip .tip-hd h4,.spell-tip .tip-hd h4,.item-tip .tip-hd h4{margin:0;font-size:18px;font-weight:400;
+  line-height:1.2;color:#c8aa6e}
+.spell-tip .tip-hd h4,.item-tip .tip-hd h4{color:#f0e6d2}
+.mast-tip.offense .tip-hd h4{color:#ff5c72}
+.mast-tip.defense .tip-hd h4{color:#6f9cfe}
+.mast-tip.utility .tip-hd h4{color:#00a741}
+/* .mastery-rank: white normally, green when takeable, gold at max */
+.mast-tip .tip-hd .rank,.spell-tip .tip-hd .rank,.item-tip .tip-hd .rank{margin-left:auto;flex:none;
+  font-size:14px;font-weight:400;color:#fff}
+.mast-tip.available .tip-hd .rank{color:#00a741}
+.mast-tip.max-rank .tip-hd .rank{color:#fabe0a}
+.mast-tip.disabled .tip-hd .rank{color:grey}
+.mast-tip .tip-where,.spell-tip .tip-where,.item-tip .tip-where{font-size:12px;color:#a09b8c;margin:0 0 6px}
+/* .mastery-description */
+.mast-tip .tip-body,.spell-tip .tip-body,.item-tip .tip-body{font-size:14px;line-height:1.4;color:#fff;margin:0}
+.mast-tip .tip-body b,.spell-tip .tip-body b,.item-tip .tip-body b{color:#f0e6d2;font-weight:400}
+.mast-tip .tip-ladder,.spell-tip .tip-ladder,.item-tip .tip-ladder{margin:6px 0 0;font-size:13px;color:#a09b8c}
+.mast-tip .tip-ladder s,.spell-tip .tip-ladder s,.item-tip .tip-ladder s{text-decoration:none}
+.mast-tip .tip-ladder u,.spell-tip .tip-ladder u,.item-tip .tip-ladder u{text-decoration:none;color:#f0e6d2}
+/* .requirement-text — Gill Sans, 500. The spell panel puts its cooldown and
+   range here, so the same rule carries both. */
+.mast-tip .tip-foot,.spell-tip .tip-foot,.spell-tip .tip-nums,.item-tip .tip-nums{margin:7px 0 0;padding-top:6px;
+  border-top:1px solid rgba(201,162,60,.35);
+  font-family:var(--font-jade-body);font-size:14px;font-weight:500;line-height:1.4;color:#fff}
+.mast-tip .tip-foot.locked{color:#ff5c72}
+.mast-tip .tip-foot.maxed{color:#fabe0a}
+.mast-tip .tip-foot.open{color:#00a741}
+.spell-tip .tip-nums,.item-tip .tip-nums{display:flex;gap:16px;color:#a09b8c}
+.spell-tip .tip-nums b,.item-tip .tip-nums b{color:#f0e6d2;font-weight:400;font-variant-numeric:tabular-nums}
+
+/* ---- item tooltip ----
+   Wider than the other two: shop text runs to several stat lines plus a
+   passive. The gold cost takes the .rank slot, right of the name, the way
+   the shop prints it. */
+/* The build path at the foot of an item tooltip. Wraps, because a
+   component can feed eight things and the panel has a max-width. */
+.item-tip .tip-path{display:flex;align-items:center;flex-wrap:wrap;gap:4px;
+  margin:7px 0 0;padding-top:6px;border-top:1px solid rgba(200,163,85,.25)}
+.item-tip .tip-path + .tip-path{border-top:0;padding-top:0;margin-top:5px}
+.item-tip .tip-path .lbl{flex:none;width:78px;font-size:12px;color:#a09b8c}
+.item-tip .tip-path .pi{width:24px;height:24px;border-radius:3px;
+  border:1px solid rgba(200,163,85,.35);background:#0b0d10}
+.item-tip .tip-path .more{font-size:12px;color:#a09b8c;margin-left:2px}
+
+.item-tip{max-width:330px}
+.item-tip .tip-hd .rank{color:#c8aa6e;font-variant-numeric:tabular-nums}
+/* The shop's rich text is coloured for parchment further up this file —
+   brown body, near-black bold — and both disappear on a black panel. The
+   .dd palette is restated here in the client's light equivalents.
+
+   That used to exclude the damage-type colours, which were still the
+   client's own bright inks up there and needed no restating. They aren't
+   any more: they were unreadable on parchment and have been darkened, so
+   they need the light versions here like everything else. Leaving this
+   list short is what would break the tooltips. */
+/* All three shells, not just .item-tip. A reference chip for an item shows
+   the same shop rich text, but the panel it opens in is classed .spell-tip
+   — so scoping these overrides to one shell left that case rendering the
+   parchment palette (brown body, near-black bold) on a black panel, which
+   is unreadable. The rule follows the content now, not the element that
+   happened to trigger it. */
+.mast-tip .dd,.spell-tip .dd,.item-tip .dd{margin-top:5px;font-size:13px;line-height:1.45;color:#a09b8c}
+.mast-tip .dd b,.spell-tip .dd b,.item-tip .dd b,.mast-tip .dd .u,.spell-tip .dd .u,.item-tip .dd .u,.mast-tip .dd .cd-stats,.spell-tip .dd .cd-stats,.item-tip .dd .cd-stats{color:#f0e6d2;font-weight:400}
+.mast-tip .dd .stat,.spell-tip .dd .stat,.item-tip .dd .stat,.mast-tip .dd .cd-num,.spell-tip .dd .cd-num,.item-tip .dd .cd-num,.mast-tip .dd .cd-gold,.spell-tip .dd .cd-gold,.item-tip .dd .cd-gold{color:#c8aa6e;font-weight:400}
+.mast-tip .dd .active,.spell-tip .dd .active,.item-tip .dd .active{color:#0ac8b9}
+/* The damage types, back in the client's own inks for the dark panel. All
+   at or above 4.5:1 on rgb(43,40,33); .cd-true is the client's white,
+   which is what "colourless" looks like against black. */
+.mast-tip .dd .cd-magic,.spell-tip .dd .cd-magic,.item-tip .dd .cd-magic{color:#8dbdf0}
+.mast-tip .dd .cd-phys,.spell-tip .dd .cd-phys,.item-tip .dd .cd-phys{color:#e8a37a}
+.mast-tip .dd .cd-true,.spell-tip .dd .cd-true,.item-tip .dd .cd-true{color:#e6edf5}
+.mast-tip .dd .cd-heal,.spell-tip .dd .cd-heal,.item-tip .dd .cd-heal{color:#7fd8a0}
+.mast-tip .dd .cd-shield,.spell-tip .dd .cd-shield,.item-tip .dd .cd-shield{color:#d9cf7a}
+.mast-tip .dd .cd-speed,.spell-tip .dd .cd-speed,.item-tip .dd .cd-speed{color:#7fd8c8}
+.mast-tip .dd .cd-mana,.spell-tip .dd .cd-mana,.item-tip .dd .cd-mana{color:#7f9ce0}
+/* var(--blue) is #2c66aa — 3.4:1 on black. The client's lighter blue is the
+   one it uses on its own dark tooltips. */
+.mast-tip .dd .passive,.spell-tip .dd .passive,.item-tip .dd .passive{color:#6f9cfe}
+/* The panel composites to rgb(43,40,33) over parchment. Measured against
+   that: the old --blue was 2.51:1, #6f9cfe is 5.49:1. Flavour text sits
+   just under the bar at #8a8578 (3.98:1) and is small and italic, so it
+   goes to #9a9488 (4.86:1) rather than being left as large-text-only. */
+.mast-tip .dd .lim,.spell-tip .dd .lim,.item-tip .dd .lim,.mast-tip .dd .cd-flavor,.spell-tip .dd .cd-flavor,.item-tip .dd .cd-flavor{color:#9a9488}
+
+/* Tree footer, from .mastery-tree-component .tree-footer: a 24px tree icon,
+   the name uppercase at 16px, the total at 18px, both #cdcdcd at weight 400
+   — not the bold small-caps I had. Sizes as a share of the 293px slice:
+   24 -> 8.18%, 16 -> 5.45%, 18 -> 6.14%. */
+.mast-tree-foot{display:flex;align-items:center;gap:8px;
+  margin-top:auto;padding:8px 0;font-family:var(--font-jade);
+  font-size:16px;font-weight:400;text-transform:uppercase;color:#cdcdcd;
+  text-shadow:0 1px 4px rgba(0,0,0,.9)}
+.mast-tree-foot img{width:24px;height:24px;flex:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+.mast-tree-foot b{font-size:18px;font-weight:400;color:#cdcdcd}
+@supports (width:1cqw){
+  .mast-tree-foot{font-size:5.45cqw}
+  .mast-tree-foot img{width:8.18cqw;height:8.18cqw}
+  .mast-tree-foot b{font-size:6.14cqw}
+}
+
+/* item tiers */
+.tier-group{margin-bottom:30px}
+.tier-head{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:4px}
+.tier-head .bar{width:4px;height:17px;border-radius:2px;flex:none;align-self:center}
+.tier-head h2{margin:0;font-size:17px}
+.tier-head .n{color:var(--muted-2);font-size:12.5px;font-weight:600}
+.tier-blurb{color:var(--muted-2);font-size:12.5px;margin:0 0 13px;padding-left:15px}
+.row-item .tierdot{width:7px;height:7px;border-radius:99px;flex:none}
+.chip.tier{font-weight:700}
+
+/* build path */
+.path{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.path .node{display:flex;flex-direction:column;align-items:center;gap:5px;width:64px}
+.path .node img{width:44px;height:44px;border-radius:8px;border:1px solid var(--line)}
+.path .node small{font-size:10.5px;color:var(--muted-2);text-align:center;line-height:1.2}
+.path .arrow{color:var(--muted-2);font-size:16px}
+
+/* rune badges — CSS stand-ins for the mode's own art */
+.rune-badge{width:44px;height:44px;flex:none;display:grid;place-items:center;position:relative;
+  clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--slot) 78%,#fff 22%),
+    color-mix(in srgb,var(--slot) 55%,#000 45%));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.rune-badge i{font-style:normal;font-size:11px;font-weight:800;letter-spacing:-.02em;
+  color:#15100a;text-shadow:0 1px 0 rgba(255,255,255,.28)}
+.rune-badge.lg{width:64px;height:64px}
+.rune-badge.lg i{font-size:15px}
+.rune-badge.sm{width:32px;height:32px}
+.rune-badge.sm i{font-size:9px}
+.rune-badge.minor{filter:saturate(.55) brightness(.82)}
+.rune-badge.scaling::after{content:"";position:absolute;inset:5px;
+  clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.42)}
+
+/* Data Dragon rune art. Minor runes use the tier-1 file, which is already
+   duller; `borrowed` marks the few that had to reuse the standard art and
+   get a CSS treatment instead. */
+.rune-img{width:44px;height:44px;flex:none;border-radius:8px;object-fit:contain}
+.rune-img.lg{width:64px;height:64px}
+.rune-img.sm{width:32px;height:32px}
+.rune-img.borrowed{filter:saturate(.5) brightness(.82) contrast(.95)}
+.rune-row .rune-img{background:rgba(0,0,0,.18)}
+
+.rune-row{display:flex;gap:11px;align-items:center;background:var(--panel);
+  border:1px solid var(--line-soft);border-radius:9px;padding:9px 11px;transition:.15s;min-width:0}
+.rune-row:hover{border-color:#35455a;background:var(--panel-2);transform:translateY(-2px)}
+.rune-row .meta{min-width:0;flex:1}
+.rune-row .meta b{display:block;font-size:13px;font-weight:600;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.rune-row .meta span{font-size:12px;color:var(--muted)}
+.rune-row .meta em{font-style:normal;font-size:11px;color:var(--muted-2);display:block}
+.ip{color:var(--gold-hi);font-weight:700;font-size:12px;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.minor-tag{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted-2);border:1px solid var(--line);border-radius:4px;padding:1px 4px;margin-left:6px}
+
+
+/* ---------- rune page builder ----------
+   Laid out like the in-game editor: owned-rune list on the left, the
+   parchment page in the middle, computed statistics on the right.
+   Slot sockets and the parchment are the client's own textures.        */
+/* One parchment sheet behind the whole builder, cropped past the burnt
+   border at 114% exactly as the mastery section is, and the same 1428px
+   cap so the two sections line up down the page.
+
+   Columns follow .rune-plate-and-stats: the inventory stands apart, but
+   the plate and the stats panel butt together with no gap and the same
+   hsla(40,45%,61%,.3) hairline, so they read as one frame. The client's
+   stats panel is 143px, not the 210 I had. */
+.rune-build{display:grid;grid-template-columns:270px minmax(0,1fr) 143px;gap:0;
+  align-items:start;container-type:inline-size;
+  max-width:1428px;margin:0 auto;padding:16px;border-radius:8px;
+  background:url("assets/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
+.rune-pick{margin-right:14px}
+
+/* The picker matches the parchment's height and scrolls inside itself, so
+   a slot with more runes than fit — Quintessences are at 16 now — never
+   makes the section taller than the artwork next to it.
+
+   The parchment is whatever is left after the 270px picker, the 210px
+   stats column and two 14px gaps, at the cropped aspect of 1.735; hence
+   (100cqw - 508px) / 1.735. 643px is the fallback, which is what that
+   works out to at the creator's usual width. */
+/* The plate is what's left after the 270px inventory, its 14px gap and
+   the 143px stats column; the list matches its height and scrolls inside. */
+.rune-pick{display:flex;flex-direction:column;overflow:hidden;max-height:558px}
+@supports (width:1cqw){ .rune-pick{max-height:calc((100cqw - 427px) / 1.735)} }
+
+/* One tab per socket type. Showing a single slot at a time is what keeps
+   this column the same height as the parchment instead of three times it.
+   The client filters its inventory with a dropdown instead, so the tabs
+   borrow the dropdown's colours: the #0c3360-to-#2c66aa blue with a
+   #fabe0a label. */
+.slot-tabs{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;flex-shrink:0}
+.slot-tab{background:linear-gradient(0deg,#0c3360 37.5%,#2c66aa);
+  border:1px solid hsla(0,0%,100%,.2);border-radius:2px;
+  color:hsla(45,95%,52%,.72);font-family:var(--font-jade);font-size:13px;font-weight:400;
+  padding:6px 4px 5px;line-height:1.25;transition:.12s}
+.slot-tab span{display:block;font-size:10.5px;opacity:.8;font-variant-numeric:tabular-nums}
+.slot-tab:hover{border-color:hsla(0,0%,100%,.4);color:#fabe0a}
+.slot-tab.on{background:#1e3656;color:#fabe0a}
+.slot-tab.done span::after{content:" ✓"}
+
+/* .search-box .rune-search-input */
+.search-box{flex-shrink:0;margin:5px 0}
+/* The creator's own stylesheet sets `input[type=text]` — specificity
+   (0,1,1) — and loads after this file, so a plain .rune-search-input
+   (0,1,0) lost and the box stayed dark. Qualifying with the parent takes
+   it to (0,2,1). Same story for the page-name input below. */
+.rune-pick input.rune-search-input{width:100%;background:#fff;border:1px solid #c9a23c;
+  border-radius:0;color:#7d5444;font-family:var(--font-jade);font-size:14px;
+  padding:8px 12px;outline:none;box-shadow:none}
+.rune-pick input.rune-search-input::placeholder{color:rgba(125,84,68,.5)}
+.rune-pick input.rune-search-input:focus{border-color:#c8aa6e;box-shadow:none}
+
+/* .rune-list — parchment, with the client's gold scrollbar */
+.rune-pick .list{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+  background:#f0e4b1;border:1px solid #c9a23c}
+.rune-pick .list::-webkit-scrollbar{width:10px}
+.rune-pick .list::-webkit-scrollbar-track{background:transparent}
+.rune-pick .list::-webkit-scrollbar-thumb{background:#785a28;background-clip:padding-box;
+  border:2.5px solid transparent;border-radius:8px}
+.rune-pick .list::-webkit-scrollbar-thumb:hover{background:#8a6a30;background-clip:padding-box}
+
+/* .rune-item */
+.rune-opt{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  background:#e8dec1;border:1px solid rgba(201,162,60,.5);margin-bottom:1px;padding:4px;
+  font-family:var(--font-jade);transition:all .2s ease}
+.rune-opt:hover:not(:disabled){border-color:#c9a23c}
+.rune-opt:disabled{opacity:.45;cursor:not-allowed}
+.rune-opt img,.rune-opt .rune-badge{width:28px;height:28px;flex:none}
+.rune-opt .txt{min-width:0;flex:1;font-size:12px;color:#000;line-height:1.25}
+.rune-opt .txt em{font-style:normal;display:block;color:#7d5444;font-size:10px}
+.rune-opt .n{font-size:12px;font-weight:700;color:#7d5444;flex:none;text-align:end}
+.rune-opt.used .n{color:#000}
+.rune-pick .no-runes{margin:0;padding:32px 16px;text-align:center;color:#7d5444;font-size:12px}
+.rune-pick .list-foot{margin:0;padding:9px 11px;font-size:11.5px;color:#7d5444;
+  border-top:1px solid rgba(201,162,60,.5)}
+
+/* the parchment page */
+/* Two layers, as the client composites them: the filigree pattern sits on
+   top of the plain parchment paper. rune-parchment.png alone is blank. */
+/* ---- cropped view of the parchment ----
+   The sockets only use x 3-85% and y 3-95% of the artwork, leaving 15% of
+   dead parchment down the right-hand side. The client's own page is framed
+   tight to the runes, so this is a window onto the art rather than the
+   whole sheet: .rune-page is the window, .rune-crop is the full sheet
+   sitting inside it, oversized and offset so the wanted region fills it.
+
+   Keeping the sheet whole matters — every socket coordinate stays a
+   percentage of the original artwork, so the crop can be retuned here
+   without touching a single position.
+
+   The artwork has a burnt, ragged border and a curled corner at top-left
+   and bottom-right; the client shows none of it. Measured on the file, the
+   paper starts about 4% in on every side, and the burn drops off a cliff
+   there: cropping at y 3.5-94.5 leaves 36% of the visible border burnt,
+   at y 4-94 only 2.7%.
+
+       showing x 4-88% (84% of the width), y 4-94% (90% of the height)
+       window aspect = 1203/647 x (84/90) = 1.735
+       sheet size    = 100/0.84 = 119.05% wide, 100/0.90 = 111.11% tall
+       offset        = -4/84 = -4.76%, -4/90 = -4.44% */
+/* .rune-plate-with-header — the header bar and the parchment share one
+   frame, so the border lives on the wrapper and the bar has no bottom
+   edge of its own. The name is a plain transparent input sitting in that
+   bar; there is no separate edit step in the client. */
+.rune-plate-wrap{display:flex;flex-direction:column;
+  border:1px solid hsla(40,45%,61%,.3);overflow:hidden}
+.rune-plate-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:8px 6px;
+  background:hsla(40,45%,61%,.2);border-bottom:1px solid hsla(40,45%,61%,.3)}
+.rune-plate-header input.plate-name-input{flex:1;min-width:0;width:auto;margin:0;padding:0;
+  background:transparent;border:none;border-radius:0;outline:none;box-shadow:none;
+  color:#7d5444;font-family:var(--font-jade);font-size:16px;line-height:normal}
+.rune-plate-header input.plate-name-input::placeholder{color:rgba(125,84,68,.5)}
+
+.rune-page{position:relative;overflow:hidden;
+  background:#cbb489;aspect-ratio:1.735;
+  --sheet-w:119.05%;--sheet-h:111.11%;--sheet-x:-4.76%;--sheet-y:-4.44%}
+/* Cropping to the paper cut the tips off the top-left quintessence and the
+   lowest marks, which sit 2.5% and 95.2% up the sheet against a 4-94 crop.
+   Rather than move sockets by hand — the arrangement was placed against
+   the artwork — the whole layer is scaled about the crop's centre. A
+   uniform scale keeps every gap in proportion, so no pair gets closer than
+   it already was; 0.96 clears the edges by 0.4% of the sheet, and takes a
+   socket from 77px back to 74px, which is where it was before the crop
+   magnified everything by 3%. */
+.rune-sockets{position:absolute;inset:0;transform:scale(.96);transform-origin:46% 49%}
+
+.rune-crop{position:absolute;left:var(--sheet-x);top:var(--sheet-y);
+  width:var(--sheet-w);height:var(--sheet-h);
+  background-image:url("assets/rune-filigree.png"),url("assets/rune-parchment.png");
+  background-size:cover,100% 100%;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
+  background-blend-mode:multiply,normal}
+.rune-slot{position:absolute;transform:translate(-50%,-50%);padding:0;border:0;background:none;
+  transition:.12s;z-index:2}
+.rune-slot .sock{width:100%;height:100%;display:block;opacity:.85}
+/* The client's placed runes are hexagonal plates filling the socket.
+   Data Dragon ships square icons, so clip them to the same hexagon. */
+.rune-slot .filled{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:88%;height:88%;object-fit:cover;
+  clip-path:polygon(50% 1%,94% 26%,94% 74%,50% 99%,6% 74%,6% 26%);
+  filter:drop-shadow(0 0 3px rgba(0,0,0,.55))}
+
+/* Mark / seal / glyph plates fill their whole 49x56 PNG: measured, the
+   hexagon runs edge to edge, widest at half height with its points at the
+   very top and bottom. The 88% box above plus a clip inset to 6%-94% left
+   the placed rune covering only ~77% of the width, so a ring of the empty
+   socket showed around it. Full box + a full-box hexagon covers the plate
+   exactly. Quintessence plates are a different shape — their hexagon is
+   only ~62% of the PNG — so they keep the smaller inset.
+
+   The 22%/78% shoulders are measured too: the plate reaches full width
+   between y=13 and y=41 of its 56px, i.e. 23% and 73%. Rounding outward
+   covers 99.8% of the plate for ~100px of spill past its edge. */
+.rune-slot.small .filled{width:100%;height:100%;
+  clip-path:polygon(50% 0%,100% 22%,100% 78%,50% 100%,0% 78%,0% 22%)}
+/* Socket size, as a share of the parchment width. Two knobs, nothing else
+   depends on pixels — the aspect ratios come from the source PNGs.
+
+   Both settled by eye against the artwork. 16% puts the quintessences just
+   past the point where their bounding hexagons and glyph #5's start to
+   interlock, which reads fine because the hexagons nest — but it does mean
+   there's no slack left here. Going larger will visibly crowd the glyphs. */
+.rune-page{--slot-w:5.8%;--quint-w:16%}
+.rune-slot.small{width:var(--slot-w);aspect-ratio:49/56}
+.rune-slot.big{width:var(--quint-w);aspect-ratio:147/133}
+/* ---- socket tooltip ----
+   .custom-rune-tooltip: 95% black, 4px radius, 225-350px wide, the name
+   coloured by socket type — red marks, yellow seals, blue glyphs, purple
+   quintessences. An empty socket gets the --empty variant: 80% black in a
+   #c9a23c box, left-aligned, no radius. */
+.rune-tip{position:fixed;z-index:80;pointer-events:none;
+  min-width:225px;max-width:350px;background:rgba(0,0,0,.95);border-radius:4px;
+  box-shadow:2px 2px 6px rgba(0,0,0,.6);font-family:var(--font-jade);
+  opacity:0;transition:opacity .1s}
+.rune-tip.show{opacity:1}
+.rune-tip[hidden]{display:none}
+.rune-tip .tooltip-name{padding:8px 12px 4px;text-align:center;
+  font-size:13px;font-weight:700;color:#f0e6d2}
+.rune-tip .tooltip-description{padding:4px 12px 8px;text-align:center;
+  font-size:11px;line-height:1.4;color:#f0e6d2}
+.rune-tip.red .tooltip-name{color:#f55}
+.rune-tip.yellow .tooltip-name{color:#fc5}
+.rune-tip.blue .tooltip-name{color:#58f}
+.rune-tip.black .tooltip-name{color:#c084fc}
+.rune-tip.empty{display:flex;flex-direction:column;gap:4px;padding:8px;
+  min-width:0;max-width:240px;width:max-content;
+  background:rgba(0,0,0,.8);border:1px solid #c9a23c;border-radius:0;text-align:start}
+.rune-tip .empty-tooltip-title{color:#f0f0f0;font-size:14px;line-height:normal}
+.rune-tip .empty-tooltip-stat{color:#fff;font-size:12px;line-height:normal}
+
+/* ---- glows ----
+   A placed rune glows in its stat group's colour, quintessences included:
+   an Attack Damage quint is red, not purple. The client's purple rule for
+   quintessence sockets (.black.filled) and its four group rules all sit at
+   the same specificity, and the group rules come later in the file — so
+   purple is only what a quintessence falls back to when its rune has no
+   group at all.
+
+   Sizes are the client's: drop-shadow(0 0 8px) on a 50px socket is 16% of
+   its width, 7.7% on the 104px quintessence plate. Held as a share of the
+   page rather than fixed pixels so the halo grows with the artwork. */
+.rune-page{container-type:inline-size}
+.rune-slot.glow-offense{--glow:#f00}
+.rune-slot.glow-defense{--glow:#ffd700}
+.rune-slot.glow-magical{--glow:#6496ff}
+.rune-slot.glow-utility{--glow:#c084fc}
+.rune-slot.has{filter:drop-shadow(0 0 12px var(--glow))}
+.rune-slot.big.has{filter:drop-shadow(0 0 16px var(--glow))}
+/* kNone — Energy and Energy Regeneration. Unlit in a mark, seal or glyph;
+   in a quintessence it takes the purple default. */
+.rune-slot.has.glow-none{filter:none}
+.rune-slot.big.has.glow-none{filter:drop-shadow(0 0 16px #c084fc)}
+@supports (width:1cqw){
+  .rune-slot.has{filter:drop-shadow(0 0 1.07cqw var(--glow))}
+  .rune-slot.big.has{filter:drop-shadow(0 0 1.42cqw var(--glow))}
+  .rune-slot.has.glow-none{filter:none}
+  .rune-slot.big.has.glow-none{filter:drop-shadow(0 0 1.42cqw #c084fc)}
+}
+.rune-slot:hover{filter:brightness(1.18)}
+.rune-slot.target{filter:drop-shadow(0 0 8px rgba(120,255,140,.9))}
+
+/* statistics */
+/* .stats-panel — parchment header over a dark, scrolling body, with
+   .stat-item's #cdbd7b hairline around each row. */
+.rune-stats{display:flex;flex-direction:column;border:1px solid hsla(40,45%,61%,.3);
+  border-left:none;max-height:478px;overflow:hidden;font-family:var(--font-jade)}
+.rune-stats .hd{flex-shrink:0;background:#f0e4b1;padding:8px 4px;text-align:center;
+  border-bottom:1px solid hsla(40,45%,61%,.3);
+  color:#7d5444;font-size:16px;font-weight:400;text-transform:uppercase;letter-spacing:0}
+/* .stats-content is only a 10% black wash — the parchment sheet behind
+   the builder shows through it, which is why the text is black. */
+.rune-stats > div{overflow-y:auto;background:rgba(0,0,0,.1);padding-inline-start:4px}
+.rune-stats ul{list-style:none;margin:0;padding:0}
+/* .stat-item: each total in its own #cdbd7b box, name above value */
+.rune-stats li{display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+  padding:2px;border:1px solid #cdbd7b}
+.rune-stats li span{display:block;color:#000;font-size:12px}
+.rune-stats li b{color:#000;font-size:12px;font-weight:400;
+  font-variant-numeric:tabular-nums}
+.rune-stats .none{color:#7d5444;font-size:12px;padding:16px 11px;text-align:center;
+  background:#f0e4b1}
+.rune-stats > div::-webkit-scrollbar{width:8px}
+.rune-stats > div::-webkit-scrollbar-track{background:rgba(0,0,0,.3);border-radius:4px}
+.rune-stats > div::-webkit-scrollbar-thumb{background:rgba(120,90,40,.5);border-radius:4px}
+.rune-stats > div::-webkit-scrollbar-thumb:hover{background:rgba(120,90,40,.7)}
+/* .rune-page-actions — the client parks these over the bottom-right of
+   the parchment: 30px tall, 60px min width, Clear in the same blue as
+   Return Points, Save in its orange --active gradient. */
+.rune-actions{position:absolute;right:10px;bottom:10px;z-index:4;display:flex;gap:10px}
+.rune-actions button{height:30px;min-width:60px;padding:0 12px;font-size:13px;
+  font-family:var(--font-jade);color:#fff;border:1px solid hsla(40,45%,61%,.3);
+  border-radius:4px;transition:all .2s}
+.clear-runes-btn{background:linear-gradient(180deg,#154d8f,#0a2d5c)}
+.clear-runes-btn:hover:not(:disabled){background:linear-gradient(180deg,#1a5ba5,#0c3468);
+  border-color:hsla(40,45%,61%,.5)}
+/* .save-runes-btn is bare by default and only takes the orange when there
+   is something to write — --active in the client. Once saved it falls back
+   to the same #5c5c5c grey as --disabled. */
+.save-runes-btn{background:#5c5c5c}
+.save-runes-btn--active{background:linear-gradient(0deg,#c73e00 37.5%,#efa23a)}
+.save-runes-btn--active:hover{filter:brightness(1.1)}
+.rune-actions button:disabled{background:#5c5c5c;color:#000;cursor:default}
+
+.rune-foot{display:flex;align-items:center;gap:10px;margin-top:11px;flex-wrap:wrap}
+.rune-foot .filled-n{font-size:12.5px;color:var(--muted)}
+.rune-foot .filled-n b{color:var(--gold-hi)}
+@media(max-width:1000px){.rune-build{grid-template-columns:1fr}}
+
+/* rune groups */
+.rune-group{margin-bottom:26px}
+.rune-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.rune-head .dot{width:12px;height:12px;border-radius:99px;flex:none}
+.rune-head h2{margin:0;font-size:17px}
+.rune-head span{color:var(--muted-2);font-size:12.5px}
+.grid-runes{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+
+/* states */
+.state{padding:44px 20px;text-align:center;color:var(--muted);font-size:14px}
+.state h3{color:var(--title);margin:0 0 6px;font-size:17px}
+.state code{background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+  padding:2px 6px;font-size:12.5px;color:var(--muted)}
+.state .btn{margin-top:14px}
+.skel{background:linear-gradient(90deg,hsla(43,47%,60%,.25) 25%,hsla(43,47%,60%,.5) 50%,hsla(43,47%,60%,.25) 75%);
+  background-size:200% 100%;animation:sh 1.3s infinite;border-radius:9px}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* footer */
+footer.site{border-top:1px solid var(--line);padding:28px 0 42px;
+  background:hsla(43,47%,60%,.3)}
+.legal{color:var(--muted-2);font-size:11.5px;line-height:1.65;max-width:82ch;margin:0 0 14px}
+.legal a{color:var(--muted);text-decoration:underline}
+.flinks{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.flinks a:hover{color:var(--title)}
+
+@media(max-width:900px){
+  .detail{grid-template-columns:1fr}
+  .side{position:static}
+}
+@media(max-width:640px){
+  nav.main{order:3;width:100%}
+  .hdr{height:auto;padding:10px 0;flex-wrap:wrap;gap:12px}
+  .patch-chip{display:none}
+}
+
+/* ---------- page selector ----------
+   The client's own header: a flame-backed title, then numbered tabs with a
+   red dot on any page that isn't finished (.page-tab__incomplete-dot).
+   Values from rcp-fe-lol-jade.css — tabs are 21px tall, 2px radius, the
+   #4276bc-to-#1e3656 blue, flat #1e3656 when active, and the add button
+   draws its plus as two #c39a20 bars 9px x 1.5px. */
+.setup-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 14px}
+/* This is the section heading in the creator — the builders have no <h2>
+   above them any more — so it is sized like one: 24px against the 18px it
+   was. The flame art scales with the box (100% 100%), so the padding grows
+   with it and the glow stays proportional to the text. */
+.page-title{margin:0;padding:8px 20px;font-family:var(--font-jade);font-size:24px;
+  font-weight:400;color:#600;white-space:nowrap;
+  background:url("assets/header_flame.png") center/100% 100% no-repeat}
+.page-selector{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.page-tab{position:relative;display:flex;align-items:center;justify-content:center;
+  height:21px;min-width:24px;padding:0 10px;box-sizing:border-box;
+  background:linear-gradient(180deg,#4276bc,#1e3656);
+  border:1px solid hsla(0,0%,100%,.2);border-radius:2px;
+  color:#fff;font-family:var(--font-jade-body);font-size:14px;line-height:1}
+/* Names, not numbers — capped so one long one can't push the strip about. */
+.page-tab .tab-label{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.page-tab:hover{background:linear-gradient(90deg,rgba(51,146,255,.4),rgba(51,146,255,.4)),
+  linear-gradient(0deg,#0c3360 37.5%,#2c66aa)}
+.page-tab.active{background:#1e3656;color:#f0e6d2}
+.incomplete-dot{position:absolute;top:-2px;right:-2px;width:8px;height:8px;
+  border-radius:50%;background:#be1e37}
+.page-add-button:before,.page-add-button:after{content:"";position:absolute;inset:0;
+  margin:auto;background:#c39a20}
+.page-add-button:before{width:9px;height:1.5px}
+.page-add-button:after{width:1.5px;height:9px}
+
+/* name box — .page-name-container, white with a gold hairline and the
+   blue pencil button beside it */
+.page-name-box{display:flex;align-items:center;gap:4px;width:100%;
+  background:#f0f0f0;border:1px solid #c9a23c;border-radius:2px;padding:4px 4px 4px 8px;
+  box-sizing:border-box}
+.page-name-text{flex:1 1 auto;min-width:0;color:#000;font-size:14px;font-weight:400;
+  font-family:var(--font-jade);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  user-select:none;cursor:text}
+.page-name-box input.page-name-input{flex:1 1 auto;width:auto;min-width:0;height:24px;
+  margin:0;padding:0 4px;background:#fff;border:none;border-radius:0;outline:none;
+  box-shadow:none;color:#000;font-size:14px;font-family:var(--font-jade);line-height:normal}
+.page-name-edit{flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  width:28px;height:24px;border:1px solid hsla(0,0%,100%,.2);border-radius:2px;padding:0;
+  background:linear-gradient(0deg,#0c3360 37.5%,#2c66aa)}
+.page-name-edit:hover{background:linear-gradient(0deg,#12457f 37.5%,#3a7fcd)}
+.page-name-edit svg{display:block}
+/* the rune strip carries its own name box, so keep it from stretching */
+.setup-bar .page-name-box{width:auto;min-width:190px;max-width:260px}
+
+.setup-tools{display:flex;gap:4px;margin-left:auto}
+.setup-act{background:none;border:0;color:var(--muted-2);font-size:12px;font-weight:600;
+  padding:4px 7px;border-radius:6px;transition:.13s}
+.setup-act:hover:not(:disabled){background:var(--panel-2);color:var(--text)}
+.setup-act.danger:hover:not(:disabled){color:var(--red)}
+.setup-act:disabled{opacity:.35;cursor:not-allowed}
+
+/* ---------- creator layout ----------
+   The reading pages stay at a comfortable measure; the creator needs more
+   room because the mastery trees and rune page are wide by nature.
+
+   The mastery and rune builders are NOT part of the form/rail grid — they
+   sit in a `.builders` band underneath it, at the full width of the wrap.
+   That keeps them clear of the sticky preview rail entirely: nothing can
+   share a row with the card, so nothing can overlap it. `.wide-row` is
+   kept only so an older copy of the markup still renders sanely.        */
+body.creator .wrap{max-width:min(1660px,96vw)}
+.builders .block:last-child{margin-bottom:0}
+
+/* ---------- builder plates ----------
+   Skill order, masteries and runes each lay a parchment sheet on a .block
+   that is itself a tinted panel sitting on the page's own parchment. That
+   is three parchment textures at three different scales meeting with
+   nothing between them, so the sheet's burnt edge reads as a smudge in the
+   block's fill rather than as the edge of a sheet.
+
+   A hairline in the client's #b09853 — the colour it uses on the mastery
+   info boxes — gives each sheet a definite boundary. The pale inset line
+   catches the top edge the way a physical sheet would, and the drop shadow
+   separates it from the block behind without darkening the parchment.
+
+   Not a wider or heavier border: at 114% background-size the burn is
+   already cropped, so the job here is to terminate the texture, not to
+   cover any of it. */
+.skill-build,.mast-build,.rune-build{
+  border:1px solid #b09853;
+  box-shadow:inset 0 1px 0 rgba(255,248,228,.45),0 2px 10px rgba(90,66,40,.18)}
+
+/* The builders band now matches the form column rather than the whole wrap,
+   so its blocks are ~370px narrower than they were. The 1000px rules above
+   were written for a full-width band and are measured against the viewport,
+   which is the wrong yardstick once the band is a column: at a 1300px
+   viewport .rune-build lands at 802px, and its parchment is sized
+   (100cqw - 508px)/1.735, so it collapses to 169px tall.
+
+   Collapsing to one column at 1400px instead keeps the parchment and the
+   trees at a usable size through the middle widths. Scoped to the creator —
+   masteries.html and runes.html still run their builders at the full width
+   of the page, where the 1000px rules are still right. */
+@media(max-width:1400px){
+  body.creator .rune-build{grid-template-columns:1fr}
+  body.creator .mast-build{grid-template-columns:1fr}
+}
+.wide-row{grid-column:1 / -1}
+.wide-row .block{margin-bottom:16px}
+@media(max-width:1000px){
+  .wide-row{grid-column:1}
+}
+
+/* The socket sliders and the drag-to-arrange mode that produced the
+   coordinates in data-runes.js are gone — the layout is settled, so the
+   scaffolding came out with it. */
+
+/* Sign-in, in the header. Inline rather than a modal: it is one field, and
+   a dialog for one field is a lot of ceremony for an email address. */
+.acct-in{display:flex;gap:6px;align-items:center}
+.acct-in input{width:190px;padding:6px 9px;font-size:13.5px;font-family:inherit;
+  background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+  color:var(--text);outline:none}
+.acct-in input:focus{border-color:#c8aa6e;box-shadow:0 0 0 2px hsla(43,47%,60%,.45)}
+.acct-sent{font-size:13px;color:var(--muted);max-width:260px}
+.acct-err{display:block;font-size:12.5px;color:#8c3410;margin-top:4px}

@@ -1,0 +1,13 @@
+# S3 Builds
+
+User-agent: *
+Allow: /
+
+# A guide packed into a link is the same content as its published page, and
+# ?url= renders a file that is already crawlable on its own. Neither needs
+# indexing twice.
+Disallow: /guide.html?g=
+Disallow: /guide.html?url=
+Disallow: /create.html
+
+Sitemap: https://s3builds.net/sitemap.xml

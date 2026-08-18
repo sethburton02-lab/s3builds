@@ -1,0 +1,58 @@
+# Apache config, for DreamHost shared hosting.
+#
+# This is the equivalent of _headers and _redirects, which are Cloudflare
+# Pages files and are ignored by Apache. Only one of the two is ever in
+# play, but both are kept in the repo so switching hosts is not a rewrite.
+#
+# If the site ends up on Cloudflare Pages, this file is inert and harmless.
+
+# ---------------------------------------------------------------- security
+<IfModule mod_headers.c>
+  # Same policy as _headers. The weak point is the same too: script-src
+  # carries 'unsafe-inline' because every page keeps its logic in an inline
+  # <script>, and with that present CSP cannot stop an injected script.
+  # Extracting those scripts is the fix; see DEPLOY.md.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://ddragon.leagueoflegends.com https://raw.communitydragon.org; connect-src 'self' https://ddragon.leagueoflegends.com https://raw.communitydragon.org https://egbhtuhaatyclufktfla.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  Header always set X-Frame-Options "DENY"
+</IfModule>
+
+# ------------------------------------------------------------------ cache
+<IfModule mod_expires.c>
+  ExpiresActive On
+  # Data and styles change when Riot patches, so they are re-checked often.
+  ExpiresByType text/css              "access plus 10 minutes"
+  ExpiresByType application/javascript "access plus 10 minutes"
+  # Art at a given URL never changes.
+  ExpiresByType image/png             "access plus 7 days"
+  ExpiresByType image/svg+xml         "access plus 7 days"
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # HTTPS, and one canonical hostname. Serving both the apex and www means
+  # search engines index the site twice and the two copies compete.
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://s3builds.net/$1 [R=301,L]
+  RewriteCond %{HTTP_HOST} ^www\.s3builds\.net$ [NC]
+  RewriteRule ^(.*)$ https://s3builds.net/$1 [R=301,L]
+
+  # The masteries page was folded into the creator.
+  RewriteRule ^masteries(\.html)?$ /create.html [R=301,L]
+
+  # Extensionless URLs: /items rather than /items.html. Deliberately NOT a
+  # catch-all — a catch-all turns every typo into the home page and hides
+  # broken links from whoever is testing.
+  RewriteRule ^champions$ /champions.html [L]
+  RewriteRule ^items$     /items.html     [L]
+  RewriteRule ^runes$     /runes.html     [L]
+  RewriteRule ^spells$    /spells.html    [L]
+  RewriteRule ^write$     /create.html    [L]
+  RewriteRule ^guides$    /index.html#guides [R=302,L]
+</IfModule>
+
+# A missing page should say so rather than silently serving something else.
+ErrorDocument 404 /index.html

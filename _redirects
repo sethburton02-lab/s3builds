@@ -1,0 +1,18 @@
+# Cloudflare Pages redirects.
+#
+# The site is a set of real .html files, so there is no SPA catch-all here
+# — a catch-all would turn every typo into the home page and hide broken
+# links from anyone testing, including me.
+
+# Extensionless URLs, because /items reads better than /items.html and is
+# what people will type.
+/champions      /champions.html   200
+/items          /items.html       200
+/runes          /runes.html       200
+/spells         /spells.html      200
+/guides         /index.html#guides 302
+/write          /create.html      200
+
+# The masteries page was folded into the creator.
+/masteries      /create.html      301
+/masteries.html /create.html      301

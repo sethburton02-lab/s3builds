@@ -1,0 +1,43 @@
+# Cloudflare Pages response headers.
+#
+# The Content-Security-Policy below is defence in depth, NOT the defence.
+# guide-sanitise.js is what stops a hostile guide executing; this is the
+# second line for the case where the sanitiser has a hole in it.
+#
+# ---- the honest limitation ----
+# script-src carries 'unsafe-inline' because every page in this site keeps
+# its logic in an inline <script> block. That is the single biggest thing
+# weakening this policy: with 'unsafe-inline' present, CSP cannot stop
+# injected script, which is the attack it exists to stop.
+#
+# Removing it means moving each page's inline script into its own .js file
+# (or pinning every block with a sha256- hash, which breaks on every edit).
+# That is a real piece of work and it is worth doing before this site takes
+# guides from strangers. Until then the rest of the policy still earns its
+# place: object-src and base-uri close off two injection routes that do not
+# need script at all, and the src lists mean a successful injection still
+# cannot reach a server that isn't listed here.
+#
+# connect-src names the Supabase project explicitly. Forget this and every
+# API call is blocked with no visible error except the site appearing to
+# have no guides at all — an hour of confusion for a one-line omission.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://ddragon.leagueoflegends.com https://raw.communitydragon.org; connect-src 'self' https://ddragon.leagueoflegends.com https://raw.communitydragon.org https://egbhtuhaatyclufktfla.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  X-Frame-Options: DENY
+
+# The data files change when Riot patches, so they are checked often and
+# cached briefly. The art never changes for a given URL.
+/*.js
+  Cache-Control: public, max-age=600, must-revalidate
+/*.css
+  Cache-Control: public, max-age=600, must-revalidate
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/*.png
+  Cache-Control: public, max-age=604800
+/*.svg
+  Cache-Control: public, max-age=604800

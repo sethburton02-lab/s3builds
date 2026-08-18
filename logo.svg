@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-label="S3 Builds">
+  <title>S3 Builds</title>
+  <!-- An item slot: gold frame, dark well, S3 inside.
+
+       The letters are stroked geometry, not type. Two circles make an S and
+       two make a 3, which is roughly how both are drawn anyway. Nothing
+       here needs a font to be installed or licensed — which matters while
+       the Friz Quadrata question is open, and matters permanently for a
+       favicon, where the renderer may have no fonts at all.
+
+       Proportions are the whole game at this size. A first pass used r=6
+       bowls with a stroke of 5, which leaves a one-unit counter: rendered
+       at any real size both characters filled in solid and the mark read as
+       two gold blobs. r=7 with a stroke of 3.5 keeps a counter wider than
+       the stroke, which is what makes the letters survive being shrunk.
+
+       One consequence: this can't be edited by retyping. Changing the mark
+       means changing the arcs. -->
+  <defs>
+    <linearGradient id="s3frame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6cf9a"/>
+      <stop offset="1" stop-color="#8a6d24"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="2" y="2" width="60" height="60" rx="6" fill="url(#s3frame)"/>
+  <rect x="7" y="7" width="50" height="50" rx="3" fill="#1d1811"/>
+
+  <g fill="none" stroke="#e6cf9a" stroke-width="3.5" stroke-linecap="round">
+    <!-- S — top bowl opens up-right, bottom bowl opens down-left. -->
+    <path d="M27.95 20.05 A7 7 0 1 0 23 32 A7 7 0 1 1 18.05 43.95"/>
+    <!-- 3 — both bowls open left, so they stack into a single spine. -->
+    <path d="M36.05 20.05 A7 7 0 1 1 41 32 A7 7 0 1 1 36.05 43.95"/>
+  </g>
+</svg>
