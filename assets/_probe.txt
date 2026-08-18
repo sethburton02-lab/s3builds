@@ -1,0 +1,9 @@
+A deliberately boring text file, used to find out whether Cloudflare is
+serving this folder at all.
+
+The site's 164 image files under assets/ are in the repo and in the
+deployed commit, but every one 404s on the live site, while data/ — one
+file, same commit, same push — serves fine. That difference is the whole
+mystery, and a text file is easier to test than a PNG.
+
+Safe to delete once assets/ is working.
