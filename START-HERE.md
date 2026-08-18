@@ -128,9 +128,20 @@ somewhere other than your own computer.
 
 ## Making changes later
 
-Edit the files in `C:\Users\sethb\Downloads\RiftVault`, then upload the
-changed ones to GitHub the same way as Step 1. Cloudflare notices and
-redeploys in about a minute. There's no other step.
+Edit the files in `C:\Users\sethb\Documents\s3builds`, then commit and push.
+Cloudflare notices and redeploys in about a minute.
+
+**If you changed a `.js` or `.css` file, run this first:**
+
+```
+python tools/bump-version.py
+```
+
+It renumbers `site.js?v=94` to `?v=95` everywhere. Skip it and the deploy
+still happens, but browsers and Cloudflare's edge can keep serving the old
+copy of the file from cache — the site looks unchanged and there is nothing
+wrong to find, because nothing is wrong except which bytes are being run.
+That cost a full debugging session once; the number is what stops it.
 
 ---
 

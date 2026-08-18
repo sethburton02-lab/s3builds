@@ -166,6 +166,14 @@ let MY_VOTES = new Set();
 let PROFILES = {};       /* user id -> {id, name, avatar, joined} */
 let LOADED = false;
 
+/* LOADED means "the server answered and we have its data". SETTLED means
+   "we tried". They are not the same, and conflating them is why the header
+   could sit on its … placeholder forever: the placeholder was shown while
+   !LOADED, so a failed load looked identical to a load still in flight.
+   A failure has an answer too — signed out, no backend — and the UI is
+   entitled to draw it. */
+let SETTLED = false;
+
 /* Every profile, loaded once. There is one row per person who has ever
    published, which for a long time will be a smaller table than the
    guides one — so fetching all of them costs less than fetching the
@@ -211,7 +219,7 @@ function toRow(guide, slug, authorId, authorName){
    is synchronous. A failure here is not fatal: the site falls back to what
    is in this browser and says so, rather than showing a blank page. */
 async function loadStore(){
-  if(!SB.on){ LOADED = true; return false; }
+  if(!SB.on){ LOADED = true; SETTLED = true; return false; }
   captureSession();
   await loadMe();
   try{
@@ -229,11 +237,13 @@ async function loadStore(){
       if(p){ ME.name = p.name; ME.avatar = p.avatar; ME.named = true; }
     }
     LOADED = true;
+    SETTLED = true;
     announceLoaded();
     return true;
   }catch(err){
     console.warn("Guides unavailable, using this browser only:", err.message);
     LOADED = false;
+    SETTLED = true;
     announceLoaded();
     return false;
   }
@@ -258,6 +268,10 @@ function announceLoaded(){
 
 const STORE = {
   live: () => SB.on && LOADED,
+
+  /* Has loadStore() finished, whatever the outcome. Anything that draws a
+     spinner should ask this and not live(). */
+  settled: () => SETTLED,
 
   read(){ return CACHE; },
 

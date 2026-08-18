@@ -112,7 +112,9 @@ global.__listeners = listeners;
 
 let src = "";
 for(const m of html.matchAll(/<script src="([^"]+)"><\/script>/g))
-  src += fs.readFileSync(path.join(dir, m[1]), "utf8") + "\n;\n";
+  /* split("?") drops the ?v= cache-buster; it belongs to the URL, not
+     to the filename on disk. See tools/bump-version.py. */
+  src += fs.readFileSync(path.join(dir, m[1].split("?")[0]), "utf8") + "\n;\n";
 for(const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) src += m[1] + "\n;\n";
 for(const m of src.matchAll(/id="([\w-]+)"/g)) if(!byId.has(m[1])) byId.set(m[1], new El());
 

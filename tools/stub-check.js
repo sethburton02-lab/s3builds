@@ -110,7 +110,10 @@ function checkPage(dir, file){
 
   let src = "", failed = false;
   for(const m of html.matchAll(/<script src="([^"]+)"><\/script>/g)){
-    const p = path.join(dir, m[1]);
+    /* Strip the ?v= cache-buster: it is part of the URL the browser asks
+       for and no part of the filename on disk. See tools/bump-version.py
+       for why the number is there at all. */
+    const p = path.join(dir, m[1].split("?")[0]);
     if(!fs.existsSync(p)){ console.log(`  ${file}: missing ${m[1]}`); failed = true; continue; }
     src += fs.readFileSync(p, "utf8") + "\n;\n";
   }

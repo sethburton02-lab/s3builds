@@ -104,6 +104,7 @@ node tools/guide-render.js .     # the guide view end to end
 node tools/home-check.js .       # filters, sort, empty states
 python3 tools/contrast-check.py .          # WCAG AA on both surfaces
 python3 tools/check-data.py <lol-game-data> # data vs. the client's own files
+python3 tools/bump-version.py --check      # every asset URL carries ?v=
 ```
 
 `check-data.py` needs a path to an extracted `rcp-be-lol-game-data` plugin

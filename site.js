@@ -989,8 +989,15 @@ currentUser = function(){
 /* Whether we simply don't know yet. Between first paint and loadStore()
    resolving there is no answer, and guessing produces the flicker above. */
 function accountPending(){
-  try{ return realAccounts() && typeof STORE !== "undefined" && !STORE.live(); }
-  catch(_){ return false; }
+  try{
+    if(!realAccounts() || typeof STORE === "undefined") return false;
+    /* settled(), not live(). live() is false both while the request is in
+       flight AND after it has failed, so keying the placeholder on it meant
+       a failed load showed … for the rest of the session with no way out.
+       A failure is an answer: signed out, offline, here is a Sign in
+       button. The fallback keeps this working against an older store. */
+    return typeof STORE.settled === "function" ? !STORE.settled() : !STORE.live();
+  }catch(_){ return false; }
 }
 
 /* A leftover from before real accounts existed. Left in place it does
