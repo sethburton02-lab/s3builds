@@ -144,6 +144,18 @@ function checkPage(dir, file){
     failed = true;
   }
 
+  /* Building a URL by chopping ".html" out of location.href works on a
+     local file and breaks on the live site, where Cloudflare serves pages
+     at extensionless paths. "Open this guide" pointed at
+     /createguide.html?g=… for exactly this reason. new URL(path, href)
+     resolves correctly on both. The comment explaining the old bug is
+     allowed; the code is not. */
+  const surgery = html.match(/^(?!\s*(\*|\/\/|#)).*location\.(href|pathname)\.replace\s*\(\s*\/[^/]*\\?\.html/gm);
+  if(surgery){
+    console.log(`  ${file}: builds a URL by string-editing location.href — use new URL()`);
+    failed = true;
+  }
+
   /* A page that loads guide-store.js but never calls loadStore() gets an
      empty cache, so backendLive() answers false and the page silently uses
      localStorage instead of the database. It looks completely fine. Every

@@ -10,13 +10,15 @@
 #     /masteries      /create   301
 #     /masteries.html /create   301
 # and art/masteries/ was the one folder whose images would not load, while
-# art/runes/ beside it was fine. A bare path in this file is supposed to
-# match exactly, so /masteries should never have touched
-# /art/masteries/512_on.png — but that folder was the only thing in the
-# entire configuration named "masteries", and it was the only folder
-# failing. Removing the rules costs nothing to find out: masteries.html
-# carries its own meta refresh to the creator, so bookmarks still work
-# without any rule here at all.
+# art/runes/ beside it was fine. Removing the two rules fixed it, which
+# CONFIRMS the behaviour: Cloudflare matches a bare path here as a PREFIX,
+# not exactly. `/masteries` was swallowing `/art/masteries/512_on.png`.
+#
+# That is worth remembering before adding anything back. A rule named after
+# a word that also appears anywhere in a folder path will capture that
+# whole subtree, silently, with a 301 that browsers then cache.
+# masteries.html carries its own meta refresh to the creator, so bookmarks
+# work with no rule here at all.
 #
 # The pattern across both mistakes is the same. Every rule in this file has
 # been either useless or actively harmful, and the platform's defaults were

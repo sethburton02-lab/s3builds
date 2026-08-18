@@ -40,8 +40,11 @@
   RewriteCond %{HTTP_HOST} ^www\.s3builds\.net$ [NC]
   RewriteRule ^(.*)$ https://s3builds.net/$1 [R=301,L]
 
-  # The masteries page was folded into the creator.
-  RewriteRule ^masteries(\.html)?$ /create.html [R=301,L]
+  # No masteries rule here either. Apache anchors with ^...$ so it would be
+  # a genuinely exact match — unlike Cloudflare, which treats the same rule
+  # as a prefix and ate every image under art/masteries/. Dropped anyway so
+  # the two files can't drift into disagreeing; masteries.html redirects
+  # itself with a meta refresh.
 
   # Extensionless URLs: /items rather than /items.html. Deliberately NOT a
   # catch-all — a catch-all turns every typo into the home page and hides

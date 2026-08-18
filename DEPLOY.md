@@ -60,9 +60,12 @@ actually stops a hostile guide. See the note at the top of `_headers` for the
 one real weakness (`'unsafe-inline'` on `script-src`) and what removing it
 would take.
 
-**`_redirects`** — extensionless URLs, and `masteries.html` → the creator.
-Deliberately *no* SPA catch-all: a catch-all turns every typo into the home
-page and hides broken links from whoever is testing.
+**`_redirects`** — deliberately empty, and the file explains why at length.
+Every rule ever put in it was either useless or actively broke the site:
+extensionless-URL rewrites caused an infinite redirect (Cloudflare already
+does that itself), and a `/masteries` rule matched as a *prefix* and
+swallowed every image under `art/masteries/`. Cloudflare's defaults are
+correct on their own. Add nothing here without testing it.
 
 ## Why the art folder is called `art` and not `assets`
 

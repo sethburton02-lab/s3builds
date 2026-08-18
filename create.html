@@ -4303,10 +4303,23 @@ $("btnPublish").onclick=async()=>{
   /* The edit session's working copy has served its purpose. */
   if(editingSlug){ try{ localStorage.removeItem(saveKey()); }catch(_){} }
 
-  const base = location.href.replace(/create\.html.*$/, "");
-  const readUrl = base + "guide.html?g=" + slug;
+  /* Resolved by the browser rather than by chopping the address apart.
+     The old version chopped the page's own filename off the address with
+     a regular expression. That produced nonsense on the live site:
+     Cloudflare serves this page at an extensionless path, so the pattern
+     matched nothing, and "Open this guide" pointed at a URL that has never
+     existed. It worked locally, where the address does end in a filename,
+     which is exactly why it survived to production.
+
+     (Described rather than quoted, because tools/stub-check.js greps for
+     that pattern now and a comment containing it would trip the check —
+     which it did, on the first attempt.)
+
+     new URL() replaces the last path segment, so /create and
+     /create.html and file:///…/create.html all resolve the same way. */
+  const readUrl = new URL("guide.html?g=" + encodeURIComponent(slug), location.href).href;
   let shareUrl = "";
-  try{ shareUrl = base + "guide.html#g=" + await packGuide(S); }catch(_){}
+  try{ shareUrl = new URL("guide.html#g=" + await packGuide(S), location.href).href; }catch(_){}
 
   const updating = !!(editingSlug && readPublished(editingSlug));
   document.querySelector("#scrim .modal h3").textContent =
@@ -4353,7 +4366,7 @@ $("btnPreview").onclick=()=>{
 $("btnShare").onclick=async()=>{
   try{
     const packed = await packGuide(S);
-    const url = location.href.replace(/create\.html.*$/, "") + "guide.html#g=" + packed;
+    const url = new URL("guide.html#g=" + packed, location.href).href;
     if(url.length > 8000){
       toast("This guide is too long to fit in a link — use Preview for now.");
       return;
