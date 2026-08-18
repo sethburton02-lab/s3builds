@@ -1,23 +1,24 @@
-# Cloudflare Pages redirects.
+# Cloudflare redirects.
 #
-# ---- what was here before, and why it broke the site ----
+# ---- history, because this file has been wrong twice ----
 #
-# This file used to rewrite /champions -> /champions.html, and the same for
-# items, runes, spells and write, to get extensionless URLs.
+# First it rewrote /champions -> /champions.html and friends, to get
+# extensionless URLs. Cloudflare already does that itself, so the rules
+# made an infinite redirect and every nav tab died.
 #
-# Cloudflare Pages already does that. It serves /champions for
-# champions.html AND 301-redirects /champions.html -> /champions on its own.
-# So the rules made a loop: a link to champions.html got redirected to
-# /champions by Cloudflare, rewritten back to /champions.html by this file,
-# redirected again, forever. Every nav tab was dead.
+# Then it had:
+#     /masteries      /create   301
+#     /masteries.html /create   301
+# and art/masteries/ was the one folder whose images would not load, while
+# art/runes/ beside it was fine. A bare path in this file is supposed to
+# match exactly, so /masteries should never have touched
+# /art/masteries/512_on.png — but that folder was the only thing in the
+# entire configuration named "masteries", and it was the only folder
+# failing. Removing the rules costs nothing to find out: masteries.html
+# carries its own meta refresh to the creator, so bookmarks still work
+# without any rule here at all.
 #
-# The lesson is the boring one: I wrote rules for a platform behaviour I
-# had not checked. Pages needs no help here — the pretty URLs work with
-# this file empty.
-
-# The masteries page was folded into the guide creator. This one IS a real
-# redirect — a different page, not a different spelling of the same one —
-# so it cannot loop. masteries.html also carries a meta refresh, which
-# covers anyone who has it bookmarked and arrives before this rule applies.
-/masteries      /create      301
-/masteries.html /create      301
+# The pattern across both mistakes is the same. Every rule in this file has
+# been either useless or actively harmful, and the platform's defaults were
+# right on their own. An empty file is the correct amount of configuration
+# for a static site on Cloudflare.
