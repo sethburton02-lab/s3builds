@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=92">
+<link rel="stylesheet" href="site.css?v=93">
 <style>
   /* Everything on this page is real: the site's chrome, the mode's own
      champion art, and whatever has actually been published. There is no
@@ -457,7 +457,7 @@ paint();
    empty, backendLive() answers false, and every page falls back to this
    browser's localStorage — a site that looks like it works and quietly
    isn't using the database at all. */
-loadStore().then(() => { signInLanding(); paint(); }).catch(err => console.warn("Guides unavailable:", err.message));
+loadStore().then(paint).catch(err => console.warn("Guides unavailable:", err.message));
 
 /* The roster arrives over the network; the page is useful before it does
    and simply gets better when it lands. */

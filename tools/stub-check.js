@@ -156,13 +156,12 @@ function checkPage(dir, file){
     failed = true;
   }
 
-  /* Arriving back from a magic link strips the token from the URL, so a
-     page that doesn't announce it leaves the reader guessing whether the
-     click worked. Every page that loads the store should say so. */
-  if(/guide-store\.js/.test(html) && !/signInLanding\(\)/.test(html)){
-    console.log(`  ${file}: loads the store but never calls signInLanding()`);
-    failed = true;
-  }
+  /* There used to be a check here that every page calls signInLanding().
+     It is gone because the obligation is gone: loadStore() now fires an
+     event and site.js repaints the header and announces the landing for
+     every page at once. A per-page duty that a lint has to enforce is a
+     design smell — the home page forgot it, sat on a loading placeholder
+     forever, and never showed a Sign in button. */
 
   /* A page that loads guide-store.js but never calls loadStore() gets an
      empty cache, so backendLive() answers false and the page silently uses

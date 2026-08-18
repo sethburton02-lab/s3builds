@@ -229,12 +229,26 @@ async function loadStore(){
       if(p){ ME.name = p.name; ME.avatar = p.avatar; ME.named = true; }
     }
     LOADED = true;
+    announceLoaded();
     return true;
   }catch(err){
     console.warn("Guides unavailable, using this browser only:", err.message);
     LOADED = false;
+    announceLoaded();
     return false;
   }
+}
+
+/* The header is painted before this file has an answer, so it shows a
+   placeholder and has to be told when one arrives. Every page used to be
+   responsible for calling paintAccount() again afterwards, and the home
+   page didn't — so it sat on the placeholder forever and the Sign in
+   button never appeared at all.
+
+   An event removes the obligation. Fired on failure too: "we couldn't
+   reach the server" still has to replace the spinner with something. */
+function announceLoaded(){
+  try{ dispatchEvent(new CustomEvent("s3:store-loaded")); }catch(_){}
 }
 
 /* ---------- what guide-load.js calls ----------

@@ -1124,25 +1124,59 @@ function paintAccount(){
       : `<button type="button" class="btn btn-sm" data-acct="in">Sign in</button>`;
 }
 
+/* The store finished (or failed). Repaint the header from what it knows
+   now, and say so if we've just come back from an email link. */
+addEventListener("s3:store-loaded", () => {
+  paintAccount();
+  signInLanding();
+});
+
 /* Opening the sign-in form. Rendered next to the button rather than as a
    modal: it is one field, and it should not take the page away from
    someone who clicked it by accident. */
+/* A real dialog. <dialog> rather than a hand-rolled overlay: it traps
+   focus, closes on Escape, and renders above everything without a z-index
+   argument — all things a div would have to reimplement badly. */
+function signInDialog(){
+  let d = document.getElementById("signinDlg");
+  if(d) return d;
+  d = document.createElement("dialog");
+  d.id = "signinDlg";
+  d.className = "signin-dlg";
+  d.innerHTML = `
+    <form method="dialog" class="signin-close-row">
+      <button class="signin-x" value="cancel" aria-label="Close">×</button>
+    </form>
+    <div class="signin-body">
+      <h2>Sign in to S3 Builds</h2>
+      <p class="signin-lede">No password. We'll email you a link that signs you
+        straight in.</p>
+      <form class="acct-in" id="acctIn">
+        <input type="email" name="email" required placeholder="you@example.com"
+               aria-label="Email address" autocomplete="email">
+        <button type="submit" class="btn btn-gold">Send the link</button>
+      </form>
+      <p class="signin-fine">You need an account to publish a guide or upvote one.
+        Reading needs nothing.</p>
+    </div>`;
+  document.body.appendChild(d);
+  /* Clicking the backdrop closes it. A dialog's own rect is the whole
+     element, so a click landing outside those bounds is the backdrop. */
+  d.addEventListener("click", ev => {
+    const r = d.getBoundingClientRect();
+    const inside = ev.clientX >= r.left && ev.clientX <= r.right &&
+                   ev.clientY >= r.top  && ev.clientY <= r.bottom;
+    if(!inside) d.close();
+  });
+  return d;
+}
+
 document.addEventListener("click", e => {
   if(!e.target.closest('[data-acct="open"]')) return;
-  const box = document.getElementById("account");
-  if(!box) return;
-  box.innerHTML = `<form class="acct-in" id="acctIn">
-      <input type="email" name="email" required placeholder="you@example.com"
-             aria-label="Email address" autocomplete="email" autofocus>
-      <button type="submit" class="btn btn-sm btn-gold">Send link</button>
-      <button type="button" class="btn btn-sm btn-ghost" data-acct="cancel">Cancel</button>
-    </form>
-    <span class="acct-why">No password — we'll email you a link.</span>`;
-  const input = box.querySelector("input");
-  if(input) input.focus();
-});
-document.addEventListener("click", e => {
-  if(e.target.closest('[data-acct="cancel"]')) paintAccount();
+  const d = signInDialog();
+  d.showModal();
+  const input = d.querySelector("input");
+  if(input){ input.value = ""; input.focus(); }
 });
 
 /* Email, no password. Supabase mails a link; following it lands back here
@@ -1160,7 +1194,13 @@ document.addEventListener("submit", async e => {
   btn.disabled = true; btn.textContent = "Sending…";
   try{
     await sendMagicLink(email);
-    form.outerHTML = `<span class="acct-sent">Check ${esc(email)} for a sign-in link.</span>`;
+    const body = form.closest(".signin-body") || form.parentElement;
+    body.innerHTML = `<h2>Check your email</h2>
+      <p class="signin-lede">A sign-in link is on its way to
+        <b>${esc(email)}</b>. Open it on this device and you'll land back here,
+        signed in.</p>
+      <p class="signin-fine">Nothing yet? Look in spam — and note the free tier
+        only sends a handful of these an hour.</p>`;
   }catch(err){
     btn.disabled = false; btn.textContent = "Send link";
     /* Replaced rather than appended: clicking twice used to stack two

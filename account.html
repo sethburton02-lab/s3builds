@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=92">
+<link rel="stylesheet" href="site.css?v=93">
 </head>
 <body>
 <div id="main" class="wrap"></div>
@@ -144,8 +144,7 @@ function wire(){
     try{
       await STORE.saveProfile({name, avatar: currentUser().avatar || null});
       say("Saved.");
-      paintAccount();
-      signInLanding();               /* the header carries the name too */
+      paintAccount();               /* the header carries the name too */
     }catch(err){
       say(err.message, true);
     }finally{ save.disabled = false; }
