@@ -1,18 +1,23 @@
 # Cloudflare Pages redirects.
 #
-# The site is a set of real .html files, so there is no SPA catch-all here
-# — a catch-all would turn every typo into the home page and hide broken
-# links from anyone testing, including me.
+# ---- what was here before, and why it broke the site ----
+#
+# This file used to rewrite /champions -> /champions.html, and the same for
+# items, runes, spells and write, to get extensionless URLs.
+#
+# Cloudflare Pages already does that. It serves /champions for
+# champions.html AND 301-redirects /champions.html -> /champions on its own.
+# So the rules made a loop: a link to champions.html got redirected to
+# /champions by Cloudflare, rewritten back to /champions.html by this file,
+# redirected again, forever. Every nav tab was dead.
+#
+# The lesson is the boring one: I wrote rules for a platform behaviour I
+# had not checked. Pages needs no help here — the pretty URLs work with
+# this file empty.
 
-# Extensionless URLs, because /items reads better than /items.html and is
-# what people will type.
-/champions      /champions.html   200
-/items          /items.html       200
-/runes          /runes.html       200
-/spells         /spells.html      200
-/guides         /index.html#guides 302
-/write          /create.html      200
-
-# The masteries page was folded into the creator.
-/masteries      /create.html      301
-/masteries.html /create.html      301
+# The masteries page was folded into the guide creator. This one IS a real
+# redirect — a different page, not a different spelling of the same one —
+# so it cannot loop. masteries.html also carries a meta refresh, which
+# covers anyone who has it bookmarked and arrives before this rule applies.
+/masteries      /create      301
+/masteries.html /create      301

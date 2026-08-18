@@ -1,0 +1,17 @@
+# Nothing here is built, so there is very little to ignore — that is the
+# point of a site with no build step.
+
+# Windows and macOS leave these in every folder they touch.
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editor scratch.
+*.swp
+*~
+.vscode/
+.idea/
+
+# If anything is ever generated locally, it goes here rather than beside
+# the real files.
+/tmp/

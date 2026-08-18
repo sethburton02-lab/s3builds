@@ -143,6 +143,11 @@ is `/` and the build command is empty.
 or the nameservers at DreamHost didn't save. Check Cloudflare says the
 domain is Active.
 
+**A tab gives "too many redirects".** An old copy of `_redirects` is
+still deployed. Re-upload it and wait for the deploy to finish, then
+hard-refresh with Ctrl+Shift+R — a 301 is cached by the browser, so the
+loop can outlive the fix.
+
 **The site loads but there are no guides and sign-in does nothing.** The
 browser is blocking the database. Press F12 → Console; if you see a
 Content-Security-Policy error mentioning supabase.co, the domain in

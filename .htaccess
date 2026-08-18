@@ -46,6 +46,12 @@
   # Extensionless URLs: /items rather than /items.html. Deliberately NOT a
   # catch-all — a catch-all turns every typo into the home page and hides
   # broken links from whoever is testing.
+  #
+  # These are CORRECT here and wrong on Cloudflare. Apache serves exactly
+  # the path asked for; Cloudflare Pages rewrites .html to clean URLs by
+  # itself, and adding these there made an infinite redirect. Same intent,
+  # opposite requirement — which is why _redirects is nearly empty and this
+  # is not.
   RewriteRule ^champions$ /champions.html [L]
   RewriteRule ^items$     /items.html     [L]
   RewriteRule ^runes$     /runes.html     [L]

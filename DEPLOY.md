@@ -120,14 +120,23 @@ Everything below is unfinished, in the order I'd do it.
 
 ## Two things that are not code problems
 
-**The fonts.** `site.css` asks for *Friz Quadrata Pro* and *Gill Sans MT
-Pro*. These are commercial typefaces from ITC and Monotype. Riot's fan
-content policy covers *Riot's* assets and says nothing about third-party
-ones, so it does not cover these. Right now the site only names them and
-falls back to Georgia and Optima, which is the low-risk arrangement — **no
-font files are served**, so nothing is being redistributed. Keep it that
-way. If the site ever self-hosts a `.woff2` of either, that is a licensing
-decision with a real cost attached, not a technical one.
+**The fonts.** `site.css` serves *Friz Quadrata Pro* and *Gill Sans MT
+Pro* from `assets/fonts/` via `@font-face`. These are commercial typefaces
+from ITC and Monotype. Riot's fan-content policy covers *Riot's* assets and
+says nothing about third-party ones, so it does not cover these — every
+visitor downloads two font files nobody here has a webfont licence for.
+
+An earlier version of this file said no font files were served and that the
+arrangement was low-risk. **That was wrong**, and it was wrong in the
+direction that matters: it described the safe setup while the unsafe one
+was already in place. Seth has read the corrected version and chosen to
+publish them anyway, which is his call to make — but it is a real exposure,
+not a theoretical one, and it is the first thing to change if a foundry
+ever gets in touch.
+
+Backing it out is three lines: delete the `@font-face` blocks at the top of
+`site.css` and the `assets/fonts/` folder. The stacks fall through to
+Georgia and Optima, which are close in weight and shape.
 
 **Riot's assets.** Champion, item and rune art is loaded from Riot's own
 CDNs under the Legal Jibber Jabber fan content policy. The footer disclaimer
