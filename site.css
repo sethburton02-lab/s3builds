@@ -1257,3 +1257,25 @@ body.creator .wrap{max-width:min(1660px,96vw)}
 .signin-dlg .acct-in{flex-direction:column;align-items:stretch;gap:8px}
 .signin-dlg .acct-in input{width:100%;padding:10px 12px;font-size:15px}
 .signin-dlg .acct-err{margin-top:8px}
+
+/* A button that reads as a link. The three faces of the dialog swap the
+   panel in place rather than navigating, so these must be <button>s — an
+   <a href="#"> here would put a junk entry in the back history and, on a
+   page reached by an email link, "back" is not somewhere anyone wants to
+   go. Styled to look like what they do. */
+.linkish{border:0;background:none;padding:0;font:inherit;color:var(--gold-hi);
+  cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.linkish:hover{color:var(--text)}
+.signin-sep{margin:0 6px;color:var(--muted-2)}
+
+/* The password field is the same stack, named separately so a future
+   change to one form doesn't silently move the other two. */
+.signin-dlg .acct-in-pw{gap:8px}
+
+/* Setting a password from the account page. */
+.acct-pw{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 0}
+.acct-pw input{width:260px;max-width:100%;padding:8px 11px;font-size:14px;
+  font-family:inherit;color:var(--text);background:var(--bg-2);
+  border:1px solid var(--line);border-radius:8px}
+.acct-pw input:focus{border-color:#c8aa6e;box-shadow:0 0 0 2px hsla(43,47%,60%,.45);
+  outline:none}

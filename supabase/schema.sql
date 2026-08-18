@@ -140,3 +140,82 @@ create trigger guides_limit before insert on public.guides
 -- table owner and need no EXECUTE grant, so the grant is pure exposure.
 revoke execute on function public.sync_vote_count()         from anon, authenticated, public;
 revoke execute on function public.guides_per_author_limit() from anon, authenticated, public;
+
+
+-- ============================================================
+-- PROFILES
+--
+-- Added after the tables above, through migrations rather than by editing
+-- this file, so for a while the live database had a table the schema did
+-- not mention. This section is transcribed back from the running database;
+-- it is what is actually there.
+--
+-- A display name is not on auth.users because auth.users is not readable
+-- by other people. A byline has to be, or every guide on the site is by
+-- an anonymous uuid.
+-- ============================================================
+
+create table if not exists public.profiles (
+  id           uuid primary key references auth.users(id) on delete cascade,
+  name         text not null check (length(name) between 2 and 24),
+  avatar_champ text,
+  created_at   timestamptz not null default now()
+);
+
+-- Names are unique case-insensitively. author.html addresses a person by
+-- name, so two people called "Seth" would make one of the two pages
+-- unreachable.
+create unique index if not exists profiles_name_key
+  on public.profiles (lower(name));
+
+alter table public.profiles enable row level security;
+
+-- Anyone may read a profile: it is a public byline, and the site renders
+-- author pages for signed-out visitors.
+drop policy if exists profiles_read   on public.profiles;
+drop policy if exists profiles_insert on public.profiles;
+drop policy if exists profiles_update on public.profiles;
+
+create policy profiles_read   on public.profiles for select using (true);
+create policy profiles_insert on public.profiles for insert
+  with check ((select auth.uid()) = id);
+create policy profiles_update on public.profiles for update
+  using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
+
+-- Column privileges, same pattern as guides: RLS chooses the ROW, grants
+-- choose the COLUMNS. created_at is not writable by anyone.
+revoke update on public.profiles from anon, authenticated;
+grant  update (name, avatar_champ) on public.profiles to authenticated;
+
+-- And id, which is not as strange as it looks.
+--
+-- The client saves a profile with one upsert (POST, Prefer:
+-- resolution=merge-duplicates). PostgREST expands that to
+--     on conflict (id) do update set id = excluded.id, name = ..., ...
+-- listing every column in the payload, the conflict target included. Without
+-- update(id) the whole statement is refused with 42501, which PostgREST
+-- returns as 403 — and a 403 read as "not signed in", so the symptom was
+-- an account page that claimed you were signed out while showing your email.
+--
+-- It grants nothing real: profiles_update requires auth.uid() = id in both
+-- USING and WITH CHECK, so the only value that can be written to id is the
+-- one already in the row. Verified — reassigning id to another uuid is
+-- refused, and rows belonging to other people are not visible to update.
+grant update (id) on public.profiles to authenticated;
+
+-- A rename has to follow the guides already published, or every old guide
+-- keeps the old byline until its row is next written.
+create or replace function public.sync_author_name() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.name is distinct from old.name then
+    update public.guides set author_name = new.name where author_id = new.id;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists profiles_rename on public.profiles;
+create trigger profiles_rename after update on public.profiles
+  for each row execute function public.sync_author_name();
+
+revoke execute on function public.sync_author_name() from anon, authenticated, public;

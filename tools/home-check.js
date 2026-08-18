@@ -89,6 +89,13 @@ global.document = {
 global.window = global; global.self = global;
 global.location = {href:"file:///index.html", search:"", hash:"", protocol:"file:"};
 global.navigator = {userAgent:"stub"};
+/* The seeded guides, reachable from the appended checks. Those run through
+   indirect eval, so they see globals only — and the page's own guide-store.js
+   declares a global called STORE, which is a completely different object.
+   Reseeding from `STORE` in there silently wrote the Supabase adapter into
+   the guide list and produced an empty page, not an error. */
+global.__SEEDED_GUIDES = JSON.stringify(STORE);
+
 global.localStorage = {
   _d: new Map([
     ["riftvault.published.v1", JSON.stringify(STORE)],
@@ -305,6 +312,54 @@ src += `
     repaintAll();
     return !main().includes("unpublished draft");
   });
+
+  /* ---- the card is one element, not three ----
+     A guide card contains a link to the guide AND a link to the author. It
+     used to be built as an <a> wrapping both, which is invalid: the parser
+     closes the outer anchor at the inner one and promotes the rest of the
+     card to siblings. In a grid container those siblings become their own
+     cells, so one guide rendered as a portrait box, a text box, and a loose
+     vote tally.
+     Nothing caught it. The string this function returns LOOKS like one
+     element — the damage happens in the parser, which no string assertion
+     sees. So this counts anchor depth the way a parser would, over the real
+     rendered markup rather than over an assumption about it. */
+  console.log("\\nthe card survives being parsed:");
+
+  const anchorDepth = html => {
+    let depth = 0, worst = 0;
+    for(const m of html.matchAll(/<(\\/?)a\\b[^>]*>/g)){
+      depth += m[1] ? -1 : 1;
+      if(depth > worst) worst = depth;
+    }
+    return worst;
+  };
+
+  check("a card nests no anchors", () => {
+    /* The empty-site checks above cleared the store. Put it back — this
+       needs a guide that HAS an author, because the byline is the second
+       anchor and the whole bug is about two anchors in one card. */
+    localStorage.setItem("riftvault.published.v1", __SEEDED_GUIDES);
+    repaintAll();
+    const card = /<article class="h-guide"[\\s\\S]*?<\\/article>/.exec(zone());
+    if(!card) return false;
+    return anchorDepth(card[0]) === 1;
+  });
+
+  check("  and the byline is still a link", () => {
+    const card = /<article class="h-guide"[\\s\\S]*?<\\/article>/.exec(zone());
+    return !!card && card[0].includes("author.html?u=");
+  });
+
+  check("  and the title is still a link", () => {
+    const card = /<article class="h-guide"[\\s\\S]*?<\\/article>/.exec(zone());
+    return !!card && /<a class="h-guide-link" href="guide\\.html\\?g=/.test(card[0]);
+  });
+
+  /* Mutation guard: the depth counter must actually be able to fail, or the
+     three checks above are decoration. */
+  check("  (the counter notices a nested anchor)", () =>
+    anchorDepth('<article><a href="x"><a href="y">z</a></a></article>') === 2);
 
   console.log(failed ? "\\n" + failed + " failure(s)" : "\\nthe home page holds up");
   if(failed) process.exitCode = 1;

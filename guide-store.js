@@ -83,6 +83,15 @@ function friendlyError(data, status){
     return "You've already voted on this guide.";
   if(/duplicate key/i.test(msg))       return "A guide with that address already exists.";
   if(/row-level security/i.test(msg))  return "That isn't yours to change.";
+  /* Postgres says "permission denied for table x" for a missing column
+     GRANT, and that is a server misconfiguration, not a signed-out user.
+     Mapping it onto the 401/403 branch below produced "You need to be
+     signed in to do that." on an account page that was showing the user's
+     own email address at the time — an error message that described the
+     one thing that definitely wasn't wrong, and cost an hour of looking at
+     the auth code. Say what it is instead. */
+  if(/permission denied/i.test(msg))
+    return "The server refused that change. This is a fault on our side, not yours.";
   if(/100 guides/i.test(msg))          return "You've reached the limit of 100 guides.";
   if(/violates check constraint/i.test(msg)) return "Something in that guide is too long.";
   if(status === 401 || status === 403) return "You need to be signed in to do that.";
@@ -98,11 +107,82 @@ function friendlyError(data, status){
    letting someone post a build. */
 async function sendMagicLink(email){
   if(!SB.on) throw new Error("Accounts aren't switched on yet.");
-  await sbFetch("/auth/v1/otp", {
+  /* redirect_to is a QUERY parameter on the REST endpoint. It was written
+     here as body.options.email_redirect_to, which is the JavaScript SDK's
+     shape — GoTrue ignores it, and links came back to the project's Site
+     URL instead. That happened to be the right host, so it worked and hid
+     the mistake; it just always dropped you on the home page rather than
+     the page you were reading. */
+  const back = encodeURIComponent(location.origin + location.pathname);
+  await sbFetch(`/auth/v1/otp?redirect_to=${back}`, {
     method: "POST", auth: false,
-    body: {email: String(email || "").trim(),
-           options: {email_redirect_to: location.origin + location.pathname}}
+    body: {email: String(email || "").trim()}
   });
+}
+
+/* ---- passwords ----
+   The primary way in. The email link stayed because it is the only way to
+   recover an account and the only way into accounts that predate this, but
+   a link costs a trip to an inbox on every sign-in and that is a lot of
+   friction for reading a Kog'Maw guide.
+
+   GoTrue returns the session in the response body here rather than in a URL
+   fragment, so there is nothing to capture and no redirect to survive. */
+function keepSession(s){
+  if(!s || !s.access_token) throw new Error("That didn't return a session.");
+  setSession({
+    access_token: s.access_token,
+    refresh_token: s.refresh_token || "",
+    /* GoTrue gives expires_in (seconds from now); session() wants an
+       absolute epoch. Storing the wrong one of these means a token that is
+       either never trusted or trusted long after it died. */
+    expires_at: s.expires_at || Math.floor(Date.now() / 1000) + (s.expires_in || 3600)
+  });
+  return s;
+}
+
+async function signInPassword(email, password){
+  if(!SB.on) throw new Error("Accounts aren't switched on yet.");
+  const s = await sbFetch("/auth/v1/token?grant_type=password", {
+    method: "POST", auth: false,
+    body: {email: String(email || "").trim(), password: String(password || "")}
+  });
+  keepSession(s);
+  return loadMe();
+}
+
+async function signUpPassword(email, password){
+  if(!SB.on) throw new Error("Accounts aren't switched on yet.");
+  if(String(password || "").length < 8)
+    throw new Error("Pick a password of at least 8 characters.");
+  const r = await sbFetch("/auth/v1/signup", {
+    method: "POST", auth: false,
+    body: {email: String(email || "").trim(), password: String(password || "")}
+  });
+  /* Two shapes come back depending on whether the project asks for email
+     confirmation. With confirmation off there is a session and the person
+     is in; with it on there is only a user, and they have to go and click
+     something. Returning which one happened lets the dialog say so. */
+  if(r && r.access_token){ keepSession(r); await loadMe(); return {signedIn: true}; }
+  return {signedIn: false, confirm: true};
+}
+
+/* Setting a password on an account that has never had one — every account
+   created before this existed. Needs a live session, which is exactly what
+   an email link provides. */
+async function setPassword(password){
+  if(String(password || "").length < 8)
+    throw new Error("Pick a password of at least 8 characters.");
+  await sbFetch("/auth/v1/user", {method: "PUT", body: {password: String(password)}});
+  return true;
+}
+
+/* "I've forgotten it." Deliberately the same mail GoTrue sends for a magic
+   link — it signs them in, and once in, the account page can set a new
+   password. A separate recovery template would be a second thing to get
+   wrong for no gain at this size. */
+async function sendReset(email){
+  return sendMagicLink(email);
 }
 
 /* Tokens arrive in the fragment, which never reaches a server or a log.

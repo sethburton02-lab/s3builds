@@ -1144,28 +1144,76 @@ addEventListener("s3:store-loaded", () => {
 /* A real dialog. <dialog> rather than a hand-rolled overlay: it traps
    focus, closes on Escape, and renders above everything without a z-index
    argument — all things a div would have to reimplement badly. */
+/* The dialog has three faces — sign in, create an account, email me a link
+   — and they are one function because they share a frame and swap only the
+   middle. Three separate dialogs drifted apart the first time one of them
+   was edited.
+
+   `mode` is "in" | "up" | "link". Password is the default because it is the
+   one that doesn't need an inbox. */
+function signInBodyHtml(mode){
+  const close = `<form method="dialog" class="signin-close-row">
+      <button class="signin-x" value="cancel" aria-label="Close">×</button>
+    </form>`;
+
+  if(mode === "link") return `${close}
+    <div class="signin-body">
+      <h2>Email me a link</h2>
+      <p class="signin-lede">We'll send a link that signs you straight in — no
+        password needed. Use this if you've forgotten yours, or if your account
+        is older than passwords on this site.</p>
+      <form class="acct-in" id="acctIn">
+        <input type="email" name="email" required placeholder="you@example.com"
+               aria-label="Email address" autocomplete="email">
+        <button type="submit" class="btn btn-gold">Send the link</button>
+      </form>
+      <p class="signin-fine"><button type="button" class="linkish"
+        data-mode="in">Back to signing in</button></p>
+    </div>`;
+
+  if(mode === "up") return `${close}
+    <div class="signin-body">
+      <h2>Create an account</h2>
+      <p class="signin-lede">You need one to publish a guide or upvote one.
+        Reading needs nothing.</p>
+      <form class="acct-in acct-in-pw" id="acctUp">
+        <input type="email" name="email" required placeholder="you@example.com"
+               aria-label="Email address" autocomplete="email">
+        <input type="password" name="password" required minlength="8"
+               placeholder="Password, 8 characters or more"
+               aria-label="Password" autocomplete="new-password">
+        <button type="submit" class="btn btn-gold">Create account</button>
+      </form>
+      <p class="signin-fine">Already have one?
+        <button type="button" class="linkish" data-mode="in">Sign in</button></p>
+    </div>`;
+
+  return `${close}
+    <div class="signin-body">
+      <h2>Sign in to S3 Builds</h2>
+      <form class="acct-in acct-in-pw" id="acctPw">
+        <input type="email" name="email" required placeholder="you@example.com"
+               aria-label="Email address" autocomplete="email">
+        <input type="password" name="password" required
+               placeholder="Password" aria-label="Password"
+               autocomplete="current-password">
+        <button type="submit" class="btn btn-gold">Sign in</button>
+      </form>
+      <p class="signin-fine">
+        <button type="button" class="linkish" data-mode="up">Create an account</button>
+        <span class="signin-sep">·</span>
+        <button type="button" class="linkish" data-mode="link">Forgot your password?</button>
+      </p>
+    </div>`;
+}
+
 function signInDialog(){
   let d = document.getElementById("signinDlg");
   if(d) return d;
   d = document.createElement("dialog");
   d.id = "signinDlg";
   d.className = "signin-dlg";
-  d.innerHTML = `
-    <form method="dialog" class="signin-close-row">
-      <button class="signin-x" value="cancel" aria-label="Close">×</button>
-    </form>
-    <div class="signin-body">
-      <h2>Sign in to S3 Builds</h2>
-      <p class="signin-lede">No password. We'll email you a link that signs you
-        straight in.</p>
-      <form class="acct-in" id="acctIn">
-        <input type="email" name="email" required placeholder="you@example.com"
-               aria-label="Email address" autocomplete="email">
-        <button type="submit" class="btn btn-gold">Send the link</button>
-      </form>
-      <p class="signin-fine">You need an account to publish a guide or upvote one.
-        Reading needs nothing.</p>
-    </div>`;
+  d.innerHTML = signInBodyHtml("in");
   document.body.appendChild(d);
   /* Clicking the backdrop closes it. A dialog's own rect is the whole
      element, so a click landing outside those bounds is the backdrop. */
@@ -1181,9 +1229,99 @@ function signInDialog(){
 document.addEventListener("click", e => {
   if(!e.target.closest('[data-acct="open"]')) return;
   const d = signInDialog();
+  setSignInMode(d, "in");
   d.showModal();
-  const input = d.querySelector("input");
-  if(input){ input.value = ""; input.focus(); }
+});
+
+/* Swapping the dialog's middle. The email typed into one face is carried
+   into the next: someone who typed their address, then realised they need
+   an account, should not type it again. */
+function setSignInMode(d, mode){
+  const typed = (d.querySelector('input[name="email"]') || {}).value || "";
+  d.innerHTML = signInBodyHtml(mode);
+  const email = d.querySelector('input[name="email"]');
+  if(email) email.value = typed;
+  const focusMe = typed ? d.querySelector('input[name="password"]') || email : email;
+  if(focusMe) focusMe.focus();
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-mode]");
+  const d = document.getElementById("signinDlg");
+  if(!b || !d || !d.contains(b)) return;
+  setSignInMode(d, b.dataset.mode);
+});
+
+/* One place that reports a failure inside the dialog, so the three forms
+   cannot disagree about where the message goes or leave two stacked. */
+function signInError(form, message){
+  const old = form.parentElement.querySelector(".acct-err");
+  if(old) old.remove();
+  form.insertAdjacentHTML("afterend", `<span class="acct-err">${esc(message)}</span>`);
+}
+
+function signInDone(form, html){
+  const body = form.closest(".signin-body") || form.parentElement;
+  body.innerHTML = html;
+}
+
+/* Signing in with a password. The session comes back in the response, so
+   unlike the email link there is no navigation and nothing to capture —
+   the page just repaints as somebody. */
+document.addEventListener("submit", async e => {
+  const form = e.target.closest("#acctPw");
+  if(!form) return;
+  e.preventDefault();
+  const btn = form.querySelector("button[type=submit]");
+  btn.disabled = true; btn.textContent = "Signing in…";
+  try{
+    await signInPassword(form.email.value.trim(), form.password.value);
+    /* The cached guides were fetched as nobody: they carry no record of
+       what this person has voted on. Reload before repainting or every
+       upvote arrow shows as un-voted until the next navigation. */
+    await loadStore();
+    document.getElementById("signinDlg").close();
+    paintAccount();
+    if(typeof paint === "function") paint();
+  }catch(err){
+    btn.disabled = false; btn.textContent = "Sign in";
+    /* GoTrue says "Invalid login credentials" for a wrong password AND for
+       an email that has no password set — which is every account made
+       before this existed. Point at the way out rather than insisting the
+       password is wrong. */
+    signInError(form, /invalid login/i.test(err.message)
+      ? "That email and password don't match. If your account is older than passwords here, use “Forgot your password?” to get in by email."
+      : err.message);
+  }
+});
+
+document.addEventListener("submit", async e => {
+  const form = e.target.closest("#acctUp");
+  if(!form) return;
+  e.preventDefault();
+  const email = form.email.value.trim();
+  const btn = form.querySelector("button[type=submit]");
+  btn.disabled = true; btn.textContent = "Creating…";
+  try{
+    const r = await signUpPassword(email, form.password.value);
+    if(r.signedIn){
+      await loadStore();
+      document.getElementById("signinDlg").close();
+      paintAccount();
+      if(typeof paint === "function") paint();
+      return;
+    }
+    signInDone(form, `<h2>Check your email</h2>
+      <p class="signin-lede">Confirm your address at <b>${esc(email)}</b> and
+        you're in. The link opens back here.</p>
+      <p class="signin-fine">Nothing yet? Look in spam — the free tier only
+        sends a handful of these an hour.</p>`);
+  }catch(err){
+    btn.disabled = false; btn.textContent = "Create account";
+    signInError(form, /already registered|already been/i.test(err.message)
+      ? "There's already an account on that email. Sign in, or use “Forgot your password?”."
+      : err.message);
+  }
 });
 
 /* Email, no password. Supabase mails a link; following it lands back here
@@ -1209,12 +1347,10 @@ document.addEventListener("submit", async e => {
       <p class="signin-fine">Nothing yet? Look in spam — and note the free tier
         only sends a handful of these an hour.</p>`;
   }catch(err){
-    btn.disabled = false; btn.textContent = "Send link";
+    btn.disabled = false; btn.textContent = "Send the link";
     /* Replaced rather than appended: clicking twice used to stack two
        identical errors under the field. */
-    const old = form.parentElement.querySelector(".acct-err");
-    if(old) old.remove();
-    form.insertAdjacentHTML("afterend", `<span class="acct-err">${esc(err.message)}</span>`);
+    signInError(form, err.message);
   }
 });
 

@@ -14,16 +14,16 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=94">
+<link rel="stylesheet" href="site.css?v=95">
 </head>
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=94"></script>
-<script src="config.js?v=94"></script>
-<script src="guide-sanitise.js?v=94"></script>
-<script src="guide-store.js?v=94"></script>
-<script src="guide-load.js?v=94"></script>
+<script src="site.js?v=95"></script>
+<script src="config.js?v=95"></script>
+<script src="guide-sanitise.js?v=95"></script>
+<script src="guide-store.js?v=95"></script>
+<script src="guide-load.js?v=95"></script>
 <script>
 renderChrome("Guides");
 
@@ -119,6 +119,21 @@ function paint(){
     </section>
 
     <section class="card">
+      <h3>Password</h3>
+      <p class="fld-note" style="margin-top:-6px">Accounts here used to work by
+        emailed link only. Set a password and you can sign in without opening
+        your inbox. The email link keeps working either way, which is how you
+        get back in if you forget this.</p>
+      <form class="acct-pw" id="pwForm">
+        <input type="password" id="pwIn" minlength="8" required
+               placeholder="New password, 8 characters or more"
+               aria-label="New password" autocomplete="new-password">
+        <button type="submit" class="btn">Set password</button>
+        <span id="pwMsg" class="fld-msg" aria-live="polite"></span>
+      </form>
+    </section>
+
+    <section class="card">
       <h3>Signing out</h3>
       <p class="fld-note" style="margin-top:-6px">Your guides stay published. Sign
         back in with the same email to manage them again.</p>
@@ -164,6 +179,28 @@ function wire(){
                                avatar: b.dataset.champ || null});
       picking = false; paint(); paintAccount();
     }catch(err){ say(err.message, true); }
+  };
+
+  const pw = document.getElementById("pwForm");
+  if(pw) pw.onsubmit = async ev => {
+    ev.preventDefault();
+    const box = document.getElementById("pwIn");
+    const msg = document.getElementById("pwMsg");
+    const btn = pw.querySelector("button");
+    const set = (text, bad) => {
+      msg.textContent = text;
+      msg.className = "fld-msg" + (bad ? " bad" : " good");
+    };
+    btn.disabled = true; set("Saving…");
+    try{
+      await setPassword(box.value);
+      /* Cleared on success. Leaving a password sitting in a field on a
+         page someone may walk away from is a small thing to get right. */
+      box.value = "";
+      set("Password set. You can sign in with it from now on.");
+    }catch(err){
+      set(err.message, true);
+    }finally{ btn.disabled = false; }
   };
 
   const out = document.getElementById("outBtn");
