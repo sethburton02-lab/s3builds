@@ -119,6 +119,10 @@ function captureSession(){
     expires_at: Number(p.get("expires_at")) || 0
   });
   history.replaceState(null, "", location.pathname + location.search);
+  /* A flag for the chrome to notice. The token is gone from the URL by
+     design, so there is nothing left for a page to detect afterwards —
+     without this, a successful sign-in is completely silent. */
+  try{ sessionStorage.setItem("riftvault.just-signed-in", "1"); }catch(_){}
   return true;
 }
 

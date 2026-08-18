@@ -156,6 +156,14 @@ function checkPage(dir, file){
     failed = true;
   }
 
+  /* Arriving back from a magic link strips the token from the URL, so a
+     page that doesn't announce it leaves the reader guessing whether the
+     click worked. Every page that loads the store should say so. */
+  if(/guide-store\.js/.test(html) && !/signInLanding\(\)/.test(html)){
+    console.log(`  ${file}: loads the store but never calls signInLanding()`);
+    failed = true;
+  }
+
   /* A page that loads guide-store.js but never calls loadStore() gets an
      empty cache, so backendLive() answers false and the page silently uses
      localStorage instead of the database. It looks completely fine. Every

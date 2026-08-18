@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Guides written by a member of the S3 Builds community.">
+<title>Author — S3 Builds</title>
+<meta property="og:type" content="profile">
+<meta property="og:site_name" content="S3 Builds">
+<meta property="og:title" content="Author — S3 Builds">
+<meta property="og:description" content="Guides written by a member of the S3 Builds community.">
+<meta property="og:image" content="https://s3builds.net/logo-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="site.css?v=92">
+</head>
+<body>
+<div id="main" class="wrap"></div>
+
+<script src="site.js"></script>
+<script src="config.js"></script>
+<script src="guide-sanitise.js"></script>
+<script src="guide-store.js"></script>
+<script src="guide-load.js"></script>
+<script>
+renderChrome("Guides");
+
+/* ============================================================
+   AN AUTHOR
+
+   Everything one person has written, so a byline is a link rather than a
+   dead string. Addressed by NAME, not id: /author?u=Seth reads like
+   something a person would type or paste into Discord, and the name is
+   unique in the database, so it identifies exactly as well as a uuid.
+
+   The cost is that a rename breaks old links. That's the right trade for
+   a site where the whole point of the page is being known by a name —
+   and the id form still works, so nothing that was linked by id breaks.
+   ============================================================ */
+
+const WANT = qs("u") || "";
+
+function paint(){
+  const el = document.getElementById("main");
+
+  /* By name first, falling back to id — a link made before names existed,
+     or one built by a page that had an id to hand. */
+  const who = (typeof STORE !== "undefined" && STORE.live())
+    ? (STORE.profileByName(WANT) || STORE.profile(WANT))
+    : null;
+
+  if(!STORE || !STORE.live()){
+    el.innerHTML = `<div class="state"><h3>Loading…</h3></div>`;
+    return;
+  }
+  if(!who){
+    el.innerHTML = `<div class="state">
+      <h3>No author by that name</h3>
+      <p>They may have changed it, or the link may be mistyped.</p>
+      <p><a class="btn" href="index.html">Browse guides</a></p></div>`;
+    return;
+  }
+
+  document.title = `${who.name} — S3 Builds`;
+
+  const guides = listPublished().filter(g => g.authorId === who.id);
+  const votes  = guides.reduce((n, g) => n + (g.votes || 0), 0);
+  const champ  = who.avatar ? (CHAMPIONS || []).find(c => c.id === who.avatar) : null;
+  const me     = currentUser();
+  const isMe   = !!(me && me.id === who.id);
+
+  /* Which champions they write about, most-written first. A person who has
+     written four Kog'Maw guides is a Kog'Maw writer, and that is the most
+     useful thing a reader can learn about them at a glance. */
+  const byChamp = {};
+  for(const g of guides) if(g.champ) byChamp[g.champ] = (byChamp[g.champ] || 0) + 1;
+  const known = Object.entries(byChamp).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+  el.innerHTML = `
+  <p class="crumb" style="padding-top:20px">
+    <a href="index.html">Home</a> › ${esc(who.name)}</p>
+
+  <div class="author-page">
+    <section class="card author-head">
+      <div class="acct-face-lg">${
+        champ ? champImgTag(champ, "")
+              : `<span class="acct-initial">${esc(who.name.slice(0, 1).toUpperCase())}</span>`
+      }</div>
+      <div>
+        <h1 class="author-name">${esc(who.name)}</h1>
+        <p class="author-meta">${guides.length} guide${guides.length === 1 ? "" : "s"} ·
+          ${votes} upvote${votes === 1 ? "" : "s"}${
+          who.joined ? " · here since " + new Date(who.joined).toLocaleDateString(
+            undefined, {month: "long", year: "numeric"}) : ""}</p>
+        ${known.length ? `<div class="author-champs">${known.map(([name, n]) => {
+          const c = (CHAMPIONS || []).find(x => x.name === name);
+          return `<a class="author-champ" href="champion.html?c=${encodeURIComponent(c ? c.id : name)}"
+                     title="${esc(name)} — ${n} guide${n > 1 ? "s" : ""}">
+            ${c ? champImgTag(c, "") : ""}<b>${n}</b></a>`;
+        }).join("")}</div>` : ""}
+        ${isMe ? `<p style="margin:10px 0 0">
+          <a class="btn btn-sm" href="account.html">Edit your profile</a></p>` : ""}
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>${isMe ? "Your guides" : "Guides"}</h3>
+      ${guides.length
+        ? `<ul class="stats-list champ-guides">${guides.map(g => `
+            <li><a href="guide.html?g=${encodeURIComponent(g.slug)}">
+              <b>${esc(g.title)}</b>
+              <span>${esc(g.champ || "No champion")}${g.role ? " · " + esc(g.role) : ""}
+                · ${g.votes || 0} upvote${g.votes === 1 ? "" : "s"}</span>
+            </a></li>`).join("")}</ul>`
+        : `<p class="fld-note" style="margin-top:-6px">${
+            isMe ? `You haven't published anything yet.
+                    <a href="create.html" style="color:var(--gold-hi)">Write one →</a>`
+                 : "Nothing published yet."}</p>`}
+    </section>
+  </div>`;
+}
+
+(async function(){
+  await loadStore();
+  paintAccount();
+  signInLanding();
+  paint();
+  loadChampions().then(paint).catch(err => console.warn("Roster unavailable:", err.message));
+})();
+</script>
+</body>
+</html>

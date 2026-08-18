@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=90">
+<link rel="stylesheet" href="site.css?v=92">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -377,7 +377,10 @@ function heroHtml(){
       <h1 class="g-title">${esc(G.title || "Untitled guide")}
         ${tag ? `<span class="tag ${tag.k}">${tag.label}</span>` : ""}</h1>
       ${G.blurb ? `<p class="g-pitch">${esc(G.blurb)}</p>` : ""}
-      <p class="g-byline">${G.author ? "by " + esc(G.author) + " · " : ""}<span data-patch>${patchLabel()}</span></p>
+      <p class="g-byline">${G.author
+        ? `by <a class="byline-link" href="author.html?u=${
+             encodeURIComponent(G.author)}">${esc(G.author)}</a> · ` : ""
+      }<span data-patch>${patchLabel()}</span></p>
       <div class="g-acts">
         ${voteBtnHtml()}
         ${G.slug && G.mine ? `<a class="btn btn-sm"
@@ -840,6 +843,7 @@ document.addEventListener("click", async e => {
    isn't using the database at all. */
   await loadStore();
   paintAccount();
+  signInLanding();
 
   /* ?list=1 is the index rather than a guide. */
   if(new URLSearchParams(location.search).get("list")){ paintList(); return; }

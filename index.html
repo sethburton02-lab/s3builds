@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=90">
+<link rel="stylesheet" href="site.css?v=92">
 <style>
   /* Everything on this page is real: the site's chrome, the mode's own
      champion art, and whatever has actually been published. There is no
@@ -226,7 +226,11 @@ function guideCardHtml(r){
     <div class="meta">
       <b>${esc(r.title)}${tag ? `<span class="tag ${tag.k}">${tag.label}</span>` : ""}</b>
       <div class="by">${esc(r.champ || "No champion")}${r.role ? " · " + esc(r.role) : ""}${
-        r.author ? " · by " + esc(r.author) : ""}${
+        /* The byline links to the author. Built from the NAME rather than
+           the id because that is what author.html is addressed by, and a
+           link a reader can read is worth more than one they can't. */
+        r.author ? ` · by <a class="byline-link" href="author.html?u=${
+          encodeURIComponent(r.author)}">${esc(r.author)}</a>` : ""}${
         r.updated ? ` · <span class="edited">edited</span>` : ""}</div>
       ${r.blurb ? `<p class="blurb">${esc(r.blurb)}</p>` : ""}
     </div>
@@ -453,7 +457,7 @@ paint();
    empty, backendLive() answers false, and every page falls back to this
    browser's localStorage — a site that looks like it works and quietly
    isn't using the database at all. */
-loadStore().then(paint).catch(err => console.warn("Guides unavailable:", err.message));
+loadStore().then(() => { signInLanding(); paint(); }).catch(err => console.warn("Guides unavailable:", err.message));
 
 /* The roster arrives over the network; the page is useful before it does
    and simply gets better when it lands. */

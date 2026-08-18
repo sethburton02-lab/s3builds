@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=90">
+<link rel="stylesheet" href="site.css?v=92">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -4292,6 +4292,7 @@ $("btnPublish").onclick=async()=>{
     if(name === null) return;
     signIn(name);
     paintAccount();
+    signInLanding();
   }
 
   /* Publish. Where the record lands is guide-load.js's business — the

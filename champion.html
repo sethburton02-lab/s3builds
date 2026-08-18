@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=90">
+<link rel="stylesheet" href="site.css?v=92">
 </head>
 <body>
 <div id="main" class="wrap"></div>
@@ -37,6 +37,7 @@ boot("#main", async (el) => {
      browser's localStorage — a site that looks like it works and quietly
      isn't using the database at all. */
   await loadStore();
+  signInLanding();
   const res = await DD.champion(ID);
   C = res.data[Object.keys(res.data)[0]];
   document.title = `${C.name}, ${C.title} — S3 Builds`;

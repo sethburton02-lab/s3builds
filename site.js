@@ -1113,15 +1113,37 @@ function paintAccount(){
          <button type="button" data-acct="out">Sign out</button>
        </div>`
     : realAccounts()
-      ? `<form class="acct-in" id="acctIn">
-           <input type="email" name="email" required placeholder="you@example.com"
-                  aria-label="Email address" autocomplete="email">
-           <button type="submit" class="btn btn-sm btn-gold">Sign in</button>
-         </form>`
+      /* The field is behind a button rather than always open. An email box
+         sitting in the header of every page asks a question most visitors
+         have no reason to answer — they came to read a guide. */
+      ? `<span class="acct-out">
+           <button type="button" class="btn btn-sm" data-acct="open">Sign in</button>
+         </span>`
       /* No backend: the old local stand-in, so the creator still works
          offline and every node harness keeps passing. */
       : `<button type="button" class="btn btn-sm" data-acct="in">Sign in</button>`;
 }
+
+/* Opening the sign-in form. Rendered next to the button rather than as a
+   modal: it is one field, and it should not take the page away from
+   someone who clicked it by accident. */
+document.addEventListener("click", e => {
+  if(!e.target.closest('[data-acct="open"]')) return;
+  const box = document.getElementById("account");
+  if(!box) return;
+  box.innerHTML = `<form class="acct-in" id="acctIn">
+      <input type="email" name="email" required placeholder="you@example.com"
+             aria-label="Email address" autocomplete="email" autofocus>
+      <button type="submit" class="btn btn-sm btn-gold">Send link</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-acct="cancel">Cancel</button>
+    </form>
+    <span class="acct-why">No password — we'll email you a link.</span>`;
+  const input = box.querySelector("input");
+  if(input) input.focus();
+});
+document.addEventListener("click", e => {
+  if(e.target.closest('[data-acct="cancel"]')) paintAccount();
+});
 
 /* Email, no password. Supabase mails a link; following it lands back here
    with a token in the fragment, which guide-store.js lifts out and wipes.
@@ -1140,10 +1162,33 @@ document.addEventListener("submit", async e => {
     await sendMagicLink(email);
     form.outerHTML = `<span class="acct-sent">Check ${esc(email)} for a sign-in link.</span>`;
   }catch(err){
-    btn.disabled = false; btn.textContent = "Sign in";
+    btn.disabled = false; btn.textContent = "Send link";
+    /* Replaced rather than appended: clicking twice used to stack two
+       identical errors under the field. */
+    const old = form.parentElement.querySelector(".acct-err");
+    if(old) old.remove();
     form.insertAdjacentHTML("afterend", `<span class="acct-err">${esc(err.message)}</span>`);
   }
 });
+
+/* Arriving back from the email. captureSession() has already taken the
+   token out of the address bar by the time anything paints, so without
+   this the page just silently looks different and the reader is left to
+   infer that it worked. */
+function signInLanding(){
+  if(!sessionStorage.getItem("riftvault.just-signed-in")) return;
+  sessionStorage.removeItem("riftvault.just-signed-in");
+  const me = currentUser();
+  if(!me) return;
+  const bar = document.createElement("p");
+  bar.className = "signin-bar";
+  bar.innerHTML = me.named
+    ? `Signed in as <b>${esc(me.name)}</b>.`
+    : `Signed in. <a href="account.html">Pick a display name</a> before you publish.`;
+  const header = document.querySelector("header.site");
+  if(header) header.insertAdjacentElement("afterend", bar);
+  setTimeout(() => bar.remove(), 8000);
+}
 
 document.addEventListener("click", e => {
   const menu = document.getElementById("acctMenu");
