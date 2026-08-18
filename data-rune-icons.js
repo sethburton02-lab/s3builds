@@ -1,6 +1,6 @@
 /* League Classic rune icons, from the client's jade-perks.json.
    Keyed by the same slug data-runes.js builds, so a rune's art is a
-   direct lookup. Files live in assets/runes/.
+   direct lookup. Files live in art/runes/.
    Shipped as a script so it works from file:// as well as http. */
 const JADE_RUNE_ICONS = {
 "glyph-ability-power": "b_3_3.project_jade.png",

@@ -115,7 +115,7 @@
   .g-sec > h2{margin:0 0 8px;padding:9px 24px;display:inline-block;
     font-family:var(--font-jade);font-size:30px;font-weight:400;color:#600;
     white-space:nowrap;
-    background:url("assets/header_flame.png") center/100% 100% no-repeat}
+    background:url("art/header_flame.png") center/100% 100% no-repeat}
 
   /* A note the author wrote about that section. */
   .g-note{margin:12px 0 0;padding:14px 16px;border:1px solid var(--line-soft);
@@ -224,7 +224,7 @@
   .g-plate{max-width:1060px;margin:0;padding:16px;border-radius:8px;
     border:1px solid #b09853;
     box-shadow:inset 0 1px 0 rgba(255,248,228,.45),0 2px 10px rgba(90,66,40,.18);
-    background:url("assets/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
+    background:url("art/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
   /* Page left, stats right — the way the client lays its rune screen out,
      and it lets the parchment take the width it was stacked out of. The
      stats column is fixed so the page gets everything that's left. */
@@ -625,7 +625,7 @@ function masteriesHtml(){
     return `<div class="mast-tree">
       <div class="mast-rows">${rows}</div>
       <div class="mast-tree-foot">
-        <img src="assets/mastery-icons/mastery_icon_${t.key.toLowerCase()}.png" alt="">
+        <img src="art/mastery-icons/mastery_icon_${t.key.toLowerCase()}.png" alt="">
         <span>${esc(t.name.toUpperCase())}:</span><b>${totals[ti]}</b></div>
     </div>`;
   }).join("");
@@ -634,7 +634,7 @@ function masteriesHtml(){
     <h2>Masteries</h2>
     ${tabs("setup", G.setups, view.setup)}
     <div class="g-mast-totals">${MASTERY_TREES.map((t, i) =>
-      `<span><img src="assets/mastery-icons/mastery_icon_${t.key.toLowerCase()}.png" alt="">
+      `<span><img src="art/mastery-icons/mastery_icon_${t.key.toLowerCase()}.png" alt="">
         ${totals[i]}</span>`).join("")}</div>
     <div class="g-plate"><div class="mast-panels">${panels}</div></div>
     ${note("mast", "Why these masteries")}

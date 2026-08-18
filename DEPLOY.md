@@ -64,6 +64,30 @@ would take.
 Deliberately *no* SPA catch-all: a catch-all turns every typo into the home
 page and hides broken links from whoever is testing.
 
+## Why the art folder is called `art` and not `assets`
+
+It was `assets`, which is the obvious name, and it cost an afternoon.
+
+This project deploys as a **Cloudflare Worker with static assets**, not
+Cloudflare Pages — the deployment URL ends `.workers.dev`. On that
+platform, `/assets/*` is claimed by the runtime's own asset routing, so
+every file under a folder with that name returns 404 while sibling folders
+serve normally.
+
+It is a miserable failure to diagnose because nothing errors: the files are
+in the repo, in the commit, on the remote, with the right names and the
+right case, and the deployment reports success. The only symptom is a page
+with no pictures.
+
+How it was actually pinned down, in case something similar happens again:
+put a plain **text** file in the suspect folder and fetch it directly. A
+missing PNG tells you nothing — could be the image, the path, the cache,
+the CSP. A text file that 404s while `/data/something.json` and
+`/tools/something.py` both return their contents tells you the folder is
+the variable, and nothing else is.
+
+Don't rename it back.
+
 ## Running the checks
 
 Nothing here needs installing.
@@ -121,7 +145,7 @@ Everything below is unfinished, in the order I'd do it.
 ## Two things that are not code problems
 
 **The fonts.** `site.css` serves *Friz Quadrata Pro* and *Gill Sans MT
-Pro* from `assets/fonts/` via `@font-face`. These are commercial typefaces
+Pro* from `art/fonts/` via `@font-face`. These are commercial typefaces
 from ITC and Monotype. Riot's fan-content policy covers *Riot's* assets and
 says nothing about third-party ones, so it does not cover these — every
 visitor downloads two font files nobody here has a webfont licence for.
@@ -135,7 +159,7 @@ not a theoretical one, and it is the first thing to change if a foundry
 ever gets in touch.
 
 Backing it out is three lines: delete the `@font-face` blocks at the top of
-`site.css` and the `assets/fonts/` folder. The stacks fall through to
+`site.css` and the `art/fonts/` folder. The stacks fall through to
 Georgia and Optima, which are close in weight and shape.
 
 **Riot's assets.** Champion, item and rune art is loaded from Riot's own

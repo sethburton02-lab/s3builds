@@ -15,11 +15,11 @@
    a different question from serving the game art. Locally it's fine.
    To back it out, drop the two @font-face blocks — the stacks below fall
    through to Georgia, which is close in weight and shape. */
-@font-face{font-family:"FrizQuadrata Pro";src:url("assets/fonts/frizquadratapro-regular.ttf") format("truetype");
+@font-face{font-family:"FrizQuadrata Pro";src:url("art/fonts/frizquadratapro-regular.ttf") format("truetype");
   font-weight:400;font-display:swap}
-@font-face{font-family:"FrizQuadrata Pro";src:url("assets/fonts/frizquadratapro-bold.ttf") format("truetype");
+@font-face{font-family:"FrizQuadrata Pro";src:url("art/fonts/frizquadratapro-bold.ttf") format("truetype");
   font-weight:700;font-display:swap}
-@font-face{font-family:"Gill Sans MT Pro";src:url("assets/fonts/gillsansmtpro-medium.otf") format("opentype");
+@font-face{font-family:"Gill Sans MT Pro";src:url("art/fonts/gillsansmtpro-medium.otf") format("opentype");
   font-weight:500;font-display:swap}
 :root{
   --font-jade:"FrizQuadrata Pro",Georgia,"Times New Roman",serif;
@@ -70,7 +70,7 @@ html{scroll-behavior:smooth}
    way the builders crop theirs, and fixed so it doesn't slide as you read. */
 body{margin:0;color:var(--text);font-family:var(--font);
   font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
-  background:url("assets/parchment-panel.png") center/114% 114% no-repeat fixed,var(--bg);
+  background:url("art/parchment-panel.png") center/114% 114% no-repeat fixed,var(--bg);
   background-attachment:fixed}
 a{color:inherit;text-decoration:none}
 img{display:block;max-width:100%}
@@ -401,7 +401,7 @@ section{padding:26px 0 60px}
    separate panels were, so the icon and font ratios above are unaffected. */
 .mast-panels{display:grid;grid-template-columns:657fr 660fr 664fr;gap:0;
   max-width:1168px;margin:0 auto;aspect-ratio:1981/1148;
-  background:url("assets/masteries-background.png") center/100% 100% no-repeat}
+  background:url("art/masteries-background.png") center/100% 100% no-repeat}
 
 /* ---------- mastery info panel ----------
    The client's .mastery-info-panel, to the left of the trees. Its numbers,
@@ -422,7 +422,7 @@ section{padding:26px 0 60px}
    border at 4%, 32% at 5%. */
 .mast-build{display:grid;grid-template-columns:214px minmax(0,1fr);gap:14px;
   align-items:start;max-width:1428px;margin:0 auto;padding:16px;border-radius:8px;
-  background:url("assets/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
+  background:url("art/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
 .mast-info{display:flex;flex-direction:column;gap:20px;font-family:var(--font-jade)}
 .mast-info .info-box{border:1px solid #b09853;border-radius:6px;padding:8px;
   background:hsla(43,47%,60%,.15)}
@@ -521,10 +521,10 @@ section{padding:26px 0 60px}
    rather than outside them — inset:0, not the -9% I had guessed at. */
 .mast::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
   background:var(--frame,none) center/contain no-repeat}
-.mast.off{--frame:url("assets/mastery-frame-unavailable.png");cursor:not-allowed}
-.mast.avail{--frame:url("assets/mastery-frame-available.png")}
-.mast.on{--frame:url("assets/mastery-frame-available.png")}
-.mast.max{--frame:url("assets/mastery-frame-max.png")}
+.mast.off{--frame:url("art/mastery-frame-unavailable.png");cursor:not-allowed}
+.mast.avail{--frame:url("art/mastery-frame-available.png")}
+.mast.on{--frame:url("art/mastery-frame-available.png")}
+.mast.max{--frame:url("art/mastery-frame-max.png")}
 
 .mast.avail{box-shadow:0 0 8px rgba(73,224,90,.55)}
 .mast.avail:hover{box-shadow:0 0 13px rgba(73,224,90,.9)}
@@ -738,7 +738,7 @@ section{padding:26px 0 60px}
 .rune-build{display:grid;grid-template-columns:270px minmax(0,1fr) 143px;gap:0;
   align-items:start;container-type:inline-size;
   max-width:1428px;margin:0 auto;padding:16px;border-radius:8px;
-  background:url("assets/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
+  background:url("art/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
 .rune-pick{margin-right:14px}
 
 /* The picker matches the parchment's height and scrolls inside itself, so
@@ -857,7 +857,7 @@ section{padding:26px 0 60px}
 
 .rune-crop{position:absolute;left:var(--sheet-x);top:var(--sheet-y);
   width:var(--sheet-w);height:var(--sheet-h);
-  background-image:url("assets/rune-filigree.png"),url("assets/rune-parchment.png");
+  background-image:url("art/rune-filigree.png"),url("art/rune-parchment.png");
   background-size:cover,100% 100%;
   background-position:center,center;
   background-repeat:no-repeat,no-repeat;
@@ -1047,7 +1047,7 @@ footer.site{border-top:1px solid var(--line);padding:28px 0 42px;
    with it and the glow stays proportional to the text. */
 .page-title{margin:0;padding:8px 20px;font-family:var(--font-jade);font-size:24px;
   font-weight:400;color:#600;white-space:nowrap;
-  background:url("assets/header_flame.png") center/100% 100% no-repeat}
+  background:url("art/header_flame.png") center/100% 100% no-repeat}
 .page-selector{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
 .page-tab{position:relative;display:flex;align-items:center;justify-content:center;
   height:21px;min-width:24px;padding:0 10px;box-sizing:border-box;

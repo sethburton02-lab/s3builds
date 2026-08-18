@@ -285,7 +285,7 @@ function emptyRunePage(){
   for(const s of RUNE_SLOTS) page[s.key] = Array(s.per).fill(null);
   return page;
 }
-const runeSlotArt = slot => `assets/rune-slot-${slot}.png`;
+const runeSlotArt = slot => `art/rune-slot-${slot}.png`;
 
 /* Sum every placed rune into one stat table. Flat and per-level are kept
    apart, since a scaling rune contributes nothing at level 1. */
@@ -312,12 +312,12 @@ const runePageCount = page =>
 const runePageTotal = () => RUNE_SLOTS.reduce((n, s) => n + s.per, 0);
 
 /* ------------------------------------------------------------
-   The mode's own rune art (assets/runes/), keyed by rune id via
+   The mode's own rune art (art/runes/), keyed by rune id via
    data-rune-icons.js. Falls back to the Data Dragon icon that
    loadRuneArt() resolves, and to a CSS badge if neither is there.
    ------------------------------------------------------------ */
 function runeArtUrl(r){
   const f = (typeof JADE_RUNE_ICONS !== "undefined") ? JADE_RUNE_ICONS[r.id] : null;
-  if(f) return "assets/runes/" + f;
+  if(f) return "art/runes/" + f;
   return r.icon ? DD.runeImg(r.icon) : null;
 }

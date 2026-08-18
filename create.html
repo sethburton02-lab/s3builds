@@ -321,7 +321,7 @@
      tab gradient the page selector uses, with the ultimate in the Save
      button's orange so it reads apart from the basics. */
   .skill-build{max-width:1428px;margin:0 auto;padding:16px;border-radius:8px;
-    background:url("assets/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
+    background:url("art/parchment-panel.png") center/114% 114% no-repeat,#d9c9a3}
   /* A container, so the level cells can be sized against the space the row
      actually has rather than against the viewport. */
   .skill-frame{border:1px solid hsla(40,45%,61%,.3);overflow:hidden;background:#f0e4b1;
@@ -2882,7 +2882,7 @@ function renderMast(){
   const barArt = (id, n) => {
     const p = MASTERY_BY_ID[id].prereq, have = S.mast[p] || 0;
     const state = have >= masteryRanks(p) ? "max" : have > 0 ? "available" : "disabled";
-    return `assets/mastery-bars/req_bar_${n > 1 ? "long" : "short"}_${state}.png`;
+    return `art/mastery-bars/req_bar_${n > 1 ? "long" : "short"}_${state}.png`;
   };
 
   $("mast").innerHTML=`<div class="mast-panels">${MASTERY_TREES.map((t,i)=>{
@@ -2912,7 +2912,7 @@ function renderMast(){
         }).join("")}
       </div>
       <div class="mast-tree-foot">
-        <img src="assets/mastery-icons/mastery_icon_${t.key.toLowerCase()}.png" alt="">
+        <img src="art/mastery-icons/mastery_icon_${t.key.toLowerCase()}.png" alt="">
         <span>${esc(t.name.toUpperCase())}:</span><b>${totals[i]}</b></div>
     </div>`;
   }).join("")}</div>`;
@@ -2928,7 +2928,7 @@ function paintMastInfo(totals, left){
   paintNames();
   $("mastTreePoints").innerHTML = MASTERY_TREES.map((t, i) => `
     <span class="tree-point ${t.key.toLowerCase()}">
-      <img src="assets/mastery-icons/mastery_icon_${t.key.toLowerCase()}.png" alt="${esc(t.name)}">
+      <img src="art/mastery-icons/mastery_icon_${t.key.toLowerCase()}.png" alt="${esc(t.name)}">
       <b>${totals[i]}</b></span>`).join("");
   $("mastCount").textContent = left;
   $("mastReset").disabled = mastUsed() === 0;
