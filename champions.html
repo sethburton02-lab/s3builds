@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=95">
+<link rel="stylesheet" href="site.css?v=96">
 </head>
 <body>
 
@@ -49,7 +49,9 @@
   </div>
 </section>
 
-<script src="site.js?v=95"></script>
+<script src="site.js?v=96"></script>
+<script src="config.js?v=96"></script>
+<script src="guide-store.js?v=96"></script>
 <script>
 renderChrome("Champions");
 
@@ -104,6 +106,13 @@ function render(el){
         </a>`).join("")}</div>`
     : `<div class="state"><h3>No champions match that</h3>Try a different search or filter.</div>`;
 }
+
+/* The account corner needs the store, or currentUser() falls back to the
+   old localStorage stand-in and this page shows a generic "Sign in" while
+   every other page shows your name. Not awaited: nothing on this page is
+   about accounts, and the header repaints itself on the s3:store-loaded
+   event that loadStore() fires either way. */
+if(typeof loadStore === "function") loadStore();
 </script>
 </body>
 </html>

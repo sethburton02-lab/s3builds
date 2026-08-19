@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=95">
+<link rel="stylesheet" href="site.css?v=96">
 <style>
   .spell-layout{display:grid;grid-template-columns:1fr 420px;gap:26px;align-items:start;padding-bottom:60px}
   .spell-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:14px}
@@ -60,7 +60,9 @@
   </div>
 </section>
 
-<script src="site.js?v=95"></script>
+<script src="site.js?v=96"></script>
+<script src="config.js?v=96"></script>
+<script src="guide-store.js?v=96"></script>
 <script>
 renderChrome("Spells");
 
@@ -152,6 +154,13 @@ function paintDetail(){
         <a href="create.html" style="color:var(--gold-hi)">Write one →</a></p>
     </div>`;
 }
+
+/* The account corner needs the store, or currentUser() falls back to the
+   old localStorage stand-in and this page shows a generic "Sign in" while
+   every other page shows your name. Not awaited: nothing on this page is
+   about accounts, and the header repaints itself on the s3:store-loaded
+   event that loadStore() fires either way. */
+if(typeof loadStore === "function") loadStore();
 </script>
 </body>
 </html>

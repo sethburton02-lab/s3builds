@@ -387,6 +387,43 @@ src += `
     catch(e){ return /no longer published/.test(e.message); }
   });
 
+  /* ---- chips get their pictures back ----
+     The sanitiser deliberately strips the author's <img> and marks every
+     chip "pending", on the promise that the renderer rebuilds the art from
+     the token. The creator kept that promise; this page never did, so the
+     first guide written by somebody outside the project came out with
+     nineteen iconless blue words in it.
+
+     Asserted through refIcon() rather than by looking for the class,
+     because "pending" disappearing would also pass if hydrateRefs simply
+     removed it without finding anything. */
+  console.log("\\nreference chips resolve to art:");
+
+  /* Seeded directly. The harness runs with fetch rejecting, which is the
+     point elsewhere in this file — but a chip cannot resolve against a
+     catalogue that was never delivered, and "no icon while offline" is
+     correct behaviour, not the bug being tested. */
+  ITEM_BY_ID = new Map([["3020", {id:"3020", name:"Sorcerer&#39;s Shoes",
+                                  total:1100, icon:"sorc.png", inStore:true}]]);
+  CHAMPIONS = [{id:"Ashe", name:"Ashe", key:"22", cls:"Marksman"}];
+
+  await check("an item chip finds its icon", async () =>
+    /<img[^>]+class="ref-ico"/.test(refIcon("item:3020")));
+  await check("a champion chip finds its portrait", async () =>
+    /<img[^>]+class="ref-ico"/.test(refIcon("champ:Ashe")));
+  await check("an unknown token stays pending rather than guessing", async () =>
+    refIcon("champ:NotAChampion") === "" && refIcon("bogus:1") === "");
+
+  /* hydrateRefs() itself walks the real DOM — querySelectorAll and
+     insertAdjacentHTML, neither of which this stub implements. A check
+     written against the stub PASSED while doing nothing at all, which is
+     the same trap as every other test in this repo that measured its own
+     assumptions. So the DOM half is verified in a browser instead, and
+     what is asserted here is the wiring: that paint() calls it, since the
+     chips were iconless for the plainer reason that nothing ever ran. */
+  await check("paint() runs the hydrator", async () =>
+    /hydrateRefs\s*\(\s*\)/.test(String(paint)));
+
   console.log(failed ? "\\n" + failed + " failure(s)" : "\\nthe guide view renders end to end");
   if(failed) process.exitCode = 1;
 })();

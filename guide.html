@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=95">
+<link rel="stylesheet" href="site.css?v=96">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -292,16 +292,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=95"></script>
-<script src="data-rune-icons.js?v=95"></script>
-<script src="data-runes.js?v=95"></script>
-<script src="data-champ-focus.js?v=95"></script>
-<script src="data-mastery-tree.js?v=95"></script>
-<script src="data-masteries.js?v=95"></script>
-<script src="guide-sanitise.js?v=95"></script>
-<script src="config.js?v=95"></script>
-<script src="guide-store.js?v=95"></script>
-<script src="guide-load.js?v=95"></script>
+<script src="site.js?v=96"></script>
+<script src="data-rune-icons.js?v=96"></script>
+<script src="data-runes.js?v=96"></script>
+<script src="data-champ-focus.js?v=96"></script>
+<script src="data-mastery-tree.js?v=96"></script>
+<script src="data-masteries.js?v=96"></script>
+<script src="guide-sanitise.js?v=96"></script>
+<script src="config.js?v=96"></script>
+<script src="guide-store.js?v=96"></script>
+<script src="guide-load.js?v=96"></script>
 <script>
 renderChrome("");
 
@@ -714,6 +714,71 @@ function refTipHtml(token){
   return "";
 }
 
+/* ---- filling in a chip's icon ----
+   The sanitiser rebuilds every reference as <span class="ref pending"> and
+   throws the author's <img> away — it has to, because an <img> inside a
+   guide is an arbitrary URL from a stranger. Its comment says the renderer
+   fills the art back in once the catalogues load. The CREATOR does that.
+   This page never did, so every chip in every published guide stayed
+   "pending" and iconless forever, which is what the first outside author
+   reported.
+
+   The label is left exactly as written. It has already been reduced to
+   plain words by the sanitiser, and the person who wrote "Alpha Strike (Q)"
+   meant that rather than whatever the catalogue calls it today. */
+function refIcon(token){
+  const m = /^([a-z]+):(.+)$/.exec(String(token || ""));
+  if(!m) return "";
+  const [, kind, id] = m;
+
+  if(kind === "item")
+    return ITEM_BY_ID.size ? itemImgTag(id, "ref-ico") : "";
+
+  if(kind === "spell"){
+    const sp = (SPELLS || []).find(x => x.id === id || x.name === id);
+    return sp ? spellArt(sp, {cls: "ref-ico", alt: ""}) : "";
+  }
+
+  if(kind === "ability"){
+    /* Only the guide's own champion's kit is loaded, which is the same
+       limit the tooltip has. A reference to someone else's ability keeps
+       its words and goes without a picture rather than breaking. */
+    const ab = abilityOf(id.slice(id.lastIndexOf("-") + 1));
+    return ab && ab.icon ? `<img class="ref-ico" src="${esc(ab.icon)}" alt="">` : "";
+  }
+
+  if(kind === "rune"){
+    const r = (typeof CLASSIC_RUNES !== "undefined" ? CLASSIC_RUNES : [])
+      .find(x => x.id === id);
+    const url = r && typeof runeArtUrl === "function" ? runeArtUrl(r) : "";
+    return url ? `<img class="ref-ico" src="${esc(url)}" alt="">` : "";
+  }
+
+  if(kind === "mastery"){
+    const mm = (MASTERY_BY_ID || {})[id];
+    return mm ? `<img class="ref-ico" src="${esc(masteryImg(id, true))}" alt="">` : "";
+  }
+
+  if(kind === "champ"){
+    const c = (CHAMPIONS || []).find(x => x.id === id || x.name === id);
+    return c ? champImgTag(c, "ref-ico") : "";
+  }
+
+  return "";
+}
+
+/* Run after every paint. Chips whose catalogue hasn't arrived are left
+   pending and picked up by the next one — the boot repaints once per
+   catalogue, so they fill in as the data lands rather than all or nothing. */
+function hydrateRefs(){
+  for(const el of document.querySelectorAll(".ref.pending[data-ref]")){
+    const ico = refIcon(el.getAttribute("data-ref"));
+    if(!ico) continue;
+    el.insertAdjacentHTML("afterbegin", ico);
+    el.classList.remove("pending");
+  }
+}
+
 /* Items are already registered by site.js. These three are the ones only
    this page can answer, and they go through the same listener, so the
    panel is never being shown by one handler and hidden by another. */
@@ -744,6 +809,7 @@ function paint(){
   /* The nav is rebuilt on every paint, so the observer has to be too. */
   watchSections();
   paintPatch();      /* the byline is redrawn with everything else */
+  hydrateRefs();     /* chips get their art back, as catalogues arrive */
 }
 
 /* ---- which section you are reading ----

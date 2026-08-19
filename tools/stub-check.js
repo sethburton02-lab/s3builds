@@ -147,6 +147,32 @@ function checkPage(dir, file){
     failed = true;
   }
 
+  /* A page that wears the chrome must also be able to fill it in.
+     champions, items, runes, spells, item and rune all loaded site.js
+     alone. paintAccount() then found no SB and no STORE, decided accounts
+     weren't switched on, and drew the offline localStorage stand-in — so
+     the header said "Sign in" on those six pages while saying your name on
+     every other one. Nothing failed; the wrong branch just ran.
+
+     config.js and guide-store.js are what make currentUser() able to
+     answer, and loadStore() is what makes it answer correctly. */
+  if(!isRedirect && /renderChrome\(/.test(html)){
+    const needs = ["config.js", "guide-store.js"];
+    const missing = needs.filter(n => !new RegExp(`src="${n.replace(".", "\\.")}`).test(html));
+    if(missing.length){
+      console.log(`  ${file}: wears the chrome but never loads ${missing.join(" and ")}` +
+                  ` — its account corner cannot know who you are`);
+      failed = true;
+    }
+    /* The scripts alone are not enough; something has to call it. Matched
+       on a call, not a mention, so the comment above a call doesn't pass
+       for one. */
+    if(!/(^|[^.\w])loadStore\s*\(/m.test(html.replace(/\/\*[\s\S]*?\*\//g, ""))){
+      console.log(`  ${file}: never calls loadStore() — the store stays empty`);
+      failed = true;
+    }
+  }
+
   /* Building a URL by chopping ".html" out of location.href works on a
      local file and breaks on the live site, where Cloudflare serves pages
      at extensionless paths. "Open this guide" pointed at

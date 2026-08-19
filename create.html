@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=95">
+<link rel="stylesheet" href="site.css?v=96">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -1114,16 +1114,16 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="site.js?v=95"></script>
-<script src="data-rune-icons.js?v=95"></script>
-<script src="data-runes.js?v=95"></script>
-<script src="data-champ-focus.js?v=95"></script>
-<script src="data-mastery-tree.js?v=95"></script>
-<script src="data-masteries.js?v=95"></script>
-<script src="guide-sanitise.js?v=95"></script>
-<script src="config.js?v=95"></script>
-<script src="guide-store.js?v=95"></script>
-<script src="guide-load.js?v=95"></script>
+<script src="site.js?v=96"></script>
+<script src="data-rune-icons.js?v=96"></script>
+<script src="data-runes.js?v=96"></script>
+<script src="data-champ-focus.js?v=96"></script>
+<script src="data-mastery-tree.js?v=96"></script>
+<script src="data-masteries.js?v=96"></script>
+<script src="guide-sanitise.js?v=96"></script>
+<script src="config.js?v=96"></script>
+<script src="guide-store.js?v=96"></script>
+<script src="guide-load.js?v=96"></script>
 <script>
 /* Wrapped so this page's short helpers ($, esc, paint…) stay local and
    don't collide with the shared ones in site.js. */
@@ -1142,7 +1142,12 @@ renderChrome("Guides", `<button class="btn" id="btnDiscard">Discard draft</butto
    loaded before the page settles and the account corner repainted once it
    answers. Not awaited — the creator is usable while signed out, and
    blocking the whole editor on a network call would be the wrong trade. */
-loadStore().then(paintAccount).catch(err => console.warn("Guides unavailable:", err.message));
+/* Kept as one promise rather than a bare call, because the edit session
+   below has to wait for the same answer and starting a second loadStore()
+   would fetch everything twice. */
+const STORE_READY = loadStore()
+  .then(ok => { paintAccount(); return ok; })
+  .catch(err => { console.warn("Guides unavailable:", err.message); paintAccount(); return false; });
 
 /* =============================================================
    DATA — champions, items and runes now come from the shared layer
@@ -4448,17 +4453,38 @@ function showEditBar(html){
   if(header) header.insertAdjacentHTML("afterend", html);
   else document.body.insertAdjacentHTML("afterbegin", html);
 }
-if(editingSlug && !readPublished(editingSlug)){
-  showEditBar(`<p class="edit-bar missing">That guide isn't published in this browser —
-      anything you write here will be published as a new guide.</p>`);
-}
-const restored=load();
 /* A blank start has no setups yet — emptyRunePage() needs data-runes.js,
-   which is why BLANK ships the list empty rather than pre-filled. */
-if(!S.setups.length) S.setups=[newSetup("Standard")];
-if(!S.skillPages.length) S.skillPages=[newSkillPage("Standard")];
-if(!S.spellSets.length) S.spellSets=[[]];
-hydrate();
+   which is why BLANK ships the list empty rather than pre-filled. Done
+   before anything can render, and again after load() replaces S. */
+function ensureSane(){
+  if(!S.setups.length) S.setups=[newSetup("Standard")];
+  if(!S.skillPages.length) S.skillPages=[newSkillPage("Standard")];
+  if(!S.spellSets.length) S.spellSets=[[]];
+}
+ensureSane();
+
+/* ---- starting the editor ----
+   All of this reads the guide store, and readPublished() is a SYNCHRONOUS
+   accessor over a cache the network fills in. Running it at parse time
+   meant it always answered "no such guide" against Supabase — so pressing
+   Edit on a published guide opened a blank creator and offered to publish
+   it as a new one. It worked in local testing only because localStorage
+   answers instantly; the bug needed a real backend to appear.
+
+   So an edit session waits for the store. A new guide does not: there is
+   nothing to wait for, and the editor should open the moment it can. */
+function bootEditor(){
+  if(editingSlug && !readPublished(editingSlug)){
+    showEditBar(`<p class="edit-bar missing">That guide couldn't be loaded —
+        anything you write here will be published as a new guide.</p>`);
+  }
+  const restored=load();
+  ensureSane();
+  hydrate();
+  paintEditBar(restored);
+}
+
+function paintEditBar(restored){
 if(editingSlug && readPublished(editingSlug)){
   showEditBar(
     `<div class="edit-bar">
@@ -4475,6 +4501,13 @@ if(editingSlug && readPublished(editingSlug)){
 if(restored && !editingSlug && (S.title||S.champ||totalItems()))
   note("Draft restored from this browser");
 if(skillsTrimmed) toast(`Removed ${skillsTrimmed} skill point${skillsTrimmed>1?"s":""} that broke the level rules.`);
+}
+
+/* An edit session is bootstrapped once the store answers — including when
+   it fails, so an editor that can't reach the database still opens rather
+   than hanging on a blank page. */
+if(editingSlug) STORE_READY.then(bootEditor);
+else bootEditor();
 
 /* Champions, the shop and rune art arrive over the network. The editor is
    usable before they land; each one re-renders just its own section. */
