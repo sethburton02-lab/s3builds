@@ -364,10 +364,18 @@ function champImgTag(c, cls){
    Data Dragon addresses champion art by id, so the picture needs no
    catalogue at all. The Classic icon still does — that's what the repaint
    below is for. */
-function champAvatarTag(id, cls){
+function champAvatarTag(id, cls, key){
   const c = (CHAMPIONS || []).find(x => x.id === id);
   if(c) return champImgTag(c, cls);
-  return art({s3: DD.champImg(id), classic: "", alt: "", cls, lazy: true});
+  /* Without the roster, the key is what decides whether this is the mode's
+     own art or Data Dragon's 2013 archive — a Classic icon is addressed as
+     60000 + key. Profiles now carry it for exactly this reason, so the
+     avatar looks the same on the pages that load champions and the ones
+     that don't. Falling back to the archive when it's missing is still
+     right for a profile saved before the column existed. */
+  return art({s3: DD.champImg(id),
+              classic: key ? CLASSIC.champIcon(key, id) : "",
+              alt: "", cls, lazy: true});
 }
 
 async function loadItemIndex(){
@@ -1133,7 +1141,7 @@ function paintAccount(){
                do, for as long as the fetch took. The avatar looked like it
                wasn't saving. It only ever needed the id. */
             user.avatar
-             ? champAvatarTag(user.avatar, "acct-face img")
+             ? champAvatarTag(user.avatar, "acct-face img", user.avatarKey)
              : `<span class="acct-face">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span>`}
          <span class="acct-name">${esc(user.name)}</span>
          <span class="acct-caret">▾</span>

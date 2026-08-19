@@ -267,6 +267,10 @@ function profileByName(name){
 }
 const fromProfileRow = r => ({id: r.id, name: r.name,
                               avatar: r.avatar_champ || null,
+                              /* Carried so the avatar can be drawn in the
+                                 mode's own art without loading the roster
+                                 to look the key up. */
+                              avatarKey: r.avatar_key ?? null,
                               joined: Date.parse(r.created_at) || 0});
 
 /* The table stores listing fields as columns and the guide itself as one
@@ -314,7 +318,8 @@ async function loadStore(){
         `/rest/v1/guide_votes?select=guide_slug&user_id=eq.${encodeURIComponent(ME.id)}`);
       MY_VOTES = new Set((mine || []).map(r => r.guide_slug));
       const p = PROFILES[ME.id];
-      if(p){ ME.name = p.name; ME.avatar = p.avatar; ME.named = true; }
+      if(p){ ME.name = p.name; ME.avatar = p.avatar;
+             ME.avatarKey = p.avatarKey; ME.named = true; }
     }
     LOADED = true;
     SETTLED = true;
@@ -368,15 +373,28 @@ const STORE = {
     if(clean.length < 2)  throw new Error("Pick a name of at least 2 characters.");
     if(clean.length > 24) throw new Error("That name is too long — 24 characters at most.");
 
-    const row = {id: ME.id, name: clean, avatar_champ: avatar || null};
+    /* The numeric key is looked up here, once, at the only moment it is
+       guaranteed to be knowable: the avatar picker cannot draw a grid of
+       champions without the roster, so if there is an avatar to save the
+       roster is loaded. Every page that later DISPLAYS the avatar then
+       needs no catalogue of its own. */
+    const key = avatar
+      ? ((CHAMPIONS || []).find(c => c.id === avatar) || {}).key ?? null
+      : null;
+
+    const row = {id: ME.id, name: clean, avatar_champ: avatar || null,
+                 avatar_key: key === null ? null : Number(key)};
     await sbFetch("/rest/v1/profiles", {
       method: "POST", body: row,
       headers: {Prefer: "resolution=merge-duplicates,return=minimal"}
     });
     PROFILES[ME.id] = {...(PROFILES[ME.id] || {}), id: ME.id, name: clean,
                        avatar: avatar || null,
+                       avatarKey: key === null ? null : Number(key),
                        joined: (PROFILES[ME.id] || {}).joined || Date.now()};
-    ME.name = clean; ME.avatar = avatar || null; ME.named = true;
+    ME.name = clean; ME.avatar = avatar || null;
+    ME.avatarKey = key === null ? null : Number(key);
+    ME.named = true;
     /* A rename updates every guide already published, via a database
        trigger — so the local cache has to follow or the page would still
        show the old byline until reload. */

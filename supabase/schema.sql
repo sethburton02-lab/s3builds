@@ -159,6 +159,14 @@ create table if not exists public.profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   name         text not null check (length(name) between 2 and 24),
   avatar_champ text,
+  -- The champion's numeric key, stored beside the id on purpose.
+  -- A Classic icon is addressed as 60000 + key, and the key only exists in
+  -- Riot's champion roster — which most pages never fetch. Without this the
+  -- header fell back to Data Dragon's 2013 archive art, so the same person
+  -- had one face on the guide pages and a different one on the item and
+  -- rune pages. It is captured when the avatar is chosen, which is the one
+  -- moment the roster is certainly loaded (the picker draws from it).
+  avatar_key   integer,
   created_at   timestamptz not null default now()
 );
 
@@ -185,7 +193,7 @@ create policy profiles_update on public.profiles for update
 -- Column privileges, same pattern as guides: RLS chooses the ROW, grants
 -- choose the COLUMNS. created_at is not writable by anyone.
 revoke update on public.profiles from anon, authenticated;
-grant  update (name, avatar_champ) on public.profiles to authenticated;
+grant  update (name, avatar_champ, avatar_key) on public.profiles to authenticated;
 
 -- And id, which is not as strange as it looks.
 --

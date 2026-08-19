@@ -14,16 +14,16 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=98">
+<link rel="stylesheet" href="site.css?v=99">
 </head>
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=98"></script>
-<script src="config.js?v=98"></script>
-<script src="guide-sanitise.js?v=98"></script>
-<script src="guide-store.js?v=98"></script>
-<script src="guide-load.js?v=98"></script>
+<script src="site.js?v=99"></script>
+<script src="config.js?v=99"></script>
+<script src="guide-sanitise.js?v=99"></script>
+<script src="guide-store.js?v=99"></script>
+<script src="guide-load.js?v=99"></script>
 <script>
 renderChrome("Guides");
 
@@ -66,7 +66,7 @@ function paint(){
         /* From the id, not from a roster lookup — the page paints before
            the champions arrive, and an avatar that appears a second late
            reads as one that didn't save. */
-        me.avatar ? champAvatarTag(me.avatar, "")
+        me.avatar ? champAvatarTag(me.avatar, "", me.avatarKey)
                   : `<span class="acct-initial">${esc((me.name || "?").slice(0, 1).toUpperCase())}</span>`
       }</div>
 
