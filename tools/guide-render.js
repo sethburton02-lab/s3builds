@@ -127,7 +127,13 @@ for(const m of src.matchAll(/id="([\w-]+)"/g)) if(!byId.has(m[1])) byId.set(m[1]
    to that eval, so a test living outside could not see G, view, or any of
    the render functions — it would report a ReferenceError for each and
    look like a broken page. */
+/* The page's own <style> block, handed to the checks as a string. A CSS
+   bug can be as real as a JS one — see the 98px section gap — and this
+   is the only way a node harness can see one. */
+const PAGE_STYLE = (html.match(/<style>([\s\S]*?)<\/style>/) || [,""])[1];
+
 src += `
+const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
 ;(async function(){
   let failed = 0;
   /* publishGuide, updateGuide, unpublishGuide and toggleVote became async
@@ -223,7 +229,46 @@ src += `
   await check("the guide registers abilities", async () => !!kindFor("[data-tip-ab]"));
   await check("  spells", async () => !!kindFor("[data-tip-spell]"));
   await check("  and reference chips", async () => !!kindFor(".ref[data-ref]"));
-  await check("one listener serves them all", async () => TIP_KINDS.length === 4);
+  /* Runes and masteries had a title attribute and nothing else, so the two
+     sections a reader most wants detail from were the two without it. */
+  await check("  runes in the rune page", async () => !!kindFor("[data-tip-rune]"));
+  await check("  and masteries in the tree", async () => !!kindFor("[data-tip-mastery]"));
+  await check("a rune tip says what the rune does", async () => {
+    const k = kindFor("[data-tip-rune]");
+    const id = (typeof CLASSIC_RUNES !== "undefined" && CLASSIC_RUNES[0])
+      ? CLASSIC_RUNES[0].id : null;
+    if(!id) return false;
+    return k.build({dataset:{tipRune:id}}).includes("tip-body");
+  });
+  await check("a mastery tip carries this build's points", async () => {
+    const k = kindFor("[data-tip-mastery]");
+    const id = Object.keys(MASTERY_BY_ID || {})[0];
+    if(!id) return false;
+    return k.build({dataset:{tipMastery:id, tipPts:"3/4"}}).includes("3/4");
+  });
+  await check("one listener serves them all", async () => TIP_KINDS.length === 6);
+
+  /* The markup has to carry the hooks, or the registrations above match
+     nothing. Asserted on what the section actually renders. */
+  await check("the rune page marks its filled sockets", async () =>
+    /data-tip-rune="/.test(runesHtml()));
+  await check("  and leaves empty ones a plain title", async () => {
+    /* The fixture fills every slot, so an empty socket has to be made.
+       Restored afterwards — later checks render this same setup. */
+    const keep = G.setups[0].runes.mark[0];
+    G.setups[0].runes.mark[0] = null;
+    const out = runesHtml();
+    G.setups[0].runes.mark[0] = keep;
+    return /title="[^"]*socket"/.test(out) && !/data-tip-rune="null"/.test(out);
+  });
+  await check("the mastery tree marks its cells", async () =>
+    /data-tip-mastery="/.test(masteriesHtml()));
+
+  /* site.css's bare section{padding:26px 0 60px} also hit .g-sec, so the
+     gap between guide sections was 98px while the rule here claimed 12.
+     A margin can't override someone else's padding. */
+  await check("guide sections reset the inherited padding", async () =>
+    /\.g-sec\{padding:0/.test(PAGE_CSS));
 
   console.log("\\nbuild path:");
   /* The upgrades have to exist in the map to be drawn — buildPathHtml only

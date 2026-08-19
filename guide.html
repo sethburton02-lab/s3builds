@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=96">
+<link rel="stylesheet" href="site.css?v=97">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -106,12 +106,22 @@
   .g-nav a:hover{color:var(--text);border-color:var(--line);background:hsla(43,47%,60%,.3)}
   .g-nav a.on{background:var(--btn);border-color:hsla(0,0%,100%,.2);color:#f0e6d2}
 
-  /* 12px between sections. The flame heading is a strong enough break on
-     its own — and now that it is 30px it is stronger still, so the margin
-     that used to do the separating became slack instead. */
-  .g-sec{margin-bottom:12px;scroll-margin-top:80px}
-  /* No trailing gap above the page padding. */
-  .g-sec:last-child{margin-bottom:0}
+  /* ---- the gap between sections ----
+     This said "12px between sections" and was wrong by a factor of eight.
+     site.css carries a bare `section{padding:26px 0 60px}` for the layout
+     of the reference pages, and .g-sec is a <section>, so every guide
+     section was padded 26 top and 60 bottom underneath the margin. The real
+     distance between one section's last line and the next one's heading was
+     60 + 12 + 26 = 98px. Tuning margin-bottom could never fix it, which is
+     why it stayed too wide after being "fixed" once already.
+
+     padding:0 hands control back to the margin. 24px because a heading
+     wants more air above it than the 8px it has below — attached to the
+     text it introduces, separated from the text it follows. */
+  .g-sec{padding:0;margin-bottom:24px;scroll-margin-top:80px}
+  /* The last one keeps some, or the guide ends flush against the viewport
+     bottom — that was what the 60px was doing usefully. */
+  .g-sec:last-child{margin-bottom:60px}
   .g-sec > h2{margin:0 0 8px;padding:9px 24px;display:inline-block;
     font-family:var(--font-jade);font-size:30px;font-weight:400;color:#600;
     white-space:nowrap;
@@ -292,16 +302,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=96"></script>
-<script src="data-rune-icons.js?v=96"></script>
-<script src="data-runes.js?v=96"></script>
-<script src="data-champ-focus.js?v=96"></script>
-<script src="data-mastery-tree.js?v=96"></script>
-<script src="data-masteries.js?v=96"></script>
-<script src="guide-sanitise.js?v=96"></script>
-<script src="config.js?v=96"></script>
-<script src="guide-store.js?v=96"></script>
-<script src="guide-load.js?v=96"></script>
+<script src="site.js?v=97"></script>
+<script src="data-rune-icons.js?v=97"></script>
+<script src="data-runes.js?v=97"></script>
+<script src="data-champ-focus.js?v=97"></script>
+<script src="data-mastery-tree.js?v=97"></script>
+<script src="data-masteries.js?v=97"></script>
+<script src="guide-sanitise.js?v=97"></script>
+<script src="config.js?v=97"></script>
+<script src="guide-store.js?v=97"></script>
+<script src="guide-load.js?v=97"></script>
 <script>
 renderChrome("");
 
@@ -568,9 +578,13 @@ function runesHtml(){
     setup.runes[s.key].forEach((id, i) => {
       const [x, y] = pos[i] || [50, 50];
       const r = id ? CLASSIC_RUNES.find(x2 => x2.id === id) : null;
+      /* A filled socket gets the rich panel and drops the title attribute:
+         with both, the browser draws its own grey tooltip over ours a
+         second later. An empty socket keeps the title, because there is
+         nothing to describe and "Quint socket" is all there is to say. */
       sockets += `<span class="rune-slot ${s.key === "quint" ? "big" : "small"} ${r ? "has" : ""}
         ${r ? "glow-" + r.group : ""}" style="left:${x}%;top:${y}%"
-        title="${esc(r ? r.name : s.name + " socket")}">
+        ${r ? `data-tip-rune="${esc(r.id)}"` : `title="${esc(s.name)} socket"`}>
         <img class="sock" src="${runeSlotArt(s.key)}" alt="">
         ${r && runeArtUrl(r) ? `<img class="filled" src="${runeArtUrl(r)}" alt="">` : ""}
       </span>`;
@@ -621,7 +635,7 @@ function masteriesHtml(){
         const id = cell.masteryId, pts = alloc[id] || 0, max = masteryRanks(id);
         return `<div class="mast-cell">
           <span class="mast ${pts ? "on" : "off"} ${pts >= max ? "max" : ""}"
-            title="${esc(masteryName(id))} ${pts} / ${max}">
+            data-tip-mastery="${esc(id)}" data-tip-pts="${pts}/${max}">
             <img src="${masteryImg(id, pts > 0)}" alt="" loading="lazy">
             <span class="pts">${pts} / ${max}</span></span></div>`;
       }).join("")}</div>`).join("");
@@ -785,6 +799,22 @@ function hydrateRefs(){
 registerTip("[data-tip-ab]",    "ab",    el => abilityTipHtml(el.dataset.tipAb));
 registerTip("[data-tip-spell]", "spell", el => spellTipHtml(el.dataset.tipSpell));
 registerTip(".ref[data-ref]",   "ref",   el => refTipHtml(el.getAttribute("data-ref")));
+
+/* Runes and masteries in their own sections. They had a title attribute
+   and nothing else, so a rune page — the part of a guide people most want
+   to read the detail of — gave a bare name after a browser delay, while
+   the same rune mentioned in a sentence got the full panel. These reuse
+   refTipHtml so a rune says the same thing wherever it appears.
+
+   The mastery adds what the chip cannot know: how many points this build
+   actually puts in, which is the reason to hover it in a mastery tree. */
+registerTip("[data-tip-rune]", "rune", el => refTipHtml("rune:" + el.dataset.tipRune));
+registerTip("[data-tip-mastery]", "mastery", el => {
+  const body = refTipHtml("mastery:" + el.dataset.tipMastery);
+  if(!body) return "";
+  const pts = el.dataset.tipPts;
+  return body + (pts ? `<p class="tip-body"><b>This build: ${esc(pts)} points</b></p>` : "");
+});
 
 /* ---------- the page ---------- */
 
