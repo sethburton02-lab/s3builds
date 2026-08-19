@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=103">
+<link rel="stylesheet" href="site.css?v=104">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -1114,16 +1114,16 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="site.js?v=103"></script>
-<script src="data-rune-icons.js?v=103"></script>
-<script src="data-runes.js?v=103"></script>
-<script src="data-champ-focus.js?v=103"></script>
-<script src="data-mastery-tree.js?v=103"></script>
-<script src="data-masteries.js?v=103"></script>
-<script src="guide-sanitise.js?v=103"></script>
-<script src="config.js?v=103"></script>
-<script src="guide-store.js?v=103"></script>
-<script src="guide-load.js?v=103"></script>
+<script src="site.js?v=104"></script>
+<script src="data-rune-icons.js?v=104"></script>
+<script src="data-runes.js?v=104"></script>
+<script src="data-champ-focus.js?v=104"></script>
+<script src="data-mastery-tree.js?v=104"></script>
+<script src="data-masteries.js?v=104"></script>
+<script src="guide-sanitise.js?v=104"></script>
+<script src="config.js?v=104"></script>
+<script src="guide-store.js?v=104"></script>
+<script src="guide-load.js?v=104"></script>
 <script>
 /* Wrapped so this page's short helpers ($, esc, paint…) stay local and
    don't collide with the shared ones in site.js. */
@@ -3533,11 +3533,49 @@ function cleanRich(html){
     }
   };
   walk(box);
+  blockWrap(box);
   /* The zero-width spaces padChips() puts either side of a chip belong to
      the editor, not to the guide. They come off here, which is the single
      door everything passes through on its way into the draft — so nothing
      is ever saved, published or word-counted with them in it. */
   return box.innerHTML.replace(/​/g, "");
+}
+
+/* Loose text at the top of an editor gets a block around it.
+   execCommand's list and quote commands convert the block containing the
+   selection, so with nothing but bare text nodes and <br>s there is
+   nothing for them to convert and the buttons silently do nothing. Chrome
+   hides this by wrapping lines in <div> as you type; Firefox historically
+   does not, which is why bullets worked for us and not for the person who
+   reported it.
+
+   Doing it here rather than at render time means the DRAFT is stored in
+   the right shape, so it is fixed once for every editor and every reload
+   rather than repaired on the way to the screen. An empty editor is left
+   completely empty — .rt:empty::before is what draws the placeholder. */
+const BLOCK_TAGS = new Set(["P","DIV","UL","OL","BLOCKQUOTE","LI",
+                            "H1","H2","H3","H4","H5","H6"]);
+
+function blockWrap(box){
+  if(!box.childNodes.length) return;
+  const out = [];
+  let run = null;
+  const flush = () => {
+    if(!run) return;
+    /* A run of nothing but whitespace is not worth a paragraph. */
+    if(run.some(n => (n.textContent || "").trim() || n.nodeName === "BR")){
+      const div = document.createElement("div");
+      run.forEach(n => div.appendChild(n));
+      out.push(div);
+    }
+    run = null;
+  };
+  for(const node of [...box.childNodes]){
+    if(node.nodeType === 1 && BLOCK_TAGS.has(node.nodeName)){ flush(); out.push(node); }
+    else (run = run || []).push(node);
+  }
+  flush();
+  box.replaceChildren(...out);
 }
 
 /* Drafts written against the old Markdown editor, converted once on load.
@@ -4158,6 +4196,14 @@ document.addEventListener("selectionchange", syncMdBar);
    emit inline styles, which the sanitiser would strip on save — the text
    would look formatted while editing and lose it when stored. */
 try{ document.execCommand("styleWithCSS", false, false); }catch(_){}
+
+/* What a browser makes when you press Enter. Chrome wraps each line in a
+   <div>; Firefox's older default is to separate lines with <br> and leave
+   the text loose in the editor root. insertUnorderedList needs a block to
+   convert, so with loose text the bullet button did nothing at all in
+   Firefox — which is what was reported. Asking for <div> explicitly makes
+   both browsers produce the structure the list commands expect. */
+try{ document.execCommand("defaultParagraphSeparator", false, "div"); }catch(_){}
 
 function renderSections(){
   $("sections").innerHTML=S.sections.map((s,i)=>`
