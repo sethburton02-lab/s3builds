@@ -230,6 +230,15 @@ function writeMyVotes(list){
 
 const hasVoted = slug => backendLive() ? STORE.votedOn(slug) : readMyVotes().includes(slug);
 const voteCount = slug => (readStore()[slug] || {}).votes || 0;
+const viewCount = slug => (readStore()[slug] || {}).views || 0;
+
+/* Counting a read. With no backend there is nothing to count into — a
+   local draft preview has no audience — so this quietly does nothing
+   rather than pretending. Never throws: see STORE.recordView. */
+async function recordView(slug){
+  if(!backendLive()) return false;
+  return STORE.recordView(slug);
+}
 
 /* Click once to upvote, again to take it back. Returns the state the button
    should now show, so a caller repaints from the answer rather than

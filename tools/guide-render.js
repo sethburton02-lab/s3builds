@@ -432,6 +432,69 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     catch(e){ return /no longer published/.test(e.message); }
   });
 
+  /* ---- views ----
+     Counting a read must never be able to cost the reader anything. With
+     no backend there is nothing to count into, which is the state this
+     harness runs in — so the important assertion is that it stays quiet
+     and returns rather than throwing into the page's boot. */
+  console.log("\\nviews:");
+
+  await check("a view is not counted with no backend", async () =>
+    (await recordView("anything")) === false);
+
+  await check("counting a view never throws", async () => {
+    /* Boot calls this without awaiting; an exception here would be an
+       unhandled rejection on every guide page. */
+    await recordView(null);
+    await recordView("no-such-guide");
+    return true;
+  });
+
+  await check("a guide with no views says nothing", async () => {
+    G.slug = "seeded"; G.views = 0;
+    return viewsLabel() === "";
+  });
+
+  await check("one view reads as singular", async () => {
+    const all = readStore(); all["seeded"] = {slug:"seeded", views:1};
+    localStorage.setItem("riftvault.published.v1", JSON.stringify(all));
+    G.slug = "seeded";
+    return viewsLabel().includes("1 view") && !viewsLabel().includes("views");
+  });
+
+  await check("  and two as plural", async () => {
+    const all = readStore(); all["seeded"] = {slug:"seeded", views:2};
+    localStorage.setItem("riftvault.published.v1", JSON.stringify(all));
+    return viewsLabel().includes("2 views");
+  });
+
+  await check("a draft preview is never given a count", async () => {
+    const keep = G.slug; G.slug = null;
+    const out = viewsLabel(); G.slug = keep;
+    return out === "";
+  });
+
+  /* The counts are columns the database keeps. Carried in the body jsonb
+     they would become a stale second copy that an edit drags along.
+
+     Tested with normaliseGuide out of the picture, because with it present
+     this passes no matter what toRow does — it rebuilds the guide from an
+     allowlist, so an unknown key never reaches the body and the assertion
+     measures nothing. That path is real, not hypothetical: the reference
+     pages load guide-store.js WITHOUT guide-load.js, and toRow falls back
+     to the raw object when normaliseGuide is undefined. */
+  await check("views are kept out of the guide body", async () => {
+    const keep = globalThis.normaliseGuide;
+    globalThis.normaliseGuide = undefined;
+    let row;
+    try{ row = toRow({title:"t", views: 999, votes: 7}, "s", "u", "n"); }
+    finally{ globalThis.normaliseGuide = keep; }
+    return row.body.views === undefined && row.body.votes === undefined;
+  });
+
+  await check("  (and the allowlist is the first line of defence)", async () =>
+    normaliseGuide({title:"t", views: 999}).views === undefined);
+
   /* ---- chips get their pictures back ----
      The sanitiser deliberately strips the author's <img> and marks every
      chip "pending", on the promise that the renderer rebuilds the art from

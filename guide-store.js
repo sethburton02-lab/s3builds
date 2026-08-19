@@ -206,6 +206,28 @@ function captureSession(){
   return true;
 }
 
+/* Who a signed-out reader is, for the purpose of not counting them twice.
+   An opaque random id, generated once and kept in this browser. It is not
+   an identity and is never shown to anyone: the views table has no select
+   grant at all, so this cannot be joined back to a person even by someone
+   holding the publishable key. */
+const VIEWER_KEY = "riftvault.viewer.v1";
+function anonViewerId(){
+  try{
+    let id = localStorage.getItem(VIEWER_KEY);
+    if(!id){
+      id = (crypto.randomUUID && crypto.randomUUID()) ||
+           ("v" + Date.now().toString(36) + Math.random().toString(36).slice(2));
+      localStorage.setItem(VIEWER_KEY, id);
+    }
+    return id;
+  }catch(_){
+    /* Storage blocked. Every visit then looks like a new reader, which
+       overcounts a little — better than not counting at all. */
+    return "anon-" + Math.random().toString(36).slice(2);
+  }
+}
+
 let ME = null;
 async function loadMe(){
   if(!SB.on || !session()){ ME = null; return null; }
@@ -282,6 +304,7 @@ function fromRow(r){
     champ: r.champ, role: r.role, tag: r.tag || "",
     author: r.author_name || "", authorId: r.author_id,
     votes: r.votes || 0,
+    views: r.views || 0,
     at: Date.parse(r.created_at) || 0,
     updated: r.updated_at ? Date.parse(r.updated_at) : 0
   };
@@ -292,7 +315,10 @@ function toRow(guide, slug, authorId, authorName){
      someone bypassing the site — and that row is then served to everyone. */
   const clean = typeof normaliseGuide === "function" ? normaliseGuide(guide) : guide;
   const {title, blurb, champ, role, tag, ...body} = clean;
-  delete body.author; delete body.authorId; delete body.votes;
+  /* views and votes are columns the database maintains. Left in the spread
+     they would be written into the body jsonb as a stale copy, and an edit
+     would carry an old count around forever inside the document. */
+  delete body.author; delete body.authorId; delete body.votes; delete body.views;
   delete body.slug;   delete body.at;       delete body.updated;
   return {slug, title: title || "Untitled guide", blurb: blurb || "",
           champ: champ || null, role: role || "Mid", tag: tag || "",
@@ -400,6 +426,44 @@ const STORE = {
        show the old byline until reload. */
     for(const g of Object.values(CACHE)) if(g.authorId === ME.id) g.author = clean;
     return ME;
+  },
+
+  /* Counting a read. Deliberately quiet: a view is a side effect of
+     wanting to read something, so nothing about it is allowed to interrupt
+     that. It never throws, never blocks the render, and a failure means
+     the number is a little low — which is the correct thing to trade.
+
+     The database owns the dedupe rule (one viewer, one guide, one day, by
+     primary key) so the client cannot get it wrong. The localStorage guard
+     is only there to avoid a pointless request on every reload. */
+  async recordView(slug){
+    if(!slug) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    const seen = `riftvault.viewed.${slug}`;
+    try{ if(localStorage.getItem(seen) === today) return false; }catch(_){}
+    try{
+      /* An RPC, not an insert into guide_views. PostgREST implements
+         Prefer: resolution=ignore-duplicates with ON CONFLICT, and ON
+         CONFLICT needs SELECT on the target — which would make the record
+         of who read what readable by anyone holding the publishable key.
+         The function does the same job as the table owner and keeps the
+         rows closed. It also takes the signed-in identity from the session
+         rather than from this request, so the anon id below is only ever
+         consulted when there is nobody signed in. */
+      await sbFetch("/rest/v1/rpc/record_guide_view", {
+        method: "POST",
+        body: {p_slug: slug, p_anon: ME ? null : anonViewerId()},
+        headers: {Prefer: "return=minimal"}
+      });
+      /* Kept in step locally so the number the reader is looking at
+         includes their own arrival, without a second round trip. */
+      if(CACHE[slug]) CACHE[slug].views = (CACHE[slug].views || 0) + 1;
+      try{ localStorage.setItem(seen, today); }catch(_){}
+      return true;
+    }catch(err){
+      console.warn("View not counted:", err.message);
+      return false;
+    }
   },
 
   profile: profileOf,

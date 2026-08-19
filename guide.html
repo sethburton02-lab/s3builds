@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=99">
+<link rel="stylesheet" href="site.css?v=101">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -302,16 +302,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=99"></script>
-<script src="data-rune-icons.js?v=99"></script>
-<script src="data-runes.js?v=99"></script>
-<script src="data-champ-focus.js?v=99"></script>
-<script src="data-mastery-tree.js?v=99"></script>
-<script src="data-masteries.js?v=99"></script>
-<script src="guide-sanitise.js?v=99"></script>
-<script src="config.js?v=99"></script>
-<script src="guide-store.js?v=99"></script>
-<script src="guide-load.js?v=99"></script>
+<script src="site.js?v=101"></script>
+<script src="data-rune-icons.js?v=101"></script>
+<script src="data-runes.js?v=101"></script>
+<script src="data-champ-focus.js?v=101"></script>
+<script src="data-mastery-tree.js?v=101"></script>
+<script src="data-masteries.js?v=101"></script>
+<script src="guide-sanitise.js?v=101"></script>
+<script src="config.js?v=101"></script>
+<script src="guide-store.js?v=101"></script>
+<script src="guide-load.js?v=101"></script>
 <script>
 renderChrome("");
 
@@ -347,6 +347,22 @@ function note(key, label){
   const html = G.notes[key];
   if(!html || !String(html).trim()) return "";
   return `<div class="g-note"><h4>${esc(label)}</h4>${html}</div>`;
+}
+
+/* How many people have read this.
+   In the byline rather than beside the upvote button on purpose: a view is
+   something that happened to the guide, like its patch and its author, not
+   something the reader is being invited to do. Putting a number nobody can
+   click next to a button everybody can would suggest otherwise.
+
+   Hidden at zero. "0 views" on a guide somebody just published is a worse
+   thing to show them than nothing at all, and it is the one moment they
+   are most certain to look. */
+function viewsLabel(){
+  if(!G.slug) return "";                    /* a draft preview has no audience */
+  const n = typeof viewCount === "function" ? viewCount(G.slug) : 0;
+  if(!n) return "";
+  return ` · ${n.toLocaleString()} view${n === 1 ? "" : "s"}`;
 }
 
 /* ---------- hero ---------- */
@@ -390,7 +406,7 @@ function heroHtml(){
       <p class="g-byline">${G.author
         ? `by <a class="byline-link" href="author.html?u=${
              encodeURIComponent(G.author)}">${esc(G.author)}</a> · ` : ""
-      }<span data-patch>${patchLabel()}</span></p>
+      }<span data-patch>${patchLabel()}</span>${viewsLabel()}</p>
       <div class="g-acts">
         ${voteBtnHtml()}
         ${G.slug && G.mine ? `<a class="btn btn-sm"
@@ -960,6 +976,13 @@ document.addEventListener("click", async e => {
 
   document.title = (G.title || "Guide") + " — S3 Builds";
   paint();
+
+  /* Counted after the guide is on screen, and never awaited. Reading is
+     the point of this page; counting the read is bookkeeping, and it must
+     not be able to delay the render or fail it. The repaint is so the
+     number includes the reader looking at it. */
+  recordView(G.slug).then(counted => { if(counted) paint(); })
+                    .catch(() => {});
 
   /* The catalogues arrive after the first paint. Each repaints on its own,
      so a slow one never blocks the rest of the page. */
