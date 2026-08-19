@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=102">
+<link rel="stylesheet" href="site.css?v=103">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -1114,16 +1114,16 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="site.js?v=102"></script>
-<script src="data-rune-icons.js?v=102"></script>
-<script src="data-runes.js?v=102"></script>
-<script src="data-champ-focus.js?v=102"></script>
-<script src="data-mastery-tree.js?v=102"></script>
-<script src="data-masteries.js?v=102"></script>
-<script src="guide-sanitise.js?v=102"></script>
-<script src="config.js?v=102"></script>
-<script src="guide-store.js?v=102"></script>
-<script src="guide-load.js?v=102"></script>
+<script src="site.js?v=103"></script>
+<script src="data-rune-icons.js?v=103"></script>
+<script src="data-runes.js?v=103"></script>
+<script src="data-champ-focus.js?v=103"></script>
+<script src="data-mastery-tree.js?v=103"></script>
+<script src="data-masteries.js?v=103"></script>
+<script src="guide-sanitise.js?v=103"></script>
+<script src="config.js?v=103"></script>
+<script src="guide-store.js?v=103"></script>
+<script src="guide-load.js?v=103"></script>
 <script>
 /* Wrapped so this page's short helpers ($, esc, paint…) stay local and
    don't collide with the shared ones in site.js. */
@@ -3533,7 +3533,11 @@ function cleanRich(html){
     }
   };
   walk(box);
-  return box.innerHTML;
+  /* The zero-width spaces padChips() puts either side of a chip belong to
+     the editor, not to the guide. They come off here, which is the single
+     door everything passes through on its way into the draft — so nothing
+     is ever saved, published or word-counted with them in it. */
+  return box.innerHTML.replace(/​/g, "");
 }
 
 /* Drafts written against the old Markdown editor, converted once on load.
@@ -3595,6 +3599,78 @@ const rtWrite = (el, html) => {
   }
   if(S.sections[+el.dataset.b]) S.sections[+el.dataset.b].b = html;
 };
+
+/* ---- giving a chip somewhere to stand ----
+   A chip is contenteditable="false", which is what makes the browser treat
+   it as one character. That only works if there is an ordinary text node
+   next to it for the caret to sit in. When a chip is the FIRST thing in a
+   block there is nothing before it, and Firefox — unlike Chrome — will not
+   put the caret there at all. Its editor works around that by inserting its
+   own line break, which is why a paragraph beginning with an item name was
+   reported as "shoved into its own line", and why the chip then could not
+   be deleted: there was no position from which to delete it.
+
+   A zero-width space is a real text node the caret can occupy and nothing
+   a reader can see. These live only in the editor's DOM — cleanRich strips
+   them on the way into the draft, so nothing is ever saved or published
+   with them in it. */
+const ZWSP = "​";
+
+function padChips(root){
+  if(!root) return;
+  for(const chip of root.querySelectorAll(".ref")){
+    const before = chip.previousSibling, after = chip.nextSibling;
+    if(!before || before.nodeType !== 3)
+      chip.parentNode.insertBefore(document.createTextNode(ZWSP), chip);
+    if(!after || after.nodeType !== 3)
+      chip.parentNode.insertBefore(document.createTextNode(ZWSP), chip.nextSibling);
+  }
+}
+
+/* Every editor on the page. Called after any render that rebuilds them. */
+const padAllChips = () => document.querySelectorAll(".rt").forEach(padChips);
+
+/* Backspace and Delete, handled explicitly when a chip is what they would
+   act on. Browsers disagree about this — Chrome removes the whole chip,
+   Firefox can refuse — and a rule the editor enforces itself is the same
+   everywhere. Only ever fires on a collapsed selection sitting against a
+   chip; anything else is left to the browser. */
+document.addEventListener("keydown", e => {
+  if(e.key !== "Backspace" && e.key !== "Delete") return;
+  const area = e.target.closest && e.target.closest(".rt");
+  if(!area) return;
+
+  const sel = getSelection();
+  if(!sel.rangeCount || !sel.isCollapsed) return;
+  const r = sel.getRangeAt(0);
+
+  /* Walk out of any zero-width padding to find the real neighbour. */
+  const skipPad = (node, dir) => {
+    while(node && node.nodeType === 3 && node.nodeValue.replace(/​/g, "") === "")
+      node = dir < 0 ? node.previousSibling : node.nextSibling;
+    return node;
+  };
+
+  let target = null;
+  if(e.key === "Backspace"){
+    if(r.startContainer.nodeType === 3 && r.startOffset > 0) return;   /* mid-text */
+    const prev = r.startContainer.nodeType === 3
+      ? r.startContainer.previousSibling
+      : r.startContainer.childNodes[r.startOffset - 1];
+    target = skipPad(prev, -1);
+  }else{
+    if(r.startContainer.nodeType === 3 && r.startOffset < r.startContainer.length) return;
+    const next = r.startContainer.nodeType === 3
+      ? r.startContainer.nextSibling
+      : r.startContainer.childNodes[r.startOffset];
+    target = skipPad(next, 1);
+  }
+
+  if(!target || target.nodeType !== 1 || !target.classList.contains("ref")) return;
+  e.preventDefault();
+  target.remove();
+  commitBody(area);
+});
 
 function commitBody(area){
   rtWrite(area, cleanRich(area.innerHTML));
@@ -3709,7 +3785,8 @@ function refreshRefs(){
       const built = refChip(el.getAttribute("data-ref"));
       if(built){ el.outerHTML = built; changed = true; }
     }
-    if(changed) commitBody(area);
+    /* outerHTML replaced the node, so its padding has to be put back. */
+    if(changed){ padChips(area); commitBody(area); }
   }
 }
 
@@ -4097,6 +4174,9 @@ function renderSections(){
       ${richEditor(`data-b="${i}"`, s.b,
         "Write it out. What's the game plan, what are the power spikes, what loses to this?")}
     </div>`).join("");
+  /* The editors were just replaced wholesale, so any chip in them is a
+     fresh node with no text beside it. */
+  padAllChips();
 }
 $("sections").addEventListener("input",e=>{
   const t=e.target;
@@ -4443,6 +4523,10 @@ function hydrate(){
   renderChampPicked(); renderChampGrid(); renderRoles(); renderTags();
   renderSpells(); renderPool(); renderRows(); renderSkills(); renderSkillPages();
   renderSetups(); renderMast(); renderRunes(); renderSections(); renderNotes();
+  /* Every editor on the page has just been rebuilt — section bodies, the
+     builder notes and the per-line notes — so this covers all of them at
+     once rather than each render remembering to. */
+  padAllChips();
   paint_preview();
 }
 /* An edit session says so, everywhere it matters. The bar goes AFTER the
