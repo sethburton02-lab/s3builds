@@ -29,6 +29,9 @@ const path = require("path");
 
 function checkPage(dir, file){
   const html = fs.readFileSync(path.join(dir, file), "utf8");
+  /* site.js draws the header for every page, so a check about the header
+     has to be able to see it as well as the page's own markup. */
+  const siteJs = fs.readFileSync(path.join(dir, "site.js"), "utf8");
 
   class El {
     constructor(tag = "div"){
@@ -145,6 +148,24 @@ function checkPage(dir, file){
   if(!isRedirect && (!acct || !acct.innerHTML)){
     console.log(`  ${file}: no account corner — renderChrome() wasn't called`);
     failed = true;
+  }
+
+  /* The avatar must not depend on a catalogue.
+     Three separate bugs this week had one shape: something drawn from a
+     cache that the network fills in later, read before the network
+     answered. The header avatar was the third — gated on CHAMPIONS being
+     loaded, it fell back to the user's initial on every page that doesn't
+     fetch the roster, and the saved choice looked like it hadn't saved.
+     A profile stores a champion id, and champion art is addressable by id,
+     so nothing here needs the roster. */
+  if(!isRedirect && /acct-face|acct-face-lg/.test(html + siteJs)){
+    const gated = /avatar[\s\S]{0,120}?\(\s*CHAMPIONS\s*\|\|\s*\[\]\s*\)\s*\.\s*(length|find)/
+      .test(html + siteJs);
+    if(gated){
+      console.log(`  ${file}: the avatar is gated on the CHAMPIONS roster` +
+                  ` — use champAvatarTag(id), which needs no catalogue`);
+      failed = true;
+    }
   }
 
   /* A page that wears the chrome must also be able to fill it in.

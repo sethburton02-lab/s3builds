@@ -340,12 +340,34 @@ async function loadChampions(){
     id: c.id, name: c.name, key: c.key,
     cls: (c.tags && c.tags[0]) || "Champion"
   })).sort((a, b) => a.name.localeCompare(b.name));
+  /* The header may already have drawn the avatar from the id alone. Now
+     that the roster is here it can have the mode's own art instead of the
+     Season 3 archive's. Done here rather than asked of each page, because
+     "call paintAccount() again after your data loads" is exactly the
+     obligation that left the Sign in button missing for a whole session. */
+  try{ if(typeof paintAccount === "function") paintAccount(); }catch(_){}
   return CHAMPIONS;
 }
 const champByName = n => CHAMPIONS.find(c => c.name === n) || null;
 function champImgTag(c, cls){
   return art({s3: DD.champImg(c.id), classic: CLASSIC.champIcon(c.key, c.name),
               alt: c.name, cls, lazy: true});
+}
+
+/* A champion picture from nothing but the id.
+   The account avatar is stored as an id ("Jax") and drawn in the header of
+   every page — but only some pages load the roster, and the header paints
+   as soon as the SESSION arrives, which is well before the roster would
+   land even on the pages that do fetch it. champImgTag needs a roster
+   record for the numeric key, so with CHAMPIONS empty the avatar silently
+   became a letter, and it looked like the choice hadn't saved.
+   Data Dragon addresses champion art by id, so the picture needs no
+   catalogue at all. The Classic icon still does — that's what the repaint
+   below is for. */
+function champAvatarTag(id, cls){
+  const c = (CHAMPIONS || []).find(x => x.id === id);
+  if(c) return champImgTag(c, cls);
+  return art({s3: DD.champImg(id), classic: "", alt: "", cls, lazy: true});
 }
 
 async function loadItemIndex(){
@@ -1106,9 +1128,12 @@ function paintAccount(){
 
   box.innerHTML = user
     ? `<button type="button" class="acct-btn" id="acctBtn" aria-haspopup="true">
-         ${user.avatar && typeof champByName === "function" && (CHAMPIONS || []).length
-             ? (() => { const c = (CHAMPIONS || []).find(x => x.id === user.avatar);
-                        return c ? champImgTag(c, "acct-face img") : ""; })()
+         ${/* Gated on the roster being loaded, this fell back to a letter on
+               every page that doesn't fetch champions — and on the ones that
+               do, for as long as the fetch took. The avatar looked like it
+               wasn't saving. It only ever needed the id. */
+            user.avatar
+             ? champAvatarTag(user.avatar, "acct-face img")
              : `<span class="acct-face">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span>`}
          <span class="acct-name">${esc(user.name)}</span>
          <span class="acct-caret">▾</span>

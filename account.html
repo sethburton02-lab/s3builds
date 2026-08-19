@@ -14,16 +14,16 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=97">
+<link rel="stylesheet" href="site.css?v=98">
 </head>
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=97"></script>
-<script src="config.js?v=97"></script>
-<script src="guide-sanitise.js?v=97"></script>
-<script src="guide-store.js?v=97"></script>
-<script src="guide-load.js?v=97"></script>
+<script src="site.js?v=98"></script>
+<script src="config.js?v=98"></script>
+<script src="guide-sanitise.js?v=98"></script>
+<script src="guide-store.js?v=98"></script>
+<script src="guide-load.js?v=98"></script>
 <script>
 renderChrome("Guides");
 
@@ -56,7 +56,6 @@ function paint(){
 
   const mine = listPublished({mine: true});
   const votes = mine.reduce((n, g) => n + (g.votes || 0), 0);
-  const champ = me.avatar ? (CHAMPIONS || []).find(c => c.id === me.avatar) : null;
 
   el.innerHTML = `
   <p class="crumb" style="padding-top:20px"><a href="index.html">Home</a> › Your account</p>
@@ -64,8 +63,11 @@ function paint(){
   <div class="acct-page">
     <section class="card acct-you">
       <div class="acct-face-lg">${
-        champ ? champImgTag(champ, "")
-              : `<span class="acct-initial">${esc((me.name || "?").slice(0, 1).toUpperCase())}</span>`
+        /* From the id, not from a roster lookup — the page paints before
+           the champions arrive, and an avatar that appears a second late
+           reads as one that didn't save. */
+        me.avatar ? champAvatarTag(me.avatar, "")
+                  : `<span class="acct-initial">${esc((me.name || "?").slice(0, 1).toUpperCase())}</span>`
       }</div>
 
       <div class="acct-fields">
@@ -82,7 +84,7 @@ function paint(){
         <div class="acct-actions">
           <button type="button" class="btn btn-gold" id="saveBtn">Save</button>
           <button type="button" class="btn" id="avatarBtn">${
-            champ ? "Change avatar" : "Choose an avatar"}</button>
+            me.avatar ? "Change avatar" : "Choose an avatar"}</button>
           <span id="saveMsg" class="fld-msg" aria-live="polite"></span>
         </div>
       </div>

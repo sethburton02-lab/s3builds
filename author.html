@@ -14,16 +14,16 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=97">
+<link rel="stylesheet" href="site.css?v=98">
 </head>
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=97"></script>
-<script src="config.js?v=97"></script>
-<script src="guide-sanitise.js?v=97"></script>
-<script src="guide-store.js?v=97"></script>
-<script src="guide-load.js?v=97"></script>
+<script src="site.js?v=98"></script>
+<script src="config.js?v=98"></script>
+<script src="guide-sanitise.js?v=98"></script>
+<script src="guide-store.js?v=98"></script>
+<script src="guide-load.js?v=98"></script>
 <script>
 renderChrome("Guides");
 
@@ -67,7 +67,6 @@ function paint(){
 
   const guides = listPublished().filter(g => g.authorId === who.id);
   const votes  = guides.reduce((n, g) => n + (g.votes || 0), 0);
-  const champ  = who.avatar ? (CHAMPIONS || []).find(c => c.id === who.avatar) : null;
   const me     = currentUser();
   const isMe   = !!(me && me.id === who.id);
 
@@ -85,8 +84,8 @@ function paint(){
   <div class="author-page">
     <section class="card author-head">
       <div class="acct-face-lg">${
-        champ ? champImgTag(champ, "")
-              : `<span class="acct-initial">${esc(who.name.slice(0, 1).toUpperCase())}</span>`
+        who.avatar ? champAvatarTag(who.avatar, "")
+                   : `<span class="acct-initial">${esc(who.name.slice(0, 1).toUpperCase())}</span>`
       }</div>
       <div>
         <h1 class="author-name">${esc(who.name)}</h1>
