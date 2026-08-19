@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=101">
+<link rel="stylesheet" href="site.css?v=102">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -302,16 +302,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=101"></script>
-<script src="data-rune-icons.js?v=101"></script>
-<script src="data-runes.js?v=101"></script>
-<script src="data-champ-focus.js?v=101"></script>
-<script src="data-mastery-tree.js?v=101"></script>
-<script src="data-masteries.js?v=101"></script>
-<script src="guide-sanitise.js?v=101"></script>
-<script src="config.js?v=101"></script>
-<script src="guide-store.js?v=101"></script>
-<script src="guide-load.js?v=101"></script>
+<script src="site.js?v=102"></script>
+<script src="data-rune-icons.js?v=102"></script>
+<script src="data-runes.js?v=102"></script>
+<script src="data-champ-focus.js?v=102"></script>
+<script src="data-mastery-tree.js?v=102"></script>
+<script src="data-masteries.js?v=102"></script>
+<script src="guide-sanitise.js?v=102"></script>
+<script src="config.js?v=102"></script>
+<script src="guide-store.js?v=102"></script>
+<script src="guide-load.js?v=102"></script>
 <script>
 renderChrome("");
 
@@ -916,8 +916,7 @@ function paintList(){
       <div class="meta">
         <b>${esc(r.title)}</b>
         <span>${esc(r.champ || "No champion")}${r.role ? " · " + esc(r.role) : ""}
-          · ${new Date(r.at).toLocaleDateString()}${
-            r.updated ? " · edited " + new Date(r.updated).toLocaleDateString() : ""}</span>
+          · ${new Date(r.at).toLocaleDateString()}</span>
       </div>
       <!-- Your own guides are the one place a tally is worth reading at a
            glance: otherwise the only way to see what a guide earned was to

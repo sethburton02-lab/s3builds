@@ -185,7 +185,12 @@ src += `
   check("the newest is first",     () => main().indexOf("artillery mid") < main().indexOf("Zed but"));
   check("blurbs render",           () => main().includes("Range is the plan"));
   check("a missing blurb is just absent", () => main().includes("Warwick jungle for beginners"));
-  check("an edited guide says so", () => main().includes("edited"));
+  /* The "edited" marker was removed from the cards on request. The
+     updated timestamp is still carried and still drives the "Recently
+     updated" sort below — only the badge is gone. (No backticks in here:
+     these checks live inside a template literal.) */
+  check("no card announces an edit", () =>
+    !/<span class="edited"/.test(main()));
   check("every card carries its count", () => (main().match(/class="tally/g) || []).length === 4);
   check("  with the real number",  () => main().includes("<b>7</b>"));
   check("an unvoted guide shows a dimmed zero", () => main().includes('class="tally none"')

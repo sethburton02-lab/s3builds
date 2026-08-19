@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=101">
+<link rel="stylesheet" href="site.css?v=102">
 <style>
   /* Everything on this page is real: the site's chrome, the mode's own
      champion art, and whatever has actually been published. There is no
@@ -96,7 +96,6 @@
   .h-guide .blurb{margin:6px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .h-guide .tag{margin-left:6px;vertical-align:1px}
-  .h-guide .edited{color:var(--gold-hi)}
   /* Corner-set rather than a column of its own. A full-height 46px column
      with a divider spent a lot of card on one number; up here it costs the
      card nothing but the title's last few characters. */
@@ -154,13 +153,13 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=101"></script>
-<script src="data-rune-icons.js?v=101"></script>
-<script src="data-runes.js?v=101"></script>
-<script src="guide-sanitise.js?v=101"></script>
-<script src="config.js?v=101"></script>
-<script src="guide-store.js?v=101"></script>
-<script src="guide-load.js?v=101"></script>
+<script src="site.js?v=102"></script>
+<script src="data-rune-icons.js?v=102"></script>
+<script src="data-runes.js?v=102"></script>
+<script src="guide-sanitise.js?v=102"></script>
+<script src="config.js?v=102"></script>
+<script src="guide-store.js?v=102"></script>
+<script src="guide-load.js?v=102"></script>
 <script>
 renderChrome("Guides");
 
@@ -254,8 +253,7 @@ function guideCardHtml(r){
            the id because that is what author.html is addressed by, and a
            link a reader can read is worth more than one they can't. */
         r.author ? ` · by <a class="byline-link" href="author.html?u=${
-          encodeURIComponent(r.author)}">${esc(r.author)}</a>` : ""}${
-        r.updated ? ` · <span class="edited">edited</span>` : ""}</div>
+          encodeURIComponent(r.author)}">${esc(r.author)}</a>` : ""}</div>
       ${r.blurb ? `<p class="blurb">${esc(r.blurb)}</p>` : ""}
     </div>
     ${tallyHtml(r.votes || 0)}
