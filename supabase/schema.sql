@@ -418,3 +418,89 @@ grant update (hidden) on public.guides to authenticated;
 -- Adding a moderator is a dashboard / service_role operation on purpose.
 -- There is no path to this table from a browser.
 --   insert into public.moderators (user_id) values ('<uuid>');
+
+
+-- ============================================================
+-- FEATURED
+--
+-- A moderator picking guides for the front page. It reads like a twin of
+-- `hidden` and is built differently on purpose.
+--
+-- `hidden` is a column grant to `authenticated`, and guides_update admits
+-- "author OR moderator", so an author can hide their own guide. That is
+-- fine — it is their guide. Featuring cannot work that way: an author must
+-- never be able to promote themselves onto the home page, and a column
+-- grant has no way to tell an author from a moderator. There is no grant
+-- that means "moderators only".
+--
+-- So the column is granted to nobody and the write goes through a definer
+-- function that checks the role itself.
+-- ============================================================
+
+alter table public.guides add column if not exists featured boolean not null default false;
+
+-- Partial: the only question ever asked of this column is "which ones are
+-- featured", and that is a handful of rows out of all of them.
+create index if not exists guides_featured_idx on public.guides (featured) where featured;
+
+create or replace function public.set_guide_featured(p_slug text, p_featured boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Not decoration. This function runs as the table owner and bypasses RLS,
+  -- so this line IS the permission check for the whole feature.
+  if not public.is_moderator() then
+    raise exception 'Only a moderator can feature a guide.' using errcode = '42501';
+  end if;
+
+  update public.guides
+     set featured = coalesce(p_featured, false)
+   where slug = p_slug;
+
+  -- A silent no-op would look identical to success in the UI. The PATCH
+  -- that hides a guide has exactly that problem and this does not have to.
+  if not found then
+    raise exception 'No guide with that address.' using errcode = 'P0002';
+  end if;
+
+  return coalesce(p_featured, false);
+end $$;
+
+-- EXECUTE is granted to PUBLIC by default, which would hand it to anon.
+revoke execute on function public.set_guide_featured(text, boolean) from public, anon;
+grant  execute on function public.set_guide_featured(text, boolean) to authenticated;
+
+-- Verified by running each of these as an ordinary author against their own
+-- guide, with the role and jwt claims set:
+--   set_guide_featured on own guide      -> "Only a moderator can feature a guide."
+--   update guides set featured = true    -> permission denied for table guides
+--   insert a guide with featured = true  -> permission denied for table guides
+--   insert a guide with votes = 9000     -> permission denied for table guides
+--   insert an ordinary guide             -> allowed
+--   hide own guide                       -> allowed
+-- and as a moderator: featuring someone else's guide sets the column, and an
+-- unknown slug raises rather than quietly doing nothing.
+
+
+-- --------------------------------------------------- the INSERT hole
+--
+-- Found while adding the column above. The careful column grants further up
+-- this file only ever covered UPDATE; INSERT was granted at TABLE level,
+-- which in Postgres means every column — including the ones the database is
+-- supposed to own. The comment beside guides_update explains why an author
+-- must not be able to write `votes`, and an author could set votes to nine
+-- thousand on the way IN, by publishing a guide with the value already
+-- there. `featured` would have inherited the same hole, and that one ends on
+-- the front page.
+--
+-- Note this has to be done by revoking the TABLE grant. Revoking one column
+-- out of a table-level privilege is a no-op in Postgres: the table grant
+-- survives and keeps implying every column.
+revoke insert on public.guides from anon, authenticated;
+grant  insert (slug, title, blurb, champ, role, tag, body, author_id, author_name)
+  on public.guides to authenticated;
+-- anon gets nothing: guides_insert requires auth.uid() = author_id, so a
+-- signed-out insert never had a row it could write anyway.

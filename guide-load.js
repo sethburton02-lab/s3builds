@@ -208,6 +208,10 @@ function listPublished({mine = false} = {}){
                              It was missing here at first, which made the
                              badge on the home card impossible to render. */
                           hidden: !!g.hidden,
+                          /* Same lesson, applied before it could bite: a
+                             field the store carries is invisible to every
+                             list on the site until it is named here. */
+                          featured: !!g.featured,
                           author: g.author || "", authorId: g.authorId || ""}))
     .sort((a, b) => b.at - a.at);
 }
@@ -243,9 +247,26 @@ const viewCount = slug => (readStore()[slug] || {}).views || 0;
 const isModerator = () => backendLive() && STORE.moderator();
 const isHidden = slug => !!(readStore()[slug] || {}).hidden;
 
+const isFeatured = slug => !!(readStore()[slug] || {}).featured;
+
 async function setGuideHidden(slug, hidden){
   if(!backendLive()) throw new Error("Moderation needs the live site.");
   return STORE.setHidden(slug, hidden);
+}
+
+async function setGuideFeatured(slug, featured){
+  if(!backendLive()) throw new Error("Moderation needs the live site.");
+  return STORE.setFeatured(slug, featured);
+}
+
+/* What the front page shows above everything else. Hidden is checked even
+   though a reader is never sent a hidden row: a moderator and the author
+   ARE sent theirs, and a guide that was featured and then hidden would
+   otherwise sit on their front page looking published. Most-recently
+   published first, so featuring something new moves it to the head of the
+   row rather than the tail. */
+function listFeatured(){
+  return listPublished().filter(g => g.featured && !g.hidden);
 }
 
 /* Counting a read. With no backend there is nothing to count into — a

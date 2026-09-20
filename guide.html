@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=106">
+<link rel="stylesheet" href="site.css?v=108">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -96,6 +96,12 @@
   .g-mod{background:rgba(10,13,18,.62);border:1px solid rgba(200,163,85,.5);
     color:#e4d9c2}
   .g-mod:hover{background:rgba(20,26,34,.85);border-color:#c8aa6e;color:#f0e6d2}
+  /* On the dark hero, not on parchment — so this is a gold fill with near
+     black text rather than the tinted badge the home cards use. */
+  .g-featured-tag{display:inline-block;margin-left:8px;padding:2px 9px;
+    border-radius:999px;vertical-align:5px;background:linear-gradient(180deg,#e0c483,#c8aa6e);
+    border:1px solid #f0dcae;color:#241a05;font-family:var(--font-head);
+    font-size:13px;line-height:1.5}
   /* Only a moderator or the author can load a hidden guide at all, so this
      is a status line for them, not a warning to a reader. */
   .g-hidden-note{margin:6px 0 0;padding:6px 12px;display:inline-block;
@@ -312,16 +318,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=106"></script>
-<script src="data-rune-icons.js?v=106"></script>
-<script src="data-runes.js?v=106"></script>
-<script src="data-champ-focus.js?v=106"></script>
-<script src="data-mastery-tree.js?v=106"></script>
-<script src="data-masteries.js?v=106"></script>
-<script src="guide-sanitise.js?v=106"></script>
-<script src="config.js?v=106"></script>
-<script src="guide-store.js?v=106"></script>
-<script src="guide-load.js?v=106"></script>
+<script src="site.js?v=108"></script>
+<script src="data-rune-icons.js?v=108"></script>
+<script src="data-runes.js?v=108"></script>
+<script src="data-champ-focus.js?v=108"></script>
+<script src="data-mastery-tree.js?v=108"></script>
+<script src="data-masteries.js?v=108"></script>
+<script src="guide-sanitise.js?v=108"></script>
+<script src="config.js?v=108"></script>
+<script src="guide-store.js?v=108"></script>
+<script src="guide-load.js?v=108"></script>
 <script>
 renderChrome("");
 
@@ -384,8 +390,24 @@ function viewsLabel(){
 function modBtnHtml(){
   if(!G.slug || typeof isModerator !== "function" || !isModerator()) return "";
   const hidden = isHidden(G.slug);
+  const feat   = isFeatured(G.slug);
+  /* Featuring a hidden guide would put one nobody can open onto the front
+     page — the shelf filters hidden rows out, so the button would appear to
+     do nothing. Taking a feature OFF a hidden guide is still offered, or one
+     hidden while featured would be stuck that way. */
   return `<button type="button" class="btn btn-sm g-mod" data-mod="${hidden ? "show" : "hide"}">
-    ${hidden ? "Restore this guide" : "Hide this guide"}</button>`;
+      ${hidden ? "Restore this guide" : "Hide this guide"}</button>`
+    + (hidden && !feat ? "" : `
+      <button type="button" class="btn btn-sm g-mod" data-mod="${feat ? "unfeature" : "feature"}">
+        ${feat ? "Remove from Featured" : "Feature on the home page"}</button>`);
+}
+
+/* The badge a reader sees. Unlike the hidden banner this is public — being
+   featured is a recommendation, and a recommendation nobody can see does
+   not recommend anything. */
+function featuredTagHtml(){
+  if(!G.slug || typeof isFeatured !== "function" || !isFeatured(G.slug)) return "";
+  return `<span class="g-featured-tag">Featured</span>`;
 }
 
 /* The banner a moderator and the author see on a hidden guide. Nobody else
@@ -431,7 +453,7 @@ function heroHtml(){
         <div class="g-kit">${kit}</div>
       </div>
       <h1 class="g-title">${esc(G.title || "Untitled guide")}
-        ${tag ? `<span class="tag ${tag.k}">${tag.label}</span>` : ""}</h1>
+        ${tag ? `<span class="tag ${tag.k}">${tag.label}</span>` : ""}${featuredTagHtml()}</h1>
       ${G.blurb ? `<p class="g-pitch">${esc(G.blurb)}</p>` : ""}
       <p class="g-byline">${G.author
         ? `by <a class="byline-link" href="author.html?u=${
@@ -471,11 +493,15 @@ function voteBtnHtml(){
 document.addEventListener("click", async e => {
   const mod = e.target.closest("[data-mod]");
   if(!mod) return;
-  const hide = mod.dataset.mod === "hide";
+  const act  = mod.dataset.mod;
+  const hide = act === "hide";
   if(hide && !confirm("Hide this guide? It stays visible to you and its author, and you can restore it.")) return;
   mod.disabled = true;
   try{
-    await setGuideHidden(G.slug, hide);
+    if(act === "feature" || act === "unfeature")
+      await setGuideFeatured(G.slug, act === "feature");
+    else
+      await setGuideHidden(G.slug, hide);
     paint();
   }catch(err){
     mod.disabled = false;

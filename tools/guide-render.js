@@ -466,6 +466,37 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     return row.body.hidden === undefined;
   });
 
+  await check("a guide isn't featured unless the row says so", async () =>
+    isFeatured("seeded") === false);
+
+  await check("featuring offline refuses rather than pretending", async () => {
+    try{ await setGuideFeatured("seeded", true); return false; }
+    catch(e){ return /live site/i.test(e.message); }
+  });
+
+  /* featured matters more than hidden here. It is granted to NO client role
+     at all — the only write path is an RPC that checks the moderator role
+     itself — so a copy riding along inside the body jsonb would be the one
+     place an author could put the value, and the home page reads the record
+     rather than the column. */
+  await check("featured is kept out of the guide body", async () => {
+    const keep = globalThis.normaliseGuide;
+    globalThis.normaliseGuide = undefined;
+    let row;
+    try{ row = toRow({title:"t", featured:true}, "s", "u", "n"); }
+    finally{ globalThis.normaliseGuide = keep; }
+    return row.body.featured === undefined && row.featured === undefined;
+  });
+
+  await check("  and the badge follows the column, not the body", async () => {
+    /* fromRow spreads the body first and the columns after, so a body that
+       claims featured:true is overwritten by a column that says false.
+       Order-dependent, and the order is not obvious from reading it. */
+    const g = fromRow({slug:"s", title:"t", body:{featured:true}, featured:false,
+                       created_at:new Date().toISOString()});
+    return g.featured === false;
+  });
+
   /* ---- views ----
      Counting a read must never be able to cost the reader anything. With
      no backend there is nothing to count into, which is the state this

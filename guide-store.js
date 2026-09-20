@@ -315,6 +315,9 @@ function fromRow(r){
        policy filters it out for everyone else — so this is here to LABEL it
        for them, not to hide it again on the client. */
     hidden: !!r.hidden,
+    /* Set by a moderator through an RPC, never by the author. Carried here
+       so the home page can group by it and the badge can be drawn. */
+    featured: !!r.featured,
     at: Date.parse(r.created_at) || 0,
     updated: r.updated_at ? Date.parse(r.updated_at) : 0
   };
@@ -334,6 +337,12 @@ function toRow(guide, slug, authorId, authorName){
      of the document. Left in the spread, an author editing their guide
      would carry a stale copy of it around inside the body. */
   delete body.hidden;
+  /* And featured, for the same reason with more at stake: it decides front
+     page placement. It is not in the author's column grants either, so a
+     copy inside the body is the one place a stale or invented value could
+     survive — normaliseGuide would carry it, and the home page reads the
+     record, not the column. */
+  delete body.featured;
   return {slug, title: title || "Untitled guide", blurb: blurb || "",
           champ: champ || null, role: role || "Mid", tag: tag || "",
           body, author_id: authorId, author_name: authorName || ""};
@@ -501,6 +510,28 @@ const STORE = {
     });
     if(CACHE[slug]) CACHE[slug].hidden = !!hidden;
     return !!hidden;
+  },
+
+  /* Featuring, which is the opposite act: it puts a guide at the top of the
+     front page. Hiding goes through a PATCH because `hidden` is a column an
+     author is allowed to write — hiding your own guide is reasonable. This
+     cannot work the same way. An author must never be able to promote their
+     own guide, and a column grant cannot tell an author from a moderator,
+     since the row policy admits both.
+
+     So the column is granted to nobody and the write goes through a definer
+     function that checks the role itself. The practical difference at this
+     end: a PATCH by someone without the right quietly updates zero rows,
+     while this comes back with an error we can show. */
+  async setFeatured(slug, featured){
+    if(!ME) throw new Error("Sign in first.");
+    await sbFetch("/rest/v1/rpc/set_guide_featured", {
+      method: "POST",
+      body: {p_slug: slug, p_featured: !!featured},
+      headers: {Prefer: "return=minimal"}
+    });
+    if(CACHE[slug]) CACHE[slug].featured = !!featured;
+    return !!featured;
   },
 
   profile: profileOf,

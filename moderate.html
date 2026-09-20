@@ -9,7 +9,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=106">
+<link rel="stylesheet" href="site.css?v=108">
 <style>
   .mod-page{max-width:1080px;padding-bottom:60px}
   .mod-count{font-size:14px;color:var(--muted)}
@@ -19,7 +19,7 @@
     border-radius:var(--radius);background:hsla(43,47%,60%,.26);margin-bottom:8px}
   /* A hidden guide has to be obvious at a glance — the whole reason this
      page exists is that a moderator otherwise can't tell. */
-  .mod-row.is-hidden{background:rgba(140,52,16,.18);border-color:rgba(255,154,138,.45)}
+  .mod-row.is-hidden{background:rgba(140,52,16,.09);border-color:rgba(140,52,16,.5)}
   .mod-row img.por{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);
     object-fit:cover;background:var(--bg-2)}
   .mod-row .por-none{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);
@@ -29,9 +29,14 @@
     line-height:1.3;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mod-meta{font-size:13px;color:var(--muted);margin-top:2px}
   .mod-meta a{color:var(--gold-hi)}
+  /* Written first as pale text on a strong plate, which is the dark-theme
+     habit and measures 2.5:1 on parchment. Light plate, dark ink: 5.2. */
   .mod-flag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;
-    font-size:11.5px;background:rgba(140,52,16,.4);color:#ffd9d0;
-    border:1px solid rgba(255,154,138,.5)}
+    font-size:11.5px;background:rgba(140,52,16,.15);color:#4a1a06;
+    border:1px solid rgba(140,52,16,.45)}
+  .mod-flag.feat{background:rgba(200,163,85,.5);color:#553708;
+    border-color:rgba(140,105,30,.55)}
+  .mod-row.is-featured{background:hsla(43,60%,74%,.55);border-color:var(--gold)}
   .mod-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
   .mod-acts .btn{font-size:13px;padding:5px 11px}
   .btn-danger{background:#8c3410;border-color:#b5502a;color:#ffe9e2}
@@ -43,11 +48,11 @@
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=106"></script>
-<script src="config.js?v=106"></script>
-<script src="guide-sanitise.js?v=106"></script>
-<script src="guide-store.js?v=106"></script>
-<script src="guide-load.js?v=106"></script>
+<script src="site.js?v=108"></script>
+<script src="config.js?v=108"></script>
+<script src="guide-sanitise.js?v=108"></script>
+<script src="guide-store.js?v=108"></script>
+<script src="guide-load.js?v=108"></script>
 <script>
 renderChrome("Guides");
 
@@ -73,17 +78,26 @@ function rowHtml(slug, g){
   const who = g.author
     ? `<a href="author.html?u=${encodeURIComponent(g.author)}">${esc(g.author)}</a>`
     : "<i>no author</i>";
-  return `<div class="mod-row ${g.hidden ? "is-hidden" : ""}" data-slug="${esc(slug)}">
+  return `<div class="mod-row ${g.hidden ? "is-hidden" : g.featured ? "is-featured" : ""}"
+       data-slug="${esc(slug)}">
     ${c ? champImgTag(c, "por") : `<span class="por-none"></span>`}
     <div class="mod-main">
       <b><a href="guide.html?g=${encodeURIComponent(slug)}">${esc(g.title || "Untitled guide")}</a>${
-        g.hidden ? `<span class="mod-flag">hidden</span>` : ""}</b>
+        g.hidden ? `<span class="mod-flag">hidden</span>` : ""}${
+        g.featured ? `<span class="mod-flag feat">featured</span>` : ""}</b>
       <div class="mod-meta">${esc(g.champ || "No champion")}${g.role ? " · " + esc(g.role) : ""}
         · by ${who} · ${fmtDate(g.at)}
         · ${g.votes || 0} upvote${g.votes === 1 ? "" : "s"}
         · ${g.views || 0} view${g.views === 1 ? "" : "s"}</div>
     </div>
     <div class="mod-acts">
+      ${/* Featuring a hidden guide would put one nobody can open on the front
+           page — the shelf skips hidden rows, so the button would look like
+           it had failed. Unfeaturing one is still offered, or a guide hidden
+           while featured would keep a flag with no way to clear it. */
+        g.hidden && !g.featured ? "" : `<button type="button" class="btn btn-sm"
+        data-act="${g.featured ? "unfeature" : "feature"}"
+        >${g.featured ? "Unfeature" : "Feature"}</button>`}
       <button type="button" class="btn btn-sm" data-act="${g.hidden ? "show" : "hide"}"
         >${g.hidden ? "Restore" : "Hide"}</button>
       <button type="button" class="btn btn-sm btn-danger" data-act="delete">Delete</button>
@@ -111,15 +125,18 @@ function paint(){
   const all = Object.entries(readStore())
     .sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
   const hidden = all.filter(([, g]) => g.hidden).length;
+  const feat   = all.filter(([, g]) => g.featured && !g.hidden).length;
 
   el.innerHTML = `
   <p class="crumb" style="padding-top:20px"><a href="index.html">Home</a> › Moderation</p>
   <div class="mod-page">
     <section class="card">
       <h3>Every guide</h3>
-      <p class="mod-count">${all.length} published${hidden ? ` · ${hidden} hidden` : ""}.
-        Hiding keeps the guide, its votes and its views — the author still sees it,
-        and you can put it back. Deleting cannot be undone.</p>
+      <p class="mod-count">${all.length} published${hidden ? ` · ${hidden} hidden` : ""}${
+        feat ? ` · ${feat} featured` : ""}.
+        Featuring puts a guide at the top of the home page. Hiding keeps the guide,
+        its votes and its views — the author still sees it, and you can put it back.
+        Deleting cannot be undone.</p>
     </section>
     ${all.length
       ? all.map(([slug, g]) => rowHtml(slug, g)).join("")
@@ -136,7 +153,11 @@ document.getElementById("main").addEventListener("click", async e => {
   const slug = row && row.dataset.slug;
   if(!slug) return;
   const act  = btn.dataset.act;
-  const title = row.querySelector(".mod-main b").textContent.trim();
+  /* The anchor, not the <b> around it — the <b> also contains the hidden and
+     featured flags, so the delete prompt read "Delete Zed but it's all
+     lethalityfeatured?". */
+  const titleEl = row.querySelector(".mod-main b a") || row.querySelector(".mod-main b");
+  const title = titleEl ? titleEl.textContent.trim() : "this guide";
 
   if(act === "delete"){
     /* Two prompts, and the second one names the guide. This is the only
@@ -147,8 +168,9 @@ document.getElementById("main").addEventListener("click", async e => {
 
   for(const b of row.querySelectorAll("button")) b.disabled = true;
   try{
-    if(act === "delete") await unpublishGuide(slug);
-    else                 await setGuideHidden(slug, act === "hide");
+    if(act === "delete")                           await unpublishGuide(slug);
+    else if(act === "feature" || act === "unfeature") await setGuideFeatured(slug, act === "feature");
+    else                                           await setGuideHidden(slug, act === "hide");
     paint();
   }catch(err){
     for(const b of row.querySelectorAll("button")) b.disabled = false;

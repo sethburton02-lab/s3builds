@@ -339,6 +339,69 @@ src += `
     return !/hidden-tag/.test(zone());
   });
 
+  /* ---- the featured shelf ----
+     A moderator's picks, above the list and outside the filters. The two
+     things that can go wrong quietly: the shelf showing when nothing is
+     featured (a heading over nothing, which is the normal state of a new
+     site), and the featured guide vanishing from the list below it, which
+     would make searching for it come back empty. */
+  console.log("\\nthe featured shelf:");
+
+  const seed = mods => {
+    const all = JSON.parse(__SEEDED_GUIDES);
+    if(mods) mods(all);
+    localStorage.setItem("riftvault.published.v1", JSON.stringify(all));
+    repaintAll();
+    return all;
+  };
+  const shelf = () => {
+    const m = /<section class="h-sec" id="featured">[\\s\\S]*?<\\/section>/.exec(main());
+    return m ? m[0] : "";
+  };
+  /* Everything from the Guides section down, so "is it on the shelf" and
+     "is it in the list" are two different questions. */
+  const list = () => {
+    const at = main().search(/id="guides"/);
+    return at < 0 ? "" : main().slice(at);
+  };
+  /* Matched on a fragment without an apostrophe on purpose: titles go
+     through esc(), so "Kog'Maw" is &#39; in the markup and a literal
+     comparison against the seed silently never matches. */
+  const PICK = "artillery mid";               /* ap-kogmaw, a Mid guide */
+
+  check("no shelf when nothing is featured", () => { seed(); return shelf() === ""; });
+
+  check("featuring one raises the shelf", () => {
+    seed(all => { all["ap-kogmaw"].featured = true; });
+    return shelf().includes(PICK);
+  });
+  check("  and only that one",        () =>
+    (shelf().match(/class="h-guide"/g) || []).length === 1);
+  check("  and it carries the badge", () => /class="tag featured-tag"/.test(shelf()));
+  check("  and it is still in the list below", () => list().includes(PICK));
+
+  check("a hidden guide never reaches the shelf", () => {
+    seed(all => { all["ap-kogmaw"].featured = true; all["ap-kogmaw"].hidden = true; });
+    return shelf() === "";
+  });
+
+  /* The filters narrow the list, not the shelf. Featuring is an editorial
+     statement and clicking "Jungle" should not change what the site is
+     recommending. Repainted in full under the active filter — checking
+     main() straight after a filter click proves nothing, because a filter
+     click only rewrites #guides and leaves the rest of the last paint
+     sitting there untouched. */
+  check("the filters narrow the list, not the shelf", () => {
+    seed(all => { all["ap-kogmaw"].featured = true; });   /* ap-kogmaw is Mid */
+    click("role", "Jungle");
+    repaintAll();
+    return shelf().includes(PICK) && !list().includes(PICK);
+  });
+  check("  (and the list really was narrowed)", () => list().includes("Warwick jungle"));
+
+  click("role", "");
+  seed();
+
   /* ---- the card is one element, not three ----
      A guide card contains a link to the guide AND a link to the author. It
      used to be built as an <a> wrapping both, which is invalid: the parser
