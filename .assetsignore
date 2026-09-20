@@ -1,0 +1,13 @@
+# Files in this repo that are not part of the website.
+#
+# Everything in the project directory is uploaded as a static asset, which
+# is how tools/ and supabase/ have always been fetchable — that predates
+# this file and is left alone deliberately, because quietly changing what
+# the site serves is not this change's business.
+#
+# What is listed here is only the machinery added for the worker, which has
+# no reason to be downloadable and would otherwise sit at /wrangler.jsonc
+# and /worker/index.mjs.
+worker
+wrangler.jsonc
+.assetsignore

@@ -1,0 +1,53 @@
+{
+  // ============================================================
+  // Cloudflare configuration
+  //
+  // Until now this project had none: it deployed as static assets with no
+  // worker script, and Cloudflare inferred everything. Adding worker/index.mjs
+  // means the settings have to be written down, and this is where.
+  //
+  // THE ONE FIELD THAT HAS TO BE RIGHT is "name". It must match the Worker
+  // already in your Cloudflare dashboard, character for character — it is
+  // what says "deploy over the existing site" rather than "create a second
+  // one". Workers & Pages → the project serving s3builds.net → the name at
+  // the top. If it isn't "s3builds", change it here before pushing.
+  // ============================================================
+
+  "name": "s3builds",
+  "main": "worker/index.mjs",
+
+  // The runtime's behaviour is frozen at this date, so a change Cloudflare
+  // makes next year cannot change what this worker does. Only move it
+  // deliberately.
+  "compatibility_date": "2026-09-20",
+
+  "assets": {
+    // The repo is the site. No build step, same as it has always been.
+    "directory": "./",
+
+    // How worker/index.mjs reaches the files. Without this the worker has
+    // no way to serve the page it is rewriting.
+    "binding": "ASSETS",
+
+    // Static assets are served BEFORE the worker by default, which for a
+    // site made entirely of static assets would mean the worker never ran
+    // at all. These four paths are the exception, listed exactly rather
+    // than as a wildcard: "/guide*" would also capture /guide-load.js and
+    // put a worker invocation in front of a file that just needs serving.
+    //
+    // Both spellings of each page are here because this platform serves
+    // /guide for guide.html, so both are real URLs people paste.
+    "run_worker_first": [
+      "/guide",
+      "/guide.html",
+      "/champion",
+      "/champion.html"
+    ]
+  },
+
+  // console.warn from the worker goes to the dashboard's Logs tab. The
+  // preview code is deliberately quiet about failure — it serves the plain
+  // page instead — so without this a preview that stopped resolving would
+  // leave no trace anywhere.
+  "observability": {"enabled": true}
+}

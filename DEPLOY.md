@@ -6,7 +6,20 @@ nothing between the files and the browser means nothing to go wrong on
 someone else's machine, and the whole thing can be opened from `file://`
 for a quick look.
 
-## Cloudflare Pages
+## Which Cloudflare product this is on
+
+**Workers with static assets**, not Pages, despite what the walkthrough in
+START-HERE.md says — that was written before the project was set up and the
+setup went a different way. Two things confirm it: `/assets/*` is claimed by
+the runtime's asset router, which is the whole reason the art folder is
+called `art` (see below), and a request for a path that doesn't exist comes
+back as a bare empty 404 rather than the HTML 404 page Pages serves.
+
+It matters because the two take different configuration. Pages would want a
+`functions/` directory; this wants `wrangler.jsonc`, which is now in the
+repo and is what deploys the link-preview worker.
+
+## Setting it up from scratch
 
 1. Push this folder to a Git repo.
 2. Cloudflare dashboard → Workers & Pages → Create → Pages → connect the repo.
@@ -67,6 +80,67 @@ does that itself), and a `/masteries` rule matched as a *prefix* and
 swallowed every image under `art/masteries/`. Cloudflare's defaults are
 correct on their own. Add nothing here without testing it.
 
+## Link previews
+
+Every page here is drawn by JavaScript, which is fine for a browser and
+useless for a link unfurler. Discord, Slack, iMessage and every crawler
+that doesn't run scripts read the HTML as it arrives — and as it arrives,
+every guide on the site says `<title>Guide — S3 Builds</title>` with the
+site logo for a picture. League guides travel by being pasted into Discord,
+so that was the single most expensive thing about the site being
+client-rendered.
+
+`worker/index.mjs` sits in front of `guide.html` and `champion.html`, looks
+up what the page is actually about, and rewrites the meta tags before the
+response leaves Cloudflare. A guide link now unfurls with its own title,
+"<champion> <role> guide by <author>" plus the author's blurb, and the
+mode's own splash art as a large image. The page itself is untouched and
+still renders in the browser exactly as it did.
+
+**Three files:**
+
+| File | What it is |
+| --- | --- |
+| `worker/index.mjs` | The worker. Every failure path in it ends by serving the unmodified page. |
+| `wrangler.jsonc` | Names the worker, points at the assets, and lists the four paths the worker runs in front of. |
+| `.assetsignore` | Keeps those two out of the website itself. |
+
+**Before the first push, check one field.** `name` in `wrangler.jsonc` must
+match the Worker already in your Cloudflare dashboard exactly — it is what
+says "deploy over the existing site" instead of "create a second one". It is
+currently `s3builds`. Workers & Pages → the project serving s3builds.net →
+the name at the top.
+
+**What changes about deploying:** nothing you do. Cloudflare builds from the
+repo as before; it now finds `wrangler.jsonc` and deploys a script along
+with the files.
+
+**Checking it worked**, once it's up:
+
+```
+curl -s "https://s3builds.net/guide.html?g=<any-published-slug>" | grep "og:"
+```
+
+You want the guide's own title there, not "Guide — S3 Builds". Or paste a
+guide link into any Discord channel. If the tags are still generic, the
+worker isn't running: check `name`, then the Logs tab in the dashboard —
+the worker reports every giving-up with a line starting `preview:`.
+
+**Backing it out** is deleting `wrangler.jsonc` and `worker/`, then pushing.
+The site goes back to being nothing but static assets, and the only thing
+lost is the previews. Nothing else on the site depends on any of this.
+
+**What is not covered by the tests.** `tools/worker-check.js` runs the real
+rewrite over the real `guide.html`, with the network stubbed, including the
+failure paths — but it cannot prove Cloudflare actually routes `/guide` to
+the worker. That lives in `run_worker_first` and the only way to know is to
+deploy and look.
+
+**Costs a request.** Every guide and champion page now runs a worker and
+one Supabase query. At this size that's nothing, but if it ever matters,
+the cheapest fix is a short `s-maxage` on those two pages so repeat unfurls
+of the same link don't repeat the lookup.
+
 ## Why the art folder is called `art` and not `assets`
 
 It was `assets`, which is the obvious name, and it cost an afternoon.
@@ -102,6 +176,7 @@ node tools/items-check.js .      # shop grid, recipes, filters
 node tools/item-check.js .       # detail page, recipe tree
 node tools/guide-render.js .     # the guide view end to end
 node tools/home-check.js .       # filters, sort, empty states
+node tools/worker-check.js .     # link previews, and every way they can fail
 python3 tools/contrast-check.py .          # WCAG AA on both surfaces
 python3 tools/check-data.py <lol-game-data> # data vs. the client's own files
 python3 tools/bump-version.py --check      # every asset URL carries ?v=
