@@ -232,6 +232,16 @@ const hasVoted = slug => backendLive() ? STORE.votedOn(slug) : readMyVotes().inc
 const voteCount = slug => (readStore()[slug] || {}).votes || 0;
 const viewCount = slug => (readStore()[slug] || {}).views || 0;
 
+/* Moderation. Offline there is nobody to moderate, so both answer no and
+   do nothing rather than pretending. */
+const isModerator = () => backendLive() && STORE.moderator();
+const isHidden = slug => !!(readStore()[slug] || {}).hidden;
+
+async function setGuideHidden(slug, hidden){
+  if(!backendLive()) throw new Error("Moderation needs the live site.");
+  return STORE.setHidden(slug, hidden);
+}
+
 /* Counting a read. With no backend there is nothing to count into — a
    local draft preview has no audience — so this quietly does nothing
    rather than pretending. Never throws: see STORE.recordView. */

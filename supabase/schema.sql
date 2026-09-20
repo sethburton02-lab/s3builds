@@ -340,3 +340,81 @@ revoke execute on function public.sync_view_count() from anon, authenticated, pu
 -- small at this size, but it is a growing record of reading habits, and
 -- deleting rows older than a couple of days would cost nothing and keep
 -- less. Worth doing before the site is busy.
+
+
+-- ============================================================
+-- MODERATION
+-- ============================================================
+
+-- Who may moderate. Deliberately its own table rather than a column on
+-- profiles: profiles has column-level UPDATE granted to `authenticated` so
+-- people can change their own name and avatar, and one careless grant on a
+-- moderator column there would let anybody promote themselves. A table with
+-- no write grants at all cannot be reached from a browser whatever the
+-- policies say.
+create table if not exists public.moderators (
+  user_id  uuid primary key references auth.users(id) on delete cascade,
+  added_at timestamptz not null default now()
+);
+
+alter table public.moderators enable row level security;
+
+-- You may check whether YOU are a moderator, so the UI knows what to draw.
+-- You may not enumerate who else is.
+drop policy if exists moderators_read_self on public.moderators;
+create policy moderators_read_self on public.moderators for select
+  using ((select auth.uid()) = user_id);
+
+revoke all on public.moderators from anon, authenticated;
+grant select on public.moderators to anon, authenticated;
+
+-- Takes no argument and reads auth.uid() itself, so it can only ever answer
+-- "am I a moderator" and never "is this other person one". That is what
+-- makes granting EXECUTE publicly safe.
+--
+-- The first version took a uuid and had EXECUTE revoked, copying the trigger
+-- function pattern further up this file. That pattern does not apply: a
+-- trigger runs as the table owner and is never called directly, but a
+-- function inside an RLS policy is executed by the querying role. With
+-- EXECUTE revoked, every policy using it failed with "permission denied for
+-- function" — which is indistinguishable from the policy correctly denying
+-- the action, and made a broken setup briefly look like a working one.
+create or replace function public.is_moderator()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$ select exists (select 1 from public.moderators m where m.user_id = (select auth.uid())) $$;
+
+grant execute on function public.is_moderator() to anon, authenticated;
+
+-- Moderation hides rather than destroys. A hidden guide keeps its votes,
+-- its views and its author, stays visible to that author and to moderators,
+-- and can be put back. Hard delete still exists for what deserves it, but
+-- it is a separate deliberate act rather than the default tool.
+alter table public.guides add column if not exists hidden boolean not null default false;
+
+drop policy if exists guides_read   on public.guides;
+drop policy if exists guides_update on public.guides;
+drop policy if exists guides_delete on public.guides;
+
+create policy guides_read on public.guides for select
+  using (hidden = false or (select auth.uid()) = author_id or public.is_moderator());
+
+create policy guides_update on public.guides for update
+  using ((select auth.uid()) = author_id or public.is_moderator())
+  with check ((select auth.uid()) = author_id or public.is_moderator());
+
+create policy guides_delete on public.guides for delete
+  using ((select auth.uid()) = author_id or public.is_moderator());
+
+-- RLS picks the row, grants pick the column. Adding `hidden` to the writable
+-- set does not let an author touch anyone else's — the policy above is what
+-- stops that — and nobody gains the ability to write votes, views or
+-- author_id.
+grant update (hidden) on public.guides to authenticated;
+
+-- Adding a moderator is a dashboard / service_role operation on purpose.
+-- There is no path to this table from a browser.
+--   insert into public.moderators (user_id) values ('<uuid>');

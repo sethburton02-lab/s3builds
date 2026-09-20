@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=104">
+<link rel="stylesheet" href="site.css?v=105">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -91,6 +91,16 @@
   .g-vote.on:hover{background:linear-gradient(180deg,#d6bb84,#b08c46)}
   .g-vote[disabled]{opacity:.55;cursor:default}
   .g-vote-err{margin:6px 0 0;font-size:13px;color:#ff9a8a}
+  /* Moderator controls sit on the dark hero with the vote button, so they
+     borrow its plate rather than the page's parchment button. */
+  .g-mod{background:rgba(10,13,18,.62);border:1px solid rgba(200,163,85,.5);
+    color:#e4d9c2}
+  .g-mod:hover{background:rgba(20,26,34,.85);border-color:#c8aa6e;color:#f0e6d2}
+  /* Only a moderator or the author can load a hidden guide at all, so this
+     is a status line for them, not a warning to a reader. */
+  .g-hidden-note{margin:6px 0 0;padding:6px 12px;display:inline-block;
+    border-radius:var(--radius);background:rgba(140,52,16,.28);
+    border:1px solid rgba(255,154,138,.45);color:#ffd9d0;font-size:13.5px}
 
   /* ---------- layout ---------- */
   .g-body{display:grid;grid-template-columns:186px minmax(0,1fr);gap:26px;
@@ -302,16 +312,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=104"></script>
-<script src="data-rune-icons.js?v=104"></script>
-<script src="data-runes.js?v=104"></script>
-<script src="data-champ-focus.js?v=104"></script>
-<script src="data-mastery-tree.js?v=104"></script>
-<script src="data-masteries.js?v=104"></script>
-<script src="guide-sanitise.js?v=104"></script>
-<script src="config.js?v=104"></script>
-<script src="guide-store.js?v=104"></script>
-<script src="guide-load.js?v=104"></script>
+<script src="site.js?v=105"></script>
+<script src="data-rune-icons.js?v=105"></script>
+<script src="data-runes.js?v=105"></script>
+<script src="data-champ-focus.js?v=105"></script>
+<script src="data-mastery-tree.js?v=105"></script>
+<script src="data-masteries.js?v=105"></script>
+<script src="guide-sanitise.js?v=105"></script>
+<script src="config.js?v=105"></script>
+<script src="guide-store.js?v=105"></script>
+<script src="guide-load.js?v=105"></script>
 <script>
 renderChrome("");
 
@@ -365,6 +375,26 @@ function viewsLabel(){
   return ` · ${n.toLocaleString()} view${n === 1 ? "" : "s"}`;
 }
 
+/* ---------- moderation ----------
+   Drawn only for a moderator, and only on a published guide. None of this
+   enforces anything — the policy on the guides table decides, and a person
+   who conjures these buttons in a console gets requests that change zero
+   rows. It exists so a moderator doesn't have to open Supabase to take
+   something down. */
+function modBtnHtml(){
+  if(!G.slug || typeof isModerator !== "function" || !isModerator()) return "";
+  const hidden = isHidden(G.slug);
+  return `<button type="button" class="btn btn-sm g-mod" data-mod="${hidden ? "show" : "hide"}">
+    ${hidden ? "Restore this guide" : "Hide this guide"}</button>`;
+}
+
+/* The banner a moderator and the author see on a hidden guide. Nobody else
+   can load the row at all, so this is never shown to a reader. */
+function hiddenNoticeHtml(){
+  if(!G.slug || !isHidden(G.slug)) return "";
+  return `<p class="g-hidden-note">This guide is hidden. Only you and its author can see it.</p>`;
+}
+
 /* ---------- hero ---------- */
 
 function heroHtml(){
@@ -407,10 +437,12 @@ function heroHtml(){
         ? `by <a class="byline-link" href="author.html?u=${
              encodeURIComponent(G.author)}">${esc(G.author)}</a> · ` : ""
       }<span data-patch>${patchLabel()}</span>${viewsLabel()}</p>
+      ${hiddenNoticeHtml()}
       <div class="g-acts">
         ${voteBtnHtml()}
         ${G.slug && G.mine ? `<a class="btn btn-sm"
           href="create.html?edit=${encodeURIComponent(G.slug)}">Edit this guide</a>` : ""}
+        ${modBtnHtml()}
       </div>
     </div>
   </div></div>`;
@@ -433,6 +465,26 @@ function voteBtnHtml(){
     <span class="word">${n === 1 ? "upvote" : "upvotes"}</span>
   </button>`;
 }
+
+/* Hiding and restoring. A full repaint rather than swapping the button,
+   because the banner above the hero has to appear or go with it. */
+document.addEventListener("click", async e => {
+  const mod = e.target.closest("[data-mod]");
+  if(!mod) return;
+  const hide = mod.dataset.mod === "hide";
+  if(hide && !confirm("Hide this guide? It stays visible to you and its author, and you can restore it.")) return;
+  mod.disabled = true;
+  try{
+    await setGuideHidden(G.slug, hide);
+    paint();
+  }catch(err){
+    mod.disabled = false;
+    const note = document.createElement("p");
+    note.className = "g-vote-err";
+    note.textContent = err.message;
+    mod.closest(".g-acts")?.insertAdjacentElement("afterend", note);
+  }
+});
 
 document.addEventListener("click", async e => {
   const btn = e.target.closest("[data-vote]");

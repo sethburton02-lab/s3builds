@@ -268,6 +268,12 @@ let MY_VOTES = new Set();
 let PROFILES = {};       /* user id -> {id, name, avatar, joined} */
 let LOADED = false;
 
+/* Whether the signed-in person can moderate. Asked once at boot and cached,
+   because it decides whether a few controls are drawn and nothing more.
+   It is NOT what enforces anything — the database does that. A person who
+   flips this in a console gets some buttons that fail. */
+let IS_MOD = false;
+
 /* LOADED means "the server answered and we have its data". SETTLED means
    "we tried". They are not the same, and conflating them is why the header
    could sit on its … placeholder forever: the placeholder was shown while
@@ -305,6 +311,10 @@ function fromRow(r){
     author: r.author_name || "", authorId: r.author_id,
     votes: r.votes || 0,
     views: r.views || 0,
+    /* Only a moderator or the author ever receives a hidden row — the read
+       policy filters it out for everyone else — so this is here to LABEL it
+       for them, not to hide it again on the client. */
+    hidden: !!r.hidden,
     at: Date.parse(r.created_at) || 0,
     updated: r.updated_at ? Date.parse(r.updated_at) : 0
   };
@@ -320,6 +330,10 @@ function toRow(guide, slug, authorId, authorName){
      would carry an old count around forever inside the document. */
   delete body.author; delete body.authorId; delete body.votes; delete body.views;
   delete body.slug;   delete body.at;       delete body.updated;
+  /* Same reason as votes and views: a column the moderator owns, not part
+     of the document. Left in the spread, an author editing their guide
+     would carry a stale copy of it around inside the body. */
+  delete body.hidden;
   return {slug, title: title || "Untitled guide", blurb: blurb || "",
           champ: champ || null, role: role || "Mid", tag: tag || "",
           body, author_id: authorId, author_name: authorName || ""};
@@ -346,6 +360,12 @@ async function loadStore(){
       const p = PROFILES[ME.id];
       if(p){ ME.name = p.name; ME.avatar = p.avatar;
              ME.avatarKey = p.avatarKey; ME.named = true; }
+      /* The moderators table only ever returns your own row — the policy
+         is `auth.uid() = user_id` — so a row coming back IS the answer. */
+      try{
+        const mod = await sbFetch("/rest/v1/moderators?select=user_id");
+        IS_MOD = Array.isArray(mod) && mod.length > 0;
+      }catch(_){ IS_MOD = false; }
     }
     LOADED = true;
     SETTLED = true;
@@ -464,6 +484,23 @@ const STORE = {
       console.warn("View not counted:", err.message);
       return false;
     }
+  },
+
+  moderator: () => IS_MOD,
+
+  /* Hide or restore a guide. Hiding is the moderation action: the row keeps
+     its votes, its views and its author, and stays visible to them and to
+     moderators. Everyone else stops seeing it exists.
+     Nothing here is a permission check — the policy on guides decides, and
+     a non-moderator calling this simply updates zero rows. */
+  async setHidden(slug, hidden){
+    if(!ME) throw new Error("Sign in first.");
+    await sbFetch(`/rest/v1/guides?slug=eq.${encodeURIComponent(slug)}`, {
+      method: "PATCH", body: {hidden: !!hidden},
+      headers: {Prefer: "return=minimal"}
+    });
+    if(CACHE[slug]) CACHE[slug].hidden = !!hidden;
+    return !!hidden;
   },
 
   profile: profileOf,

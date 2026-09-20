@@ -432,6 +432,40 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     catch(e){ return /no longer published/.test(e.message); }
   });
 
+  /* ---- moderation ----
+     The dangerous failure here is silent: a bug that shows the controls to
+     the wrong person doesn't throw, it just quietly offers a button. The
+     database is what actually enforces this — these only check that the
+     client doesn't draw moderator controls for someone who isn't one. */
+  console.log("\\nmoderation:");
+
+  await check("no moderator controls with no backend", async () =>
+    isModerator() === false);
+
+  await check("  so the hero draws no mod button", async () => {
+    G.slug = "seeded";
+    return modBtnHtml() === "";
+  });
+
+  await check("a guide isn't hidden unless the row says so", async () =>
+    isHidden("seeded") === false);
+
+  await check("hiding offline refuses rather than pretending", async () => {
+    try{ await setGuideHidden("seeded", true); return false; }
+    catch(e){ return /live site/i.test(e.message); }
+  });
+
+  /* hidden is a column the moderator owns, like votes and views. Carried in
+     the body jsonb an author's edit would drag a stale copy around. */
+  await check("hidden is kept out of the guide body", async () => {
+    const keep = globalThis.normaliseGuide;
+    globalThis.normaliseGuide = undefined;
+    let row;
+    try{ row = toRow({title:"t", hidden:true, votes:9, views:9}, "s", "u", "n"); }
+    finally{ globalThis.normaliseGuide = keep; }
+    return row.body.hidden === undefined;
+  });
+
   /* ---- views ----
      Counting a read must never be able to cost the reader anything. With
      no backend there is nothing to count into, which is the state this
