@@ -202,6 +202,12 @@ function listPublished({mine = false} = {}){
                           champ: g.champ,
                           role: g.role, tag: g.tag, at: g.at || 0, updated: g.updated || 0,
                           votes: g.votes || 0,
+                          /* Carried so a list can mark it. Only a moderator
+                             or the author is ever sent a hidden row, so this
+                             is a label for them and never leaks to a reader.
+                             It was missing here at first, which made the
+                             badge on the home card impossible to render. */
+                          hidden: !!g.hidden,
                           author: g.author || "", authorId: g.authorId || ""}))
     .sort((a, b) => b.at - a.at);
 }

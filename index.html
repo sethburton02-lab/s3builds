@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=105">
+<link rel="stylesheet" href="site.css?v=106">
 <style>
   /* Everything on this page is real: the site's chrome, the mode's own
      champion art, and whatever has actually been published. There is no
@@ -96,6 +96,8 @@
   .h-guide .blurb{margin:6px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .h-guide .tag{margin-left:6px;vertical-align:1px}
+  .h-guide .hidden-tag{background:rgba(140,52,16,.4);color:#7a2c0c;
+    border:1px solid rgba(140,52,16,.5)}
   /* Corner-set rather than a column of its own. A full-height 46px column
      with a divider spent a lot of card on one number; up here it costs the
      card nothing but the title's last few characters. */
@@ -153,13 +155,13 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=105"></script>
-<script src="data-rune-icons.js?v=105"></script>
-<script src="data-runes.js?v=105"></script>
-<script src="guide-sanitise.js?v=105"></script>
-<script src="config.js?v=105"></script>
-<script src="guide-store.js?v=105"></script>
-<script src="guide-load.js?v=105"></script>
+<script src="site.js?v=106"></script>
+<script src="data-rune-icons.js?v=106"></script>
+<script src="data-runes.js?v=106"></script>
+<script src="guide-sanitise.js?v=106"></script>
+<script src="config.js?v=106"></script>
+<script src="guide-store.js?v=106"></script>
+<script src="guide-load.js?v=106"></script>
 <script>
 renderChrome("Guides");
 
@@ -247,7 +249,12 @@ function guideCardHtml(r){
     ${c ? champImgTag(c, "por") : `<span class="por"></span>`}
     <div class="meta">
       <b><a class="h-guide-link" href="guide.html?g=${encodeURIComponent(r.slug)}"
-         >${esc(r.title)}</a>${tag ? `<span class="tag ${tag.k}">${tag.label}</span>` : ""}</b>
+         >${esc(r.title)}</a>${tag ? `<span class="tag ${tag.k}">${tag.label}</span>` : ""}${
+        /* Only a moderator or the author ever receives a hidden row, so this
+           badge is never shown to a reader. Without it a moderator hides a
+           guide, still sees it sitting in the list, and concludes the button
+           did nothing. */
+        r.hidden ? `<span class="tag hidden-tag">hidden</span>` : ""}</b>
       <div class="by">${esc(r.champ || "No champion")}${r.role ? " · " + esc(r.role) : ""}${
         /* The byline links to the author. Built from the NAME rather than
            the id because that is what author.html is addressed by, and a

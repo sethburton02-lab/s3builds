@@ -318,6 +318,27 @@ src += `
     return !main().includes("unpublished draft");
   });
 
+  /* ---- a hidden guide is marked ----
+     Only a moderator or the author ever receives a hidden row from the API,
+     so this badge is never shown to a reader. It matters because without it
+     a moderator hides a guide, still sees it in the list, and reasonably
+     concludes the button did nothing. */
+  console.log("\\nhidden guides are marked:");
+
+  check("a hidden guide carries the badge", () => {
+    const all = JSON.parse(__SEEDED_GUIDES);
+    all["zed-fun"].hidden = true;
+    localStorage.setItem("riftvault.published.v1", JSON.stringify(all));
+    repaintAll();
+    return /class="tag hidden-tag"/.test(zone());
+  });
+
+  check("  and an ordinary one doesn't", () => {
+    localStorage.setItem("riftvault.published.v1", __SEEDED_GUIDES);
+    repaintAll();
+    return !/hidden-tag/.test(zone());
+  });
+
   /* ---- the card is one element, not three ----
      A guide card contains a link to the guide AND a link to the author. It
      used to be built as an <a> wrapping both, which is invalid: the parser

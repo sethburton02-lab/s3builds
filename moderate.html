@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Moderation tools for S3 Builds.">
+<meta name="robots" content="noindex">
+<title>Moderation — S3 Builds</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="site.css?v=106">
+<style>
+  .mod-page{max-width:1080px;padding-bottom:60px}
+  .mod-count{font-size:14px;color:var(--muted)}
+
+  .mod-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;
+    align-items:center;padding:11px 13px;border:1px solid var(--line);
+    border-radius:var(--radius);background:hsla(43,47%,60%,.26);margin-bottom:8px}
+  /* A hidden guide has to be obvious at a glance — the whole reason this
+     page exists is that a moderator otherwise can't tell. */
+  .mod-row.is-hidden{background:rgba(140,52,16,.18);border-color:rgba(255,154,138,.45)}
+  .mod-row img.por{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);
+    object-fit:cover;background:var(--bg-2)}
+  .mod-row .por-none{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);
+    background:var(--bg-2);display:block}
+  .mod-main{min-width:0}
+  .mod-main b{display:block;font-family:var(--font-head);font-size:16px;font-weight:400;
+    line-height:1.3;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mod-meta{font-size:13px;color:var(--muted);margin-top:2px}
+  .mod-meta a{color:var(--gold-hi)}
+  .mod-flag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;
+    font-size:11.5px;background:rgba(140,52,16,.4);color:#ffd9d0;
+    border:1px solid rgba(255,154,138,.5)}
+  .mod-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .mod-acts .btn{font-size:13px;padding:5px 11px}
+  .btn-danger{background:#8c3410;border-color:#b5502a;color:#ffe9e2}
+  .btn-danger:hover{background:#a03d13}
+  .mod-msg{font-size:13px;margin:6px 0 0}
+  .mod-msg.bad{color:#8c3410}
+</style>
+</head>
+<body>
+<div id="main" class="wrap"></div>
+
+<script src="site.js?v=106"></script>
+<script src="config.js?v=106"></script>
+<script src="guide-sanitise.js?v=106"></script>
+<script src="guide-store.js?v=106"></script>
+<script src="guide-load.js?v=106"></script>
+<script>
+renderChrome("Guides");
+
+/* ============================================================
+   MODERATION
+
+   Every guide on the site in one list, including the hidden ones, which
+   only a moderator and their own author can load at all.
+
+   Nothing on this page enforces anything. The buttons are buttons: the
+   policies on the guides table decide, and a person who reaches this page
+   without the role gets controls whose requests change zero rows. The gate
+   below is courtesy, not security.
+   ============================================================ */
+
+function fmtDate(ms){
+  return ms ? new Date(ms).toLocaleDateString(undefined,
+    {day: "numeric", month: "short", year: "numeric"}) : "—";
+}
+
+function rowHtml(slug, g){
+  const c = g.champ ? (CHAMPIONS || []).find(x => x.name === g.champ) : null;
+  const who = g.author
+    ? `<a href="author.html?u=${encodeURIComponent(g.author)}">${esc(g.author)}</a>`
+    : "<i>no author</i>";
+  return `<div class="mod-row ${g.hidden ? "is-hidden" : ""}" data-slug="${esc(slug)}">
+    ${c ? champImgTag(c, "por") : `<span class="por-none"></span>`}
+    <div class="mod-main">
+      <b><a href="guide.html?g=${encodeURIComponent(slug)}">${esc(g.title || "Untitled guide")}</a>${
+        g.hidden ? `<span class="mod-flag">hidden</span>` : ""}</b>
+      <div class="mod-meta">${esc(g.champ || "No champion")}${g.role ? " · " + esc(g.role) : ""}
+        · by ${who} · ${fmtDate(g.at)}
+        · ${g.votes || 0} upvote${g.votes === 1 ? "" : "s"}
+        · ${g.views || 0} view${g.views === 1 ? "" : "s"}</div>
+    </div>
+    <div class="mod-acts">
+      <button type="button" class="btn btn-sm" data-act="${g.hidden ? "show" : "hide"}"
+        >${g.hidden ? "Restore" : "Hide"}</button>
+      <button type="button" class="btn btn-sm btn-danger" data-act="delete">Delete</button>
+    </div>
+  </div>`;
+}
+
+function paint(){
+  const el = document.getElementById("main");
+
+  if(accountPending()){
+    el.innerHTML = `<div class="state"><h3>One moment</h3><p>Checking your session…</p></div>`;
+    return;
+  }
+  if(!isModerator()){
+    /* Deliberately says nothing about who is a moderator or how to become
+       one. Someone who isn't one has no business learning either. */
+    el.innerHTML = `<div class="state">
+      <h3>Not available</h3>
+      <p>This page is for moderators.</p>
+      <p><a class="btn" href="index.html">Back to the site</a></p></div>`;
+    return;
+  }
+
+  const all = Object.entries(readStore())
+    .sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+  const hidden = all.filter(([, g]) => g.hidden).length;
+
+  el.innerHTML = `
+  <p class="crumb" style="padding-top:20px"><a href="index.html">Home</a> › Moderation</p>
+  <div class="mod-page">
+    <section class="card">
+      <h3>Every guide</h3>
+      <p class="mod-count">${all.length} published${hidden ? ` · ${hidden} hidden` : ""}.
+        Hiding keeps the guide, its votes and its views — the author still sees it,
+        and you can put it back. Deleting cannot be undone.</p>
+    </section>
+    ${all.length
+      ? all.map(([slug, g]) => rowHtml(slug, g)).join("")
+      : `<div class="state"><h3>Nothing published yet</h3></div>`}
+  </div>`;
+}
+
+/* One delegated handler for the whole list — the rows are rebuilt on every
+   action, so per-row listeners would be rebound constantly. */
+document.getElementById("main").addEventListener("click", async e => {
+  const btn = e.target.closest("[data-act]");
+  if(!btn) return;
+  const row  = btn.closest("[data-slug]");
+  const slug = row && row.dataset.slug;
+  if(!slug) return;
+  const act  = btn.dataset.act;
+  const title = row.querySelector(".mod-main b").textContent.trim();
+
+  if(act === "delete"){
+    /* Two prompts, and the second one names the guide. This is the only
+       irreversible button on the site and it sits next to one that isn't. */
+    if(!confirm(`Delete "${title}"?\n\nThis cannot be undone. Hiding is reversible — use that unless you're certain.`)) return;
+    if(!confirm("Last chance. Permanently delete this guide?")) return;
+  }
+
+  for(const b of row.querySelectorAll("button")) b.disabled = true;
+  try{
+    if(act === "delete") await unpublishGuide(slug);
+    else                 await setGuideHidden(slug, act === "hide");
+    paint();
+  }catch(err){
+    for(const b of row.querySelectorAll("button")) b.disabled = false;
+    const note = document.createElement("p");
+    note.className = "mod-msg bad";
+    note.textContent = err.message;
+    row.insertAdjacentElement("afterend", note);
+  }
+});
+
+(async function(){
+  await loadStore();
+  paintAccount();
+  paint();
+  /* The roster arrives separately and only the portraits need it. */
+  loadChampions().then(paint).catch(err => console.warn("Roster unavailable:", err.message));
+})();
+</script>
+</body>
+</html>

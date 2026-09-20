@@ -1150,6 +1150,12 @@ function paintAccount(){
          <a href="account.html">Your account</a>
          <a href="guide.html?list=1">My guides</a>
          <a href="create.html">Write a guide</a>
+         ${/* Only drawn for a moderator, and only as a shortcut — the page
+              itself checks, and the database checks after that. Guarded by
+              typeof because the reference pages load site.js without the
+              store, where there is nothing to ask. */
+           (() => { try{ return (typeof STORE !== "undefined" && STORE.moderator())
+             ? `<a href="moderate.html">Moderation</a>` : ""; }catch(_){ return ""; } })()}
          <button type="button" data-acct="out">Sign out</button>
        </div>`
     : realAccounts()
