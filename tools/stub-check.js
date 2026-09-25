@@ -223,6 +223,20 @@ function checkPage(dir, file){
     failed = true;
   }
 
+  /* Same shape of bug, found the hard way. inRoster() reads the mode's
+     champion catalogue out of a cache that CLASSIC.rosterIndex() fills over
+     the network. A page that filters with it but never awaits that call
+     finds the cache empty and falls back to the hand-written list — which
+     is not an error, it is the documented fallback, so nothing complains
+     and the page is simply nine champions short.
+     champions.html shipped exactly like that. loadChampions() does the
+     awaiting for pages that go through it; a page rolling its own list has
+     to do it itself, and this is what remembers. */
+  if(/\binRoster\b/.test(html) && !/rosterIndex\(\)/.test(html)){
+    console.log(`  ${file}: filters with inRoster() but never awaits CLASSIC.rosterIndex()`);
+    failed = true;
+  }
+
   console.log(`${failed ? "FAIL" : "PASS"} ${file}`);
   return failed;
 }

@@ -397,9 +397,9 @@ async function loadChampions(){
   /* The mode's catalogue first, and awaited rather than raced — the same
      mistake loadSpells documents. Built from the archive before the
      catalogue landed, the roster would cache at 63 and never correct. */
-  const live = await CLASSIC.rosterIndex().catch(() => null);
+  await CLASSIC.rosterIndex().catch(() => null);
   const data = (await DD.champions()).data;
-  CHAMPIONS = Object.values(data).filter(c => inRoster(c, live)).map(c => ({
+  CHAMPIONS = Object.values(data).filter(inRoster).map(c => ({
     id: c.id, name: c.name, key: c.key,
     cls: (c.tags && c.tags[0]) || "Champion"
   })).sort((a, b) => a.name.localeCompare(b.name));
@@ -793,8 +793,21 @@ const normKey = s => String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const ROSTER_SET = new Set(CLASSIC_ROSTER.map(normKey).concat(["monkeyking"]));
 
 /* The catalogue decides when it is reachable; the list above decides when
-   it isn't. See CLASSIC.rosterIndex for why this matches on the key. */
-function inRoster(c, live){
+   it isn't. See CLASSIC.rosterIndex for why this matches on the key.
+
+   TAKES ONE ARGUMENT, and must keep taking one argument. This is called as
+   `champions.filter(inRoster)`, and Array.filter hands its callback three:
+   element, index, array. An earlier version of this took the roster as a
+   second parameter, so on that call site `live` was silently the array
+   INDEX — a number, with no .keys on it — and every champions page fell
+   back to the hand-written list while the function's own tests passed.
+   Nothing threw. The page just quietly showed nine champions too few,
+   which is the same failure this whole change set out to fix.
+
+   So the roster is read from the cache here rather than passed in. Callers
+   are responsible only for having awaited CLASSIC.rosterIndex() first. */
+function inRoster(c){
+  const live = CLASSIC._roster;
   if(live && live.keys && live.keys.size) return live.keys.has(Number(c.key));
   return ROSTER_SET.has(normKey(c.id)) || ROSTER_SET.has(normKey(c.name));
 }

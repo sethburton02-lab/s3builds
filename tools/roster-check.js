@@ -161,6 +161,29 @@ const names = list => list.map(c => c.name).sort();
     return !r.some(c => c.name === "Viktor");
   });
 
+  /* ---- the call shape, not just the function ----
+     champions.html builds its own list with .filter(inRoster) rather than
+     going through loadChampions(). Array.filter hands a callback THREE
+     arguments, so a second parameter on inRoster silently receives the
+     array index — which is how a working loadChampions() and a broken
+     champions page coexisted, with every check in this file passing.
+     These test the shape that page uses. */
+  await acheck("inRoster works as a bare .filter() callback", async () => {
+    await fresh({});
+    const all = Object.values(__DD.data).filter(inRoster);
+    return all.length === 5 && all.some(c => c.name === "Shyvana");
+  });
+
+  check("  and it takes exactly one argument, so .filter cannot confuse it", () =>
+    inRoster.length === 1);
+
+  await acheck("  the index .filter passes cannot be mistaken for a roster", async () => {
+    await fresh({});
+    /* Called the way .filter calls it, with an index and the array. */
+    const shyvana = __DD.data.Shyvana;
+    return inRoster(shyvana, 0, []) === true && inRoster(shyvana, 3, []) === true;
+  });
+
   /* Three joins that break if you match on the name. */
   await acheck("Wukong survives, whose archive id is MonkeyKing", async () =>
     (await fresh({})).some(c => c.id === "MonkeyKing"));

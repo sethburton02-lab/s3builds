@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=109">
+<link rel="stylesheet" href="site.css?v=111">
 </head>
 <body>
 
@@ -49,15 +49,21 @@
   </div>
 </section>
 
-<script src="site.js?v=109"></script>
-<script src="config.js?v=109"></script>
-<script src="guide-store.js?v=109"></script>
+<script src="site.js?v=111"></script>
+<script src="config.js?v=111"></script>
+<script src="guide-store.js?v=111"></script>
 <script>
 renderChrome("Champions");
 
 let ALL = [], tag = "all", sortBy = "name", query = "";
 
 boot("#main", async (el) => {
+  /* The mode's catalogue before the archive is filtered, not after — this
+     page builds its own list rather than going through loadChampions(),
+     so it has to do the awaiting itself. Without it inRoster() finds an
+     empty cache and quietly falls back to the built-in list. */
+  await CLASSIC.rosterIndex().catch(() => null);
+
   const data = (await DD.champions()).data;
   ALL = Object.values(data).filter(inRoster)
         .map(c => ({...c, info: c.info || {}}));
