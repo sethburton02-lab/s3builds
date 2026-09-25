@@ -500,6 +500,38 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
   /* ---- which patch a guide was checked on ----
      The byline used to print the LIVE patch, which reads as a claim the
      guide was written for it. These are mostly about what it must NOT say. */
+  /* ---- the hero with no splash ----
+     Graves has no period-correct art anywhere in the mode's files, so his
+     splash is suppressed. That only works if the hero degrades: without
+     has-art the block collapses to its content, and with it the CSS holds
+     230px open for a picture that is not coming. */
+  console.log("\\nthe hero without art:");
+
+  await check("no splash means no has-art", async () => {
+    const keep = ABILITIES_DOC;
+    ABILITIES_DOC = {splash: null, spells: []};
+    const html = heroHtml();
+    ABILITIES_DOC = keep;
+    return !/g-hero[^"]*has-art/.test(html);
+  });
+
+  await check("  and no empty image tag either", async () => {
+    const keep = ABILITIES_DOC;
+    ABILITIES_DOC = {splash: null, spells: []};
+    const html = heroHtml();
+    ABILITIES_DOC = keep;
+    const zone = (/<div class="g-splash">([\\s\\S]*?)<\\/div>/.exec(html) || [,""])[1];
+    return !/<img/.test(zone);
+  });
+
+  await check("  while art still produces has-art", async () => {
+    const keep = ABILITIES_DOC;
+    ABILITIES_DOC = {splash: "https://cdn/x.jpg", spells: []};
+    const html = heroHtml();
+    ABILITIES_DOC = keep;
+    return /has-art/.test(html) && /<img src="https:\\/\\/cdn\\/x\\.jpg"/.test(html);
+  });
+
   console.log("\\nthe patch stamp:");
 
   await check("a stamped guide says which patch it was checked on", async () => {

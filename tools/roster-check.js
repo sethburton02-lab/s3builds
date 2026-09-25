@@ -88,6 +88,30 @@ global.fetch = async url => {
     return json(SUMMARY);
   }
   if(/\/champion\.json/.test(u)) return json(DD_CHAMPS);
+  /* champSpells asks the mode for a champion's kit and skins. */
+  if(/\/v1\/champions\/\d+\.json/.test(u)){
+    if(world.classicKit === "down") throw new Error("offline");
+    return json({
+      passive: {name:"P", abilityIconPath:"/x.png", description:""},
+      spells: ["q","w","e","r"].map(k => ({spellKey:k, name:k.toUpperCase(),
+        abilityIconPath:"/x.png", description:"", dynamicDescription:"",
+        cost:[0], cooldown:[0], range:[0], coefficients:{}})),
+      skins: [{id: 60104000, isBase:true, name:"Base",
+               uncenteredSplashPath:"/lol-game-data/assets/ASSETS/Characters/X/splash.jpg"}]
+    });
+  }
+  /* And Data Dragon, for when the mode's file is unreachable. */
+  const perChamp = /ddragon.*champion\/(\w+)\.json/.exec(u);
+  if(perChamp){
+    /* Keyed by the champion actually asked for: the caller reads
+       .data[champ.id], so a fixed key silently yields undefined. */
+    const id = perChamp[1];
+    return json({data: {[id]: {id, key:"1", name:id,
+      passive:{name:"p", image:{full:"p.png"}, description:""},
+      spells: [1,2,3,4].map(i=>({id:"s"+i, name:"s"+i, image:{full:"s.png"},
+        description:"", tooltip:"", cooldownBurn:"1", costBurn:"1",
+        rangeBurn:"1", effectBurn:[], vars:[]}))}}});
+  }
   if(/versions\.json/.test(u))   return json(["16.19.1"]);
   throw new Error("unexpected fetch: " + u);
 };
@@ -137,6 +161,7 @@ const fresh = async how => {
   CHAMPIONS.length = 0;      /* the roster caches on purpose in a browser */
   CLASSIC._roster = null;
   __memClear();              /* and so does sessionStorage */
+  _champSpells.clear();      /* and kits are memoised per champion */
   return loadChampions();
 };
 const names = list => list.map(c => c.name).sort();
@@ -239,6 +264,49 @@ const names = list => list.map(c => c.name).sort();
     for(const how of [{catalogue:"down"},{catalogue:"404"},{catalogue:"empty"}])
       if((await fresh(how)).length === 0) return false;
     return true;
+  });
+
+  console.log("\\nsplash art from the wrong decade:");
+
+  /* The mode ships post-rework Graves art under a period-correct portrait.
+     There is no period painting anywhere in the files to swap in, so the
+     splash is dropped and the hero uses its no-art state. */
+  check("Graves gets no splash", () =>
+    periodSplash("Graves", "https://cdn/jade_graves_splash.jpg") === null);
+  check("  and everyone else keeps theirs", () =>
+    periodSplash("Ashe", "https://cdn/jade_ashe_splash.jpg")
+      === "https://cdn/jade_ashe_splash.jpg");
+  check("  a champion with no art at all is null, not undefined", () =>
+    periodSplash("Ashe", null) === null && periodSplash("Ashe", undefined) === null);
+
+  /* A list of one, on purpose. If this grows without somebody having
+     looked at the art, the comment above it is no longer true. */
+  check("  the suppression list is exactly one champion", () =>
+    NO_PERIOD_SPLASH.size === 1 && NO_PERIOD_SPLASH.has("Graves"));
+
+  /* ---- the wiring, not just the filter ----
+     periodSplash being correct means nothing if champSpells does not call
+     it. A mutation that reverted the Classic-skin branch to its unfiltered
+     form passed every check above, which is the same shape of miss as
+     testing loadChampions while champions.html did its own filtering. */
+  await acheck("loadChampSpells drops the splash for Graves", async () => {
+    await fresh({});
+    const doc = await loadChampSpells({id:"Graves", name:"Graves", key:"104"});
+    return doc !== null && doc.splash === null;
+  });
+
+  await acheck("  and keeps it for everyone else", async () => {
+    await fresh({});
+    const doc = await loadChampSpells({id:"Ashe", name:"Ashe", key:"22"});
+    return doc !== null && typeof doc.splash === "string" && doc.splash.length > 0;
+  });
+
+  /* The Data Dragon fallback builds its own splash URL from an endpoint
+     that is not versioned, so it needs the same filter. */
+  await acheck("  including down the Data Dragon fallback", async () => {
+    await fresh({classicKit:"down"});
+    const doc = await loadChampSpells({id:"Graves", name:"Graves", key:"104"});
+    return doc !== null && doc.splash === null;
   });
 
   console.log("\\nchampion-locked items:");

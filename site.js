@@ -94,6 +94,36 @@ const CLASSIC = {
 
 /* Raw data paths look like "/lol-game-data/assets/ASSETS/Items/Icons2D/x.png".
    Community Dragon serves them lowercased under its plugin root. */
+/* ------------------------------------------------------------
+   Splash art that isn't from the right decade.
+
+   The mode ships its own art and almost all of it is period-correct: of
+   the 72 champions, 66 use a painting that differs from the one live
+   League shows today. Six match live's current art, and four of those are
+   fine — Leona and Lulu were never redesigned, so today's painting IS the
+   2013 one.
+
+   Graves is not fine. He was reworked in 2015, and the mode ships the
+   post-rework painting: a bearded man with a cigar, sitting under a
+   portrait of the clean-shaven blonde one, because champion-icons/60104
+   IS period-correct. Two different men on the same page. Every Graves skin
+   the mode carries is post-rework too, so there is nothing in the files to
+   fall back to, and Data Dragon can't help because its splash endpoint is
+   unversioned.
+
+   So he gets no splash. The hero has a styled no-art state already and the
+   correct portrait still says who he is. No art beats wrong art on a site
+   whose entire claim is that it shows the mode as it is.
+
+   Deliberately a list of one. Fizz, Nami and Nautilus also match live's
+   art and measured close to the redesign threshold, but "close to a
+   threshold" on a 12x12 image hash is not evidence, and guessing wrong
+   here deletes art that was correct. Add a champion when somebody has
+   actually looked at them.
+   ------------------------------------------------------------ */
+const NO_PERIOD_SPLASH = new Set(["Graves"]);
+const periodSplash = (id, url) => NO_PERIOD_SPLASH.has(id) ? null : (url || null);
+
 function assetUrl(path){
   return CLASSIC.base + String(path)
     .replace(/^\/lol-game-data\/assets/i, "")
@@ -718,7 +748,7 @@ function loadChampSpells(champ){
              measured against — the centered version reframes the art. */
           return {
             source: "classic",
-            splash: skin ? assetUrl(skin.uncenteredSplashPath || skin.splashPath) : null,
+            splash: periodSplash(champ.id, skin && assetUrl(skin.uncenteredSplashPath || skin.splashPath)),
             passive: doc.passive ? {
               key: "p", letter: "P", name: doc.passive.name || "Passive",
               icon: doc.passive.abilityIconPath ? assetUrl(doc.passive.abilityIconPath) : null,
@@ -733,7 +763,11 @@ function loadChampSpells(champ){
     const doc = (await DD.champion(champ.id)).data[champ.id];
     return {
       source: "season3",
-      splash: `${DD.base}/img/champion/splash/${champ.id}_0.jpg`,
+      /* Data Dragon's splash endpoint is NOT versioned — it serves today's
+         painting whatever patch you ask for — so this fallback is subject
+         to the same problem as the mode's own art and goes through the
+         same filter. */
+      splash: periodSplash(champ.id, `${DD.base}/img/champion/splash/${champ.id}_0.jpg`),
       passive: doc.passive ? {
         key: "p", letter: "P", name: doc.passive.name,
         icon: doc.passive.image ? DD.passImg(doc.passive.image.full) : null,
