@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=108">
+<link rel="stylesheet" href="site.css?v=109">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -65,6 +65,10 @@
   .g-pitch{margin:0;font-size:16px;color:#d8cdb8;max-width:70ch;
     text-shadow:0 1px 8px rgba(0,0,0,.8)}
   .g-byline{font-size:13.5px;color:#b3a48f}
+  /* Not a warning. A guide two patches old is usually still right, and the
+     reader is the one who gets to decide — so this is a shade brighter than
+     the byline and nothing more. */
+  .g-stale{color:#d9b877}
   /* The row under the byline: the vote button everyone gets, and the edit
      link only the author does — and only on a published guide, since a
      draft preview has nothing to edit back to. */
@@ -318,16 +322,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=108"></script>
-<script src="data-rune-icons.js?v=108"></script>
-<script src="data-runes.js?v=108"></script>
-<script src="data-champ-focus.js?v=108"></script>
-<script src="data-mastery-tree.js?v=108"></script>
-<script src="data-masteries.js?v=108"></script>
-<script src="guide-sanitise.js?v=108"></script>
-<script src="config.js?v=108"></script>
-<script src="guide-store.js?v=108"></script>
-<script src="guide-load.js?v=108"></script>
+<script src="site.js?v=109"></script>
+<script src="data-rune-icons.js?v=109"></script>
+<script src="data-runes.js?v=109"></script>
+<script src="data-champ-focus.js?v=109"></script>
+<script src="data-mastery-tree.js?v=109"></script>
+<script src="data-masteries.js?v=109"></script>
+<script src="guide-sanitise.js?v=109"></script>
+<script src="config.js?v=109"></script>
+<script src="guide-store.js?v=109"></script>
+<script src="guide-load.js?v=109"></script>
 <script>
 renderChrome("");
 
@@ -374,6 +378,32 @@ function note(key, label){
    Hidden at zero. "0 views" on a guide somebody just published is a worse
    thing to show them than nothing at all, and it is the one moment they
    are most certain to look. */
+/* ---- which patch this guide was checked on ----
+   This used to print patchLabel(), which is the patch that is live RIGHT
+   NOW. On the home page that is a fact about the site. Sat in a guide's
+   byline it reads as a claim about the guide, and it was one nobody had
+   made: a guide checked on 16.16 displayed "Patch 16.19" and looked freshly
+   verified. The numbers on the page really are current — every value is
+   read live from the mode's files — but the reasoning around them is only
+   as old as the last time somebody looked.
+
+   A guide with no stamp says nothing at all. Every guide published before
+   the column existed is in that state, and the honest answer there is
+   silence, not today's patch and not the date it was written. */
+function guidePatchText(){
+  const wrote = String(G.patch || "").trim();
+  if(!wrote) return "";
+  const live = typeof livePatch === "function" ? livePatch() : null;
+  const stale = !!live && live !== wrote;
+  return `Checked on patch ${esc(wrote)}`
+       + (stale ? ` · <span class="g-stale">live is ${esc(live)}</span>` : "");
+}
+
+function paintGuidePatch(){
+  const el = document.querySelector("[data-guide-patch]");
+  if(el) el.innerHTML = guidePatchText();
+}
+
 function viewsLabel(){
   if(!G.slug) return "";                    /* a draft preview has no audience */
   const n = typeof viewCount === "function" ? viewCount(G.slug) : 0;
@@ -458,7 +488,7 @@ function heroHtml(){
       <p class="g-byline">${G.author
         ? `by <a class="byline-link" href="author.html?u=${
              encodeURIComponent(G.author)}">${esc(G.author)}</a> · ` : ""
-      }<span data-patch>${patchLabel()}</span>${viewsLabel()}</p>
+      }<span data-guide-patch>${guidePatchText()}</span>${viewsLabel()}</p>
       ${hiddenNoticeHtml()}
       <div class="g-acts">
         ${voteBtnHtml()}
@@ -932,7 +962,8 @@ function paint(){
 
   /* The nav is rebuilt on every paint, so the observer has to be too. */
   watchSections();
-  paintPatch();      /* the byline is redrawn with everything else */
+  paintPatch();         /* the header's live-patch chip */
+  paintGuidePatch();    /* and the byline's, which is a different claim */
   hydrateRefs();     /* chips get their art back, as catalogues arrive */
 }
 
@@ -1053,6 +1084,14 @@ document.addEventListener("click", async e => {
 
   document.title = (G.title || "Guide") + " — S3 Builds";
   paint();
+
+  /* The live patch arrives over the network, and until it does there is
+     nothing to compare the guide's stamp against — so the byline paints
+     "Checked on patch 16.16" first and grows its "live is 16.19" when the
+     answer lands. Not awaited: the stamp itself is already correct without
+     it, and the comparison is the part that can wait. */
+  if(typeof loadLivePatch === "function")
+    loadLivePatch().then(paintGuidePatch).catch(() => {});
 
   /* Counted after the guide is on screen, and never awaited. Reading is
      the point of this page; counting the read is bookkeeping, and it must

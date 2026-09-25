@@ -12,11 +12,22 @@
    Where that correlates weakly, the value was read off a ruled splash by
    eye instead. Re-verify by rendering the banner strips.
 
-   All 63 champions are measured; nothing is on a default. */
+   The original 63 were measured by correlation. The nine added when the
+   roster started deriving itself from the mode's catalogue — Galio, Xin
+   Zhao, Poppy, Shyvana, Graves, Fizz, Nautilus, Fiora, Nami — were read
+   off a ruled splash by eye and then checked in a rendered banner at the
+   real page width, because a correlation pass reproduced the known values
+   badly enough not to be trusted: run against ten already-measured
+   champions it was out by up to 43 points, and agreed closely on only two.
+   Nine plausible wrong numbers would have been worse than none.
+
+   All 72 champions are measured; nothing is on a default. */
 const CHAMP_FACE_Y = {
   "60001":25,
   "60002":28,
+  "60003":38,
   "60004":18,
+  "60005":31,
   "60009":37,
   "60010":27,
   "60011":18,
@@ -64,6 +75,7 @@ const CHAMP_FACE_Y = {
   "60074":43,
   "60075":22,
   "60076":18,
+  "60078":36,
   "60079":13,
   "60080":16,
   "60081":26,
@@ -75,8 +87,14 @@ const CHAMP_FACE_Y = {
   "60096":36,
   "60098":26,
   "60099":22,
+  "60102":25,
   "60103":31,
-  "60117":36
+  "60104":14,
+  "60105":24,
+  "60111":22,
+  "60114":14,
+  "60117":36,
+  "60267":30
 };
 /* Only a champion added after the last game-data export would land here. */
 const champFaceY = id => CHAMP_FACE_Y[String(id)] ?? 22;

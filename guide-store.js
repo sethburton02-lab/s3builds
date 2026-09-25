@@ -318,6 +318,10 @@ function fromRow(r){
     /* Set by a moderator through an RPC, never by the author. Carried here
        so the home page can group by it and the badge can be drawn. */
     featured: !!r.featured,
+    /* The patch the author last checked this against. Empty for guides
+       published before the column existed — that is an honest "nobody
+       knows", and the byline says nothing rather than guessing. */
+    patch: r.patch || "",
     at: Date.parse(r.created_at) || 0,
     updated: r.updated_at ? Date.parse(r.updated_at) : 0
   };
@@ -343,9 +347,22 @@ function toRow(guide, slug, authorId, authorName){
      survive — normaliseGuide would carry it, and the home page reads the
      record, not the column. */
   delete body.featured;
-  return {slug, title: title || "Untitled guide", blurb: blurb || "",
-          champ: champ || null, role: role || "Mid", tag: tag || "",
-          body, author_id: authorId, author_name: authorName || ""};
+  /* Same again: a column, not part of the document. */
+  delete body.patch;
+
+  /* Stamped on publish AND on every update, so it means "last checked on"
+     rather than "first written on" — which is the more useful of the two
+     and the only one an edit can honestly claim.
+     The browser is the only thing in this system that knows what patch is
+     live, and it learns it over the network. If that hasn't landed yet the
+     field is left out entirely: an absent stamp is a question mark, a wrong
+     stamp is a lie. */
+  const row = {slug, title: title || "Untitled guide", blurb: blurb || "",
+               champ: champ || null, role: role || "Mid", tag: tag || "",
+               body, author_id: authorId, author_name: authorName || ""};
+  const live = typeof livePatch === "function" ? livePatch() : null;
+  if(live) row.patch = live;
+  return row;
 }
 
 /* Called once per page before first paint. Everything downstream of this

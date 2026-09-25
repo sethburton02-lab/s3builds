@@ -504,3 +504,39 @@ grant  insert (slug, title, blurb, champ, role, tag, body, author_id, author_nam
   on public.guides to authenticated;
 -- anon gets nothing: guides_insert requires auth.uid() = author_id, so a
 -- signed-out insert never had a row it could write anyway.
+
+
+-- ============================================================
+-- THE PATCH A GUIDE WAS CHECKED ON
+--
+-- Every number the site renders — ability values, item stats, rune numbers
+-- — is read live from the mode's own files, so the figures on a page are
+-- always current. A guide's REASONING is not. "Max W, it beats Q by 45 a
+-- rank" was true when somebody checked it, and nothing on the page said
+-- when that was.
+--
+-- Worse than silent: the byline printed the patch that was live right now,
+-- which reads as a claim about the guide. A guide checked on 16.16 sat
+-- under "Patch 16.19" and looked freshly verified by someone who had not
+-- looked at it in a month.
+--
+-- Nullable, with no default, on purpose. Guides published before this
+-- column existed genuinely have no answer, and filling one in — today's
+-- patch, or whatever was live on their created_at — would be asserting a
+-- check nobody performed. They display nothing at all instead.
+-- ============================================================
+
+alter table public.guides add column if not exists patch text;
+
+-- Self-reported, like the blurb. The browser is the only part of this
+-- system that knows what patch is live, so the value has to come from the
+-- client; the worst an author can do with it is overstate how fresh their
+-- own guide is. Written on publish AND on update, so it means "last
+-- checked on" rather than "first written on" — the more useful of the two,
+-- and the only one an edit can honestly claim.
+grant insert (patch) on public.guides to authenticated;
+grant update (patch) on public.guides to authenticated;
+
+-- The client leaves the field out entirely when it has not learned the
+-- live patch yet. An absent stamp is a question mark; a guessed one is a
+-- lie, and this column exists precisely because the page was telling one.

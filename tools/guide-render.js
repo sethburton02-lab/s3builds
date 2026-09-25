@@ -497,6 +497,71 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     return g.featured === false;
   });
 
+  /* ---- which patch a guide was checked on ----
+     The byline used to print the LIVE patch, which reads as a claim the
+     guide was written for it. These are mostly about what it must NOT say. */
+  console.log("\\nthe patch stamp:");
+
+  await check("a stamped guide says which patch it was checked on", async () => {
+    G.patch = "16.16"; LIVE_PATCH = null;
+    return /Checked on patch 16\.16/.test(guidePatchText());
+  });
+
+  await check("  and flags it when the live patch has moved on", async () => {
+    G.patch = "16.16"; LIVE_PATCH = "16.19";
+    const out = guidePatchText();
+    return /Checked on patch 16\.16/.test(out) && /live is 16\.19/.test(out);
+  });
+
+  await check("  but says nothing extra when they match", async () => {
+    G.patch = "16.19"; LIVE_PATCH = "16.19";
+    return !/live is/.test(guidePatchText());
+  });
+
+  /* The important one. Every guide published before the column existed has
+     no stamp, and the honest answer there is silence — not today's patch,
+     which is exactly the false claim this replaced. */
+  await check("an unstamped guide claims nothing at all", async () => {
+    G.patch = ""; LIVE_PATCH = "16.19";
+    return guidePatchText() === "";
+  });
+
+  await check("  (and the check would notice a stamp that leaked back in)", async () => {
+    G.patch = "16.19"; LIVE_PATCH = "16.19";
+    return guidePatchText() !== "";
+  });
+
+  await check("the stamp is escaped like any other stored string", async () => {
+    G.patch = '"><script>alert(1)</script>'; LIVE_PATCH = null;
+    const out = guidePatchText();
+    return !/<script/i.test(out) && !out.includes('">');
+  });
+
+  await check("patch is kept out of the guide body", async () => {
+    const keep = globalThis.normaliseGuide;
+    globalThis.normaliseGuide = undefined;
+    let row;
+    try{ row = toRow({title:"t", patch:"9.9"}, "s", "u", "n"); }
+    finally{ globalThis.normaliseGuide = keep; }
+    return row.body.patch === undefined;
+  });
+
+  /* With no live patch there is nothing to stamp WITH, and a guessed value
+     would be worse than an absent one — the whole point of the column. */
+  await check("nothing is stamped when the live patch is unknown", async () => {
+    LIVE_PATCH = null;
+    const row = toRow({title:"t"}, "s", "u", "n");
+    return !("patch" in row);
+  });
+
+  await check("  and it is stamped when the live patch is known", async () => {
+    LIVE_PATCH = "16.19";
+    const row = toRow({title:"t"}, "s", "u", "n");
+    return row.patch === "16.19";
+  });
+
+  G.patch = ""; LIVE_PATCH = null;
+
   /* ---- views ----
      Counting a read must never be able to cost the reader anything. With
      no backend there is nothing to count into, which is the state this

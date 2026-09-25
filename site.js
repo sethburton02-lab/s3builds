@@ -298,6 +298,65 @@ function indexSpellNames(map){
   return map;
 }
 CLASSIC.spellRow  = id   => (CLASSIC._spells && CLASSIC._spells.get(Number(id))) || null;
+
+/* ------------------------------------------------------------
+   The roster, from the mode's own catalogue.
+
+   There is a hand-written list of champion names further down this file.
+   It was right when it was written and it is how the site decided what the
+   mode contained. The failure mode is silent: Riot adds a champion, the
+   list doesn't, and the champion simply isn't on the site — no error, no
+   empty page, nothing to notice. It had drifted by NINE (Galio, Xin Zhao,
+   Poppy, Shyvana, Graves, Fizz, Nautilus, Fiora, Nami) before anybody
+   looked, and one of them turned up in a game while the site claimed she
+   didn't exist.
+
+   So the catalogue decides now, and the list is the fallback.
+
+   Matched on the NUMERIC KEY, not the name. A Classic champion's id is
+   60000 + the champion's key, verified across every champion the mode and
+   the 3.13.24 archive have in common, with no exceptions. Names are the
+   thing that disagrees — the mode says "Nunu & Willump" where the archive
+   says "Nunu", and matching on that would have dropped a champion the site
+   has always had. The key is the join both sides agree on.
+   ------------------------------------------------------------ */
+CLASSIC._roster = null;
+CLASSIC.rosterIndex = async function(){
+  if(CLASSIC._roster) return CLASSIC._roster;
+  const key = "cd:classic-roster:v1";
+  const build = rows => {
+    const keys = [], names = [];
+    for(const c of rows || []){
+      if(!/^Jade_/i.test(c.alias || "")) continue;
+      const k = Number(c.id) - CLASSIC.champOffset;
+      if(Number.isInteger(k) && k > 0) keys.push(k);
+      if(c.name) names.push(normKey(c.name));
+    }
+    return {keys: new Set(keys), names: new Set(names)};
+  };
+  try{
+    const hit = sessionStorage.getItem(key);
+    if(hit) return (CLASSIC._roster = build(JSON.parse(hit)));
+  }catch(_){}
+  try{
+    const res = await fetch(`${CLASSIC.base}/v1/champion-summary.json`, {mode:"cors"});
+    if(!res.ok) throw new Error(`champion-summary.json ${res.status}`);
+    const rows = await res.json();
+    const out = build(rows);
+    /* An empty answer is a broken answer, not a mode with no champions.
+       Treated as a failure so it falls through to the list rather than
+       emptying the site. */
+    if(!out.keys.size) throw new Error("no Jade champions in the catalogue");
+    try{
+      sessionStorage.setItem(key, JSON.stringify(
+        rows.filter(c => /^Jade_/i.test(c.alias || "")).map(c => ({id: c.id, name: c.name, alias: c.alias}))));
+    }catch(_){}
+    return (CLASSIC._roster = out);
+  }catch(err){
+    console.warn("Classic roster unavailable, using the built-in list:", err.message);
+    return (CLASSIC._roster = {keys: new Set(), names: new Set()});
+  }
+};
 CLASSIC.spellByName = name => (CLASSIC._spellsByName &&
   CLASSIC._spellsByName.get(String(name || "").toLowerCase())) || null;
 CLASSIC.spellIcon = id => (CLASSIC.spellRow(id) || {}).icon || null;
@@ -335,8 +394,12 @@ const TAGS = [{k:"comp", label:"Competitive"},
 
 async function loadChampions(){
   if(CHAMPIONS.length) return CHAMPIONS;
+  /* The mode's catalogue first, and awaited rather than raced — the same
+     mistake loadSpells documents. Built from the archive before the
+     catalogue landed, the roster would cache at 63 and never correct. */
+  const live = await CLASSIC.rosterIndex().catch(() => null);
   const data = (await DD.champions()).data;
-  CHAMPIONS = Object.values(data).filter(inRoster).map(c => ({
+  CHAMPIONS = Object.values(data).filter(c => inRoster(c, live)).map(c => ({
     id: c.id, name: c.name, key: c.key,
     cls: (c.tags && c.tags[0]) || "Champion"
   })).sort((a, b) => a.name.localeCompare(b.name));
@@ -728,7 +791,24 @@ const CLASSIC_ROSTER = [
 ];
 const normKey = s => String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const ROSTER_SET = new Set(CLASSIC_ROSTER.map(normKey).concat(["monkeyking"]));
-const inRoster = c => ROSTER_SET.has(normKey(c.id)) || ROSTER_SET.has(normKey(c.name));
+
+/* The catalogue decides when it is reachable; the list above decides when
+   it isn't. See CLASSIC.rosterIndex for why this matches on the key. */
+function inRoster(c, live){
+  if(live && live.keys && live.keys.size) return live.keys.has(Number(c.key));
+  return ROSTER_SET.has(normKey(c.id)) || ROSTER_SET.has(normKey(c.name));
+}
+
+/* Champion names, for the one question that is asked by name rather than
+   by key: whether an item locked to a champion belongs in this shop. The
+   union rather than a replacement, because being wrong here HIDES an item,
+   and the list has never been wrong about a champion that exists — only
+   silent about ones that do. */
+function rosterNames(){
+  const live = CLASSIC._roster;
+  if(!live || !live.names || !live.names.size) return ROSTER_SET;
+  return new Set([...ROSTER_SET, ...live.names]);
+}
 
 /* ------------------------------------------------------------
    Small helpers
@@ -845,7 +925,7 @@ const EXCLUDED_ITEM_PATTERNS = [
 function isExcludedItem(name, requiredChampion){
   if(EXCLUDED_ITEM_PATTERNS.some(re => re.test(name || ""))) return true;
   /* Champion-locked to someone outside the roster. */
-  if(requiredChampion && !ROSTER_SET.has(normKey(requiredChampion))) return true;
+  if(requiredChampion && !rosterNames().has(normKey(requiredChampion))) return true;
   return false;
 }
 
