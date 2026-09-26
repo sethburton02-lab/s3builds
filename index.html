@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=113">
+<link rel="stylesheet" href="site.css?v=116">
 <style>
   /* Everything on this page is real: the site's chrome, the mode's own
      champion art, and whatever has actually been published. There is no
@@ -95,6 +95,15 @@
   .h-guide .by{font-size:13px;color:var(--muted);margin-top:3px}
   .h-guide .blurb{margin:6px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  /* The build on a featured card. Sized so six items sit on one line
+     inside the shelf's 360px minimum without wrapping into a second row
+     that would push the card taller than its neighbours. */
+  .h-build{display:flex;gap:4px;margin:8px 0 0;flex-wrap:wrap}
+  .h-build .h-item{width:30px;height:30px;border-radius:5px;flex:none;
+    border:1px solid var(--line);background:var(--bg-2);object-fit:cover}
+  /* An item the catalogue hasn't got: a quiet placeholder, not a hole.
+     The shop arrives over the network well after this paints. */
+  .h-build .h-item.missing{border-style:dashed;opacity:.5}
   .h-guide .tag{margin-left:6px;vertical-align:1px}
   /* Light plate, dark ink. Written the other way round first — pale text on
      a strong plate, which is the dark-theme reflex — and that measures
@@ -174,13 +183,13 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=113"></script>
-<script src="data-rune-icons.js?v=113"></script>
-<script src="data-runes.js?v=113"></script>
-<script src="guide-sanitise.js?v=113"></script>
-<script src="config.js?v=113"></script>
-<script src="guide-store.js?v=113"></script>
-<script src="guide-load.js?v=113"></script>
+<script src="site.js?v=116"></script>
+<script src="data-rune-icons.js?v=116"></script>
+<script src="data-runes.js?v=116"></script>
+<script src="guide-sanitise.js?v=116"></script>
+<script src="config.js?v=116"></script>
+<script src="guide-store.js?v=116"></script>
+<script src="guide-load.js?v=116"></script>
 <script>
 renderChrome("Guides");
 
@@ -251,7 +260,20 @@ function tallyHtml(n){
   </span>`;
 }
 
-function guideCardHtml(r){
+/* The build, on a featured card only. The list below the shelf keeps its
+   one-line blurb: six item icons on every card would turn a page of
+   guides into a page of icons, and the shelf earns the space by being
+   three cards at most.
+
+   Which items these are is the guide's own choice — see showcaseItems. */
+function buildStripHtml(r){
+  const ids = Array.isArray(r.showcase) ? r.showcase : [];
+  if(!ids.length) return "";
+  return `<div class="h-build" aria-label="Item build">${
+    ids.map(id => itemImgTag(id, "h-item")).join("")}</div>`;
+}
+
+function guideCardHtml(r, opts){
   const c = (CHAMPIONS || []).find(x => x.name === r.champ);
   const tag = r.tag && TAGS.find(t => t.k === r.tag);
   /* An <article>, not an <a>. The card contains a second link — the byline
@@ -282,6 +304,7 @@ function guideCardHtml(r){
         r.author ? ` · by <a class="byline-link" href="author.html?u=${
           encodeURIComponent(r.author)}">${esc(r.author)}</a>` : ""}</div>
       ${r.blurb ? `<p class="blurb">${esc(r.blurb)}</p>` : ""}
+      ${opts && opts.build ? buildStripHtml(r) : ""}
     </div>
     ${tallyHtml(r.votes || 0)}
   </article>`;
@@ -309,7 +332,13 @@ function guideListHtml(){
      dropped the reader somewhere smaller than where they started. Showing
      more is a local change; it stays here. */
   const shown = rows.slice(0, q.limit);
-  return `<div class="h-guides">${shown.map(guideCardHtml).join("")}</div>`
+  /* Called with one argument on purpose. Array.map hands a callback three
+     — element, index, array — so a bare `.map(guideCardHtml)` would put
+     the index where the options go. It happens to be harmless today
+     because a number has no .build, but that is luck rather than design,
+     and this repo has already lost an afternoon to .filter(inRoster)
+     receiving an index where it expected a roster. */
+  return `<div class="h-guides">${shown.map(r => guideCardHtml(r)).join("")}</div>`
     + (rows.length > shown.length
         ? `<p class="h-note" style="margin:12px 0 0">Showing ${shown.length} of ${rows.length}.
              <button type="button" class="btn btn-sm" data-all>Show them all</button></p>` : "");
@@ -332,7 +361,8 @@ function featuredSectionHtml(){
       <h2>Featured</h2>
       <span class="h-note">${rows.length === 1 ? "This week's pick." : "This week's picks."}</span>
     </div>
-    <div class="h-guides h-featured">${rows.map(guideCardHtml).join("")}</div>
+    <div class="h-guides h-featured">${
+      rows.map(r => guideCardHtml(r, {build: true})).join("")}</div>
   </section>`;
 }
 
@@ -529,7 +559,16 @@ paint();
    empty, backendLive() answers false, and every page falls back to this
    browser's localStorage — a site that looks like it works and quietly
    isn't using the database at all. */
-loadStore().then(paint).catch(err => console.warn("Guides unavailable:", err.message));
+loadStore().then(() => {
+  paint();
+  /* The shop, but only if the shelf is going to need it. This page has
+     never wanted the item catalogue before and most visits still don't —
+     with nothing featured there is no build to draw, and fetching a few
+     hundred items to render nothing is a cost paid by every reader for
+     the benefit of none. */
+  if(typeof listFeatured === "function" && listFeatured().length)
+    loadItemIndex().then(paint).catch(err => console.warn("Items unavailable:", err.message));
+}).catch(err => console.warn("Guides unavailable:", err.message));
 
 /* The roster arrives over the network; the page is useful before it does
    and simply gets better when it lands. */

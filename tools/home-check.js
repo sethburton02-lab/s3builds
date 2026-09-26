@@ -380,6 +380,81 @@ src += `
   check("  and it carries the badge", () => /class="tag featured-tag"/.test(shelf()));
   check("  and it is still in the list below", () => list().includes(PICK));
 
+  /* ---- the build on a featured card ----
+     The shelf shows the guide's own build line. Which line that is comes
+     from showcaseItems, which mirrors the rule the creator uses to pick
+     the card it previews — so a guide looks the same on the front page as
+     it did to whoever wrote it. */
+  const withItems = (all, slug, rows, cardRow) => {
+    all[slug].featured = true;
+    all[slug].items = rows;
+    if(cardRow !== undefined) all[slug].cardRow = cardRow;
+    return all;
+  };
+  const ROWS = [
+    {id:"start", label:"Start",  ordered:false, items:["1055","2003"]},
+    {id:"core",  label:"Core",   ordered:true,  items:["3153","3085","3109"]},
+    {id:"late",  label:"Late",   ordered:true,  items:["3031"]}
+  ];
+  const items = html => (html.match(/class="h-item/g) || []).length;
+
+  check("a featured card shows a build", () => {
+    seed(all => withItems(all, "ap-kogmaw", ROWS));
+    return /class="h-build"/.test(shelf()) && items(shelf()) === 3;
+  });
+
+  /* The rule, in the order it applies. */
+  check("  the first ORDERED line wins by default", () => {
+    seed(all => withItems(all, "ap-kogmaw", ROWS));
+    return items(shelf()) === 3;   /* Core, not the 2-item Start */
+  });
+  check("  an explicit cardRow beats it", () => {
+    seed(all => withItems(all, "ap-kogmaw", ROWS, "start"));
+    return items(shelf()) === 2;
+  });
+  /* A line named three edits ago and since deleted must not empty the
+     card — the creator guards this and so must the card. */
+  check("  a cardRow pointing at a line that is gone falls back", () => {
+    seed(all => withItems(all, "ap-kogmaw", ROWS, "deleted-row"));
+    return items(shelf()) === 3;
+  });
+  check("  and one pointing at an EMPTY line falls back too", () => {
+    seed(all => withItems(all, "ap-kogmaw",
+      [{id:"empty", label:"Empty", ordered:true, items:[]}].concat(ROWS), "empty"));
+    return items(shelf()) === 3;
+  });
+  check("  with no ordered line, the first line with items is used", () => {
+    seed(all => withItems(all, "ap-kogmaw",
+      [{id:"a", label:"A", ordered:false, items:["1055","2003","3153"]}]));
+    return items(shelf()) === 3;
+  });
+  check("  a guide with no items shows no strip, not an empty one", () => {
+    seed(all => withItems(all, "ap-kogmaw", []));
+    return shelf().includes(PICK) && !/class="h-build"/.test(shelf());
+  });
+  check("  and never more than six", () => {
+    seed(all => withItems(all, "ap-kogmaw",
+      [{id:"a", label:"A", ordered:true, items:["1","2","3","4","5","6","7","8"]}]));
+    return items(shelf()) === 6;
+  });
+
+  /* The list below the shelf keeps its blurb. Six icons on every card
+     turns a page of guides into a page of icons. */
+  check("the ordinary list shows no build", () => {
+    seed(all => withItems(all, "ap-kogmaw", ROWS));
+    return !/class="h-build"/.test(list());
+  });
+
+  /* Array.map passes (element, index, array). If the list ever calls
+     guideCardHtml bare, the index lands where the options go — the same
+     shape of bug that made champions.html render 63 champions. */
+  check("  even when the card is called the way .map calls it", () => {
+    seed(all => withItems(all, "ap-kogmaw", ROWS));
+    const row = filtered().find(g => g.slug === "ap-kogmaw");
+    const asMapWould = [row].map(guideCardHtml).join("");
+    return !/class="h-build"/.test(asMapWould);
+  });
+
   check("a hidden guide never reaches the shelf", () => {
     seed(all => { all["ap-kogmaw"].featured = true; all["ap-kogmaw"].hidden = true; });
     return shelf() === "";

@@ -232,7 +232,16 @@ function checkPage(dir, file){
      champions.html shipped exactly like that. loadChampions() does the
      awaiting for pages that go through it; a page rolling its own list has
      to do it itself, and this is what remembers. */
-  if(/\binRoster\b/.test(html) && !/rosterIndex\(\)/.test(html)){
+  /* Comments stripped first. The other lints here look for something that
+     must be PRESENT, so a mention in prose only ever makes them pass when
+     they should fail — annoying but quiet. This one looks for something
+     that must be absent, where a mention in prose fails a file that is
+     perfectly correct. It did, immediately: a comment on the home page
+     explaining the .filter hazard was enough to trip it. */
+  const code = html
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/^\s*\/\/.*$/gm, " ");
+  if(/\binRoster\b/.test(code) && !/rosterIndex\(\)/.test(code)){
     console.log(`  ${file}: filters with inRoster() but never awaits CLASSIC.rosterIndex()`);
     failed = true;
   }

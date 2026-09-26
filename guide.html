@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=113">
+<link rel="stylesheet" href="site.css?v=116">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -23,9 +23,26 @@
 
   /* Wider than the reading pages. A guide is a reference you scan as much
      as prose you read, and the narrow measure meant scrolling past the same
-     content twice over. The caps that were on the text blocks are gone with
-     it — the column governs the line length now. */
+     content twice over. */
   .guide-wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+
+  /* ---- the measure ----
+     Removing the caps along with the narrow column was half right. The
+     builders genuinely want 988px: an item line, a rune plate and a
+     mastery tree are tables, and squeezing them was the original problem.
+     Prose is not a table. At full width a paragraph ran 118 characters a
+     line — the comfortable band is 55 to 75, and past about 90 the eye
+     loses its place on the carriage return, which is why a wide guide felt
+     tiring to read even though nothing about it looked wrong.
+
+     So the cap is back, but only on the two things that are words:
+     .g-prose is the author's section text and .g-note is the comment
+     attached to a builder. Everything else still spans the column, so the
+     page keeps the wide reference tables and gets a readable paragraph.
+     66ch measures 75 characters in this face at this size — checked
+     against the rendered box rather than assumed, because ch is the width
+     of a zero and runs wider than average lowercase. */
+  .g-prose, .g-note{max-width:66ch}
 
   /* ---------- hero ---------- */
   .g-hero{position:relative;overflow:hidden;border:1px solid var(--line);
@@ -322,16 +339,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=113"></script>
-<script src="data-rune-icons.js?v=113"></script>
-<script src="data-runes.js?v=113"></script>
-<script src="data-champ-focus.js?v=113"></script>
-<script src="data-mastery-tree.js?v=113"></script>
-<script src="data-masteries.js?v=113"></script>
-<script src="guide-sanitise.js?v=113"></script>
-<script src="config.js?v=113"></script>
-<script src="guide-store.js?v=113"></script>
-<script src="guide-load.js?v=113"></script>
+<script src="site.js?v=116"></script>
+<script src="data-rune-icons.js?v=116"></script>
+<script src="data-runes.js?v=116"></script>
+<script src="data-champ-focus.js?v=116"></script>
+<script src="data-mastery-tree.js?v=116"></script>
+<script src="data-masteries.js?v=116"></script>
+<script src="guide-sanitise.js?v=116"></script>
+<script src="config.js?v=116"></script>
+<script src="guide-store.js?v=116"></script>
+<script src="guide-load.js?v=116"></script>
 <script>
 renderChrome("");
 
@@ -399,16 +416,41 @@ function guidePatchText(){
        + (stale ? ` · <span class="g-stale">live is ${esc(live)}</span>` : "");
 }
 
-function paintGuidePatch(){
-  const el = document.querySelector("[data-guide-patch]");
-  if(el) el.innerHTML = guidePatchText();
+/* The byline, assembled from whichever parts exist.
+
+   It used to be a template with the separators written into it, so a guide
+   missing a middle part printed the punctuation either side of the gap:
+   "by sefferton ·  · 42 views". Every guide published before the patch
+   column existed looked like that. Joining a list of the parts that are
+   actually there cannot produce a stray separator, whichever ones are
+   missing — including all of them. */
+function bylineHtml(){
+  const bits = [];
+  if(G.author)
+    bits.push(`by <a class="byline-link" href="author.html?u=${
+      encodeURIComponent(G.author)}">${esc(G.author)}</a>`);
+  const patch = guidePatchText();
+  if(patch) bits.push(patch);
+  const views = viewsText();
+  if(views) bits.push(views);
+  return bits.join(" · ");
 }
 
-function viewsLabel(){
+/* Repaints the whole line, not just the patch: the separator in front of
+   the stamp belongs to the join, so it has to be rebuilt with it. */
+function paintGuidePatch(){
+  const el = document.querySelector("[data-byline]");
+  if(el) el.innerHTML = bylineHtml();
+}
+
+/* The count alone. The separator in front of it used to live here, which
+   is half of why an absent patch stamp left two of them in a row — see
+   bylineHtml. A part does not know what it sits next to. */
+function viewsText(){
   if(!G.slug) return "";                    /* a draft preview has no audience */
   const n = typeof viewCount === "function" ? viewCount(G.slug) : 0;
   if(!n) return "";
-  return ` · ${n.toLocaleString()} view${n === 1 ? "" : "s"}`;
+  return `${n.toLocaleString()} view${n === 1 ? "" : "s"}`;
 }
 
 /* ---------- moderation ----------
@@ -485,10 +527,7 @@ function heroHtml(){
       <h1 class="g-title">${esc(G.title || "Untitled guide")}
         ${tag ? `<span class="tag ${tag.k}">${tag.label}</span>` : ""}${featuredTagHtml()}</h1>
       ${G.blurb ? `<p class="g-pitch">${esc(G.blurb)}</p>` : ""}
-      <p class="g-byline">${G.author
-        ? `by <a class="byline-link" href="author.html?u=${
-             encodeURIComponent(G.author)}">${esc(G.author)}</a> · ` : ""
-      }<span data-guide-patch>${guidePatchText()}</span>${viewsLabel()}</p>
+      <p class="g-byline" data-byline>${bylineHtml()}</p>
       ${hiddenNoticeHtml()}
       <div class="g-acts">
         ${voteBtnHtml()}

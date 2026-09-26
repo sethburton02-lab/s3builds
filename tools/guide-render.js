@@ -532,6 +532,48 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     return /has-art/.test(html) && /<img src="https:\\/\\/cdn\\/x\\.jpg"/.test(html);
   });
 
+  /* ---- the byline ----
+     Its parts are optional and its separators are not part of them. A
+     guide published before the patch column existed rendered
+     "by sefferton ·  · 42 views" for weeks, because the template wrote the
+     dots and only the middle piece went missing. */
+  console.log("\\nthe byline:");
+
+  const doubled = h => /·\\s*·/.test(h) || /^\\s*·/.test(h) || /·\\s*$/.test(h);
+
+  await check("no stray separator when the patch stamp is missing", async () => {
+    G.author = "sefferton"; G.patch = ""; G.slug = "s"; LIVE_PATCH = "16.19";
+    const h = bylineHtml();
+    return h.includes("sefferton") && !doubled(h);
+  });
+  await check("  (the detector catches a doubled separator)", async () =>
+    doubled("by x ·  · 42 views") === true);
+
+  await check("all three parts join cleanly", async () => {
+    G.author = "sefferton"; G.patch = "16.16"; G.slug = "s"; LIVE_PATCH = "16.16";
+    const h = bylineHtml();
+    return h.includes("sefferton") && h.includes("16.16") && !doubled(h);
+  });
+
+  await check("an author on their own has no separators at all", async () => {
+    G.author = "sefferton"; G.patch = ""; G.slug = ""; LIVE_PATCH = null;
+    const h = bylineHtml();
+    return h.includes("sefferton") && !/·/.test(h);
+  });
+
+  await check("no author, no leading separator", async () => {
+    G.author = ""; G.patch = "16.16"; G.slug = ""; LIVE_PATCH = null;
+    const h = bylineHtml();
+    return h.includes("16.16") && !doubled(h);
+  });
+
+  await check("nothing at all is an empty line, not a lone dot", async () => {
+    G.author = ""; G.patch = ""; G.slug = ""; LIVE_PATCH = null;
+    return bylineHtml().trim() === "";
+  });
+
+  G.author = "Seth"; G.patch = ""; G.slug = "seeded"; LIVE_PATCH = null;
+
   console.log("\\nthe patch stamp:");
 
   await check("a stamped guide says which patch it was checked on", async () => {
@@ -614,25 +656,25 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
 
   await check("a guide with no views says nothing", async () => {
     G.slug = "seeded"; G.views = 0;
-    return viewsLabel() === "";
+    return viewsText() === "";
   });
 
   await check("one view reads as singular", async () => {
     const all = readStore(); all["seeded"] = {slug:"seeded", views:1};
     localStorage.setItem("riftvault.published.v1", JSON.stringify(all));
     G.slug = "seeded";
-    return viewsLabel().includes("1 view") && !viewsLabel().includes("views");
+    return viewsText().includes("1 view") && !viewsText().includes("views");
   });
 
   await check("  and two as plural", async () => {
     const all = readStore(); all["seeded"] = {slug:"seeded", views:2};
     localStorage.setItem("riftvault.published.v1", JSON.stringify(all));
-    return viewsLabel().includes("2 views");
+    return viewsText().includes("2 views");
   });
 
   await check("a draft preview is never given a count", async () => {
     const keep = G.slug; G.slug = null;
-    const out = viewsLabel(); G.slug = keep;
+    const out = viewsText(); G.slug = keep;
     return out === "";
   });
 

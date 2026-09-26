@@ -187,6 +187,30 @@ function writeStore(all){
   catch(_){ return false; }          /* quota, or storage disabled */
 }
 
+/* Which build line stands for a guide on a card.
+
+   The creator has this same rule in showcaseRow(), where it decides what
+   the preview card shows and what the publish checklist counts. Cards
+   elsewhere had no reason to ask until the featured shelf started showing
+   builds — so the rule lives here now, over a stored guide rather than the
+   editor's live state, and the creator's copy is the one that answers for
+   a draft. Two shapes, one rule; if they ever disagree, a guide looks
+   different on the front page from the way its author saw it.
+
+   An explicit pick only counts while the line it names still exists and
+   still has items in it. Otherwise a choice made three edits ago empties
+   the card. */
+function showcaseItems(g){
+  const rows = Array.isArray(g && g.items) ? g.items : [];
+  const has = r => r && Array.isArray(r.items) && r.items.length;
+  const picked = g && g.cardRow && rows.find(r => r.id === g.cardRow && has(r));
+  const row = picked
+    || rows.find(r => r.ordered && has(r))
+    || rows.find(has)
+    || null;
+  return row ? row.items.slice(0, 6).map(String) : [];
+}
+
 /* Newest first, with just enough to render a list. `mine` filters to the
    signed-in author, which is what "My guides" wants; without it this is
    every guide in the store, which is what a site-wide index would want. */
@@ -212,6 +236,12 @@ function listPublished({mine = false} = {}){
                              field the store carries is invisible to every
                              list on the site until it is named here. */
                           featured: !!g.featured,
+                          /* The build the featured shelf puts on the card.
+                             Third time this list has had to learn a field —
+                             hidden, then featured, now this — so: anything a
+                             card needs has to be named here, because the
+                             mapped shape is the whole of what a list can see. */
+                          showcase: showcaseItems(g),
                           author: g.author || "", authorId: g.authorId || ""}))
     .sort((a, b) => b.at - a.at);
 }
