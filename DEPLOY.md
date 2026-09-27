@@ -178,6 +178,8 @@ node tools/guide-render.js .     # the guide view end to end
 node tools/home-check.js .       # filters, sort, empty states
 node tools/worker-check.js .     # link previews, and every way they can fail
 node tools/roster-check.js .     # who the site thinks is in the mode
+node tools/champstats-check.js . # reading the mode's stat files
+node tools/champ-page-check.js . # and putting them on the champion page
 python3 tools/contrast-check.py .          # WCAG AA on both surfaces
 python3 tools/check-data.py <lol-game-data> # data vs. the client's own files
 python3 tools/fetch-classic-data.py --self-test  # the stat trimming, offline

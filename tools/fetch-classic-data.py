@@ -17,14 +17,37 @@ of war, nothing else), nowhere.
 
 So this walks the roster and pulls them.
 
+HOW THE MODE'S NUMBERS RELATE TO THE ARCHIVE'S
+
+Measured across the roster, in two layers:
+
+  1. A systematic shift. Base health, attack damage, mana and both regens
+     each sit exactly one growth step above the archive's, and armour one
+     growth step plus 4 flat. The 4 is documented — the mode keeps a global
+     armour buff from patch 4.5, per the League Classic page on the LoL
+     wiki. The growth step is not documented anywhere, but it is a growth
+     step and not a flat bonus: the energy champions, whose resource growth
+     is zero, sit on 200 energy and 50 regen with no shift at all. That is
+     the check that rules out a coincidence, and the reason no correction
+     factor is applied anywhere in the site.
+
+  2. Per-champion balance changes, which nothing predicts. Garen has +4.5
+     attack damage over Season 3 and his armour growth went 2.7 -> 3; Jax
+     has 55 less health, Ahri 20 less. These are why reading the real file
+     is the only correct approach, and the wiki says as much: champions are
+     the mode's own take, not a literal restoration.
+
 WHAT IT IS FOR, AND WHAT IT IS NOT FOR
 
-The output is a FALLBACK, not the source. The site should read the bins
-live, the same way it reads the roster live, because a committed copy of
-someone else's data is exactly the thing that quietly went nine champions
-out of date and cost an afternoon to notice. This file is what the page
-falls back to when Community Dragon is unreachable, and the raw material
-for a patch-to-patch diff later.
+The output is a FALLBACK, not the source. champion.html now reads the bins
+live, through CLASSIC.champStats in site.js, the same way it reads the
+roster live — because a committed copy of someone else's data is exactly
+the thing that quietly went nine champions out of date and cost an
+afternoon to notice. When the mode's file can't be reached the page falls
+back to the archive and says on the page that it did.
+
+This snapshot is the raw material for a patch-to-patch diff, and the thing
+--check compares against to tell you a champion was changed.
 
 Which also means: re-run it per patch, and let --check tell you when it
 matters. It is not supposed to be edited by hand.

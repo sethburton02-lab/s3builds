@@ -355,14 +355,22 @@ CLASSIC.rosterIndex = async function(){
   if(CLASSIC._roster) return CLASSIC._roster;
   const key = "cd:classic-roster:v1";
   const build = rows => {
-    const keys = [], names = [];
+    const keys = [], names = [], aliases = new Map();
     for(const c of rows || []){
       if(!/^Jade_/i.test(c.alias || "")) continue;
       const k = Number(c.id) - CLASSIC.champOffset;
-      if(Number.isInteger(k) && k > 0) keys.push(k);
+      if(Number.isInteger(k) && k > 0){
+        keys.push(k);
+        /* The alias is kept because the stat files are addressed by it and
+           nothing else. Guessing the slug from the archive's id works for
+           most champions and quietly fails for the ones whose names the two
+           sides spell differently — the same trap the key-join above exists
+           to avoid. Taken from the catalogue so it can't drift. */
+        aliases.set(k, c.alias);
+      }
       if(c.name) names.push(normKey(c.name));
     }
-    return {keys: new Set(keys), names: new Set(names)};
+    return {keys: new Set(keys), names: new Set(names), aliases};
   };
   try{
     const hit = sessionStorage.getItem(key);
@@ -387,6 +395,145 @@ CLASSIC.rosterIndex = async function(){
     return (CLASSIC._roster = {keys: new Set(), names: new Set()});
   }
 };
+/* ------------------------------------------------------------
+   THE MODE'S OWN BASE STATS
+
+   Champion pages used to show Data Dragon's 3.13.24 numbers, which are
+   Season 3's and not this mode's. Measured against the mode's character
+   records across the roster, every champion differs, in two ways:
+
+     1. A systematic shift. Base HP, AD, mana and both regens are each one
+        growth step above the archive's, and armour is one growth step plus
+        4 flat. The +4 is documented: the mode keeps a global armour buff
+        from patch 4.5 (leagueoflegends.fandom wiki, League Classic). The
+        growth step is not documented anywhere, but it is exactly a growth
+        step and not a flat bonus — the energy champions, whose resource
+        growth is zero, sit on 200/50 with no shift at all, which is the
+        check that rules out a coincidence.
+
+     2. Per-champion balance changes, which no formula predicts. Garen has
+        +4.5 AD over Season 3, Jax 55 less health, Ahri 20 less. These are
+        the reason a correction factor applied to the archive would still
+        be wrong, and the reason this reads the real file instead.
+
+   Magic resist is 30 for every ranged champion and 31.25 for every melee
+   one, growth included, so it carries no information — but it is shown
+   because leaving one row on archive values while the rest are the mode's
+   would be worse than showing it.
+
+   Attack speed is deliberately absent. The record holds a base figure but
+   the displayed value depends on a ratio applied elsewhere, and a wrong
+   attack speed is not obviously wrong to a reader. Better omitted than
+   guessed.
+
+   Returns Data Dragon's own key names so a caller can fold this straight
+   over C.stats, plus a `resource` of "mana" | "energy" | "none".
+   ------------------------------------------------------------ */
+CLASSIC.statKeys = {
+  base: "{726ee5cd}", perLevel: "{6216bf7b}",
+  regen: "{c4ab3550}", regenPerLevel: "{3a509002}"   /* both per SECOND */
+};
+
+/* A bare number, or a {baseValue} wrapper holding one. Strict about the
+   return: a dict where a float belongs renders as [object Object] on a
+   stat line, and a string renders as a plausible-looking wrong number. */
+CLASSIC.statNum = v => {
+  if(v && typeof v === "object") v = v.baseValue;
+  return (typeof v === "number" && isFinite(v)) ? v : null;
+};
+
+/* Pure, so the harness can drive it without a network. */
+CLASSIC.readStatBin = function(binj){
+  if(!binj || typeof binj !== "object") return null;
+  const rootKey = Object.keys(binj).find(k => /\/CharacterRecords\/Root$/.test(k));
+  if(!rootKey) return null;
+  const R = binj[rootKey];
+  if(!R || typeof R !== "object") return null;
+
+  const n  = CLASSIC.statNum;
+  const K  = CLASSIC.statKeys;
+  const res = R.primaryAbilityResource || {};
+  /* 0 is mana and 1 is energy. A manaless champion has no arType key at
+     all — the block is still there, full of zeroes — so absent means none
+     rather than mana, which is the trap. */
+  const resource = res.arType === 0 ? "mana" : res.arType === 1 ? "energy" : "none";
+  /* Regen is stored per second; every page here labels it per 5 seconds.
+     A per-second number under a "per 5s" label is a fivefold error that
+     reads as entirely plausible. */
+  const x5 = v => n(v) === null ? null : n(v) * 5;
+  /* Absent growth means no growth, not missing data: ranged champions have
+     no mrPerLevel key and melee ones carry 1.25. Same for the resource
+     growth on an energy champion. */
+  const z  = v => n(v) === null ? 0 : n(v);
+
+  const hp = n(R.baseHPModifiable);
+  const ad = n(R.baseDamageModifiable);
+  /* One real stat has to be present. An otherwise-empty record would
+     otherwise fold a wall of nulls over good archive values. */
+  if(hp === null && ad === null) return null;
+
+  return {
+    hp, hpperlevel: z(R.hpPerLevelModifiable),
+    hpregen: x5(R.baseStaticHPRegenModifiable),
+    hpregenperlevel: x5(R.hpRegenPerLevelModifiable) || 0,
+    mp: n(res[K.base]), mpperlevel: z(res[K.perLevel]),
+    mpregen: x5(res[K.regen]), mpregenperlevel: x5(res[K.regenPerLevel]) || 0,
+    attackdamage: ad, attackdamageperlevel: z(R.damagePerLevelModifiable),
+    armor: n(R.baseArmorModifiable), armorperlevel: z(R.armorPerLevelModifiable),
+    spellblock: n(R.baseMR), spellblockperlevel: z(R.mrPerLevel),
+    movespeed: n(R.baseMoveSpeedModifiable),
+    attackrange: n(R.attackRangeModifiable),
+    resource
+  };
+};
+
+CLASSIC.statBinUrl = function(alias){
+  const slug = String(alias || "").replace(/^Jade_/i, "").toLowerCase();
+  if(!slug) return null;
+  const root = CLASSIC.isPBE(slug) ? CLASSIC.pbeBase : CLASSIC.base;
+  /* The stat files sit under /game, a sibling of the /plugins tree the rest
+     of the site reads, so the shared base has to be walked back. */
+  return `${root.replace(/\/plugins\/.*$/, "")}/game/data/characters/jade_${slug}/jade_${slug}.bin.json`;
+};
+
+/* The mode's stats for one champion, or null. Never throws: a champion page
+   that can't reach the file shows the archive's numbers and says so, which
+   is worth more than an error state. */
+CLASSIC.champStats = async function(key){
+  const k = Number(key);
+  if(!Number.isInteger(k)) return null;
+  CLASSIC._stats = CLASSIC._stats || new Map();
+  if(CLASSIC._stats.has(k)) return CLASSIC._stats.get(k);
+
+  const cacheKey = `cd:classic-stats:v1:${k}`;
+  try{
+    const hit = sessionStorage.getItem(cacheKey);
+    if(hit){
+      const v = JSON.parse(hit);
+      CLASSIC._stats.set(k, v);
+      return v;
+    }
+  }catch(_){}
+
+  let out = null;
+  try{
+    const idx = await CLASSIC.rosterIndex().catch(() => null);
+    const alias = idx && idx.aliases && idx.aliases.get(k);
+    const url = alias && CLASSIC.statBinUrl(alias);
+    if(!url) throw new Error(`no Classic alias for key ${k}`);
+    const res = await fetch(url, {mode: "cors"});
+    if(!res.ok) throw new Error(`${alias} stats ${res.status}`);
+    out = CLASSIC.readStatBin(await res.json());
+    if(!out) throw new Error(`${alias} stats unreadable`);
+    try{ sessionStorage.setItem(cacheKey, JSON.stringify(out)); }catch(_){}
+  }catch(err){
+    console.warn("Classic stats unavailable, using the Season 3 archive:", err.message);
+    out = null;
+  }
+  CLASSIC._stats.set(k, out);
+  return out;
+};
+
 CLASSIC.spellByName = name => (CLASSIC._spellsByName &&
   CLASSIC._spellsByName.get(String(name || "").toLowerCase())) || null;
 CLASSIC.spellIcon = id => (CLASSIC.spellRow(id) || {}).icon || null;

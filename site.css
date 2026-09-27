@@ -150,6 +150,10 @@ nav.main a.on{background:var(--btn);border-color:hsla(0,0%,100%,.2);color:#f0e6d
 .page-head h1{margin:0 0 4px;font-size:28px;color:var(--title)}
 .page-head p{margin:0;color:var(--muted);font-size:14px;max-width:70ch}
 .crumb{color:var(--muted-2);font-size:12.5px;margin-bottom:9px}
+/* Where a champion's base stats came from. Deliberately quiet — it matters
+   when it says the fallback and should not compete with the numbers. */
+.stat-src{color:var(--muted-2);font-size:12px;line-height:1.45;margin:9px 0 0}
+.stat-src:empty{display:none}
 .crumb a:hover{color:var(--title)}
 section{padding:26px 0 60px}
 

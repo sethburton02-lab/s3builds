@@ -14,16 +14,16 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=116">
+<link rel="stylesheet" href="site.css?v=117">
 </head>
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=116"></script>
-<script src="guide-sanitise.js?v=116"></script>
-<script src="config.js?v=116"></script>
-<script src="guide-store.js?v=116"></script>
-<script src="guide-load.js?v=116"></script>
+<script src="site.js?v=117"></script>
+<script src="guide-sanitise.js?v=117"></script>
+<script src="config.js?v=117"></script>
+<script src="guide-store.js?v=117"></script>
+<script src="guide-load.js?v=117"></script>
 <script>
 renderChrome("Champions");
 
@@ -81,6 +81,7 @@ function paint(el){
           <b id="lvlLabel">Level 1</b>
         </div>
         <ul class="stats-list" id="statList"></ul>
+        <p class="stat-src" id="statSrc"></p>
       </div>
 
       <div class="card">
@@ -157,6 +158,7 @@ function paint(el){
   slider.addEventListener("input", e => { level = +e.target.value; paintStats(); });
   paintStats();
   paintPatch();
+  loadClassicStats();
 }
 
 /* This used to say "no published guides yet" unconditionally — it never
@@ -183,16 +185,53 @@ function tipCard(title, tips){
   </div>`;
 }
 
+/* The mode's own numbers when they arrived, the archive's when they didn't.
+   Held separately rather than merged into C.stats so the source stays
+   knowable — the page says which one it is showing, and a half-merged
+   object would make that a guess. */
+let CSTATS = null, statsResolved = false;
+
+/* Resource rows are dropped for a champion who has none. Left in, Garen got
+   a "Resource 0" line, which reads as missing data rather than as rage. */
+function statRows(){
+  const none = CSTATS && CSTATS.resource === "none";
+  return STATS.filter(([, base]) => !(none && /^mp/.test(base)));
+}
+
 function paintStats(){
-  const s = C.stats;
+  const s = CSTATS || C.stats;
   $("#lvlLabel").textContent = "Level " + level;
   $("#lvlOut").textContent = level;
-  $("#statList").innerHTML = STATS.map(([label, base, per, unit]) => {
-    if(s[base] === undefined) return "";
+  $("#statList").innerHTML = statRows().map(([label, base, per, unit]) => {
+    /* null is a stat the mode's file didn't carry; undefined is one the
+       archive doesn't have. Both mean "don't invent a row". */
+    if(s[base] === undefined || s[base] === null) return "";
+    /* Both resource rows, not just the first: labelling the bar "Energy" and
+       the line under it "Resource regen" reads like two different stats. */
+    const lbl = CSTATS && CSTATS.resource === "energy"
+      ? label.replace(/^Resource/, "Energy") : label;
     const val = per ? at(s[base], s[per]) : num(s[base]);
     const growth = per && s[per] ? `<em>+${num(s[per])}/lvl</em>` : "";
-    return `<li><span>${label}${unit ? ` <em>${unit}</em>` : ""}</span><b>${val}${growth}</b></li>`;
+    return `<li><span>${lbl}${unit ? ` <em>${unit}</em>` : ""}</span><b>${val}${growth}</b></li>`;
   }).join("");
+
+  /* Silent until the fetch has settled. Saying "from the archive" during the
+     second it takes to answer would flash a correction on every load, and
+     the one wrong-looking thing on the page would be the bit claiming to
+     say where the numbers came from. */
+  const src = $("#statSrc");
+  if(src) src.textContent = !statsResolved ? ""
+    : CSTATS ? "From the mode's own game files."
+    : "From the Season 3 archive — the mode's own figures couldn't be reached, and it tunes most champions a little higher.";
+}
+
+/* Fetched after the page has painted, not before: the stat file is a
+   separate request and blocking the whole champion on it would trade a
+   working page for a slightly more accurate one. */
+async function loadClassicStats(){
+  CSTATS = await CLASSIC.champStats(C.key).catch(() => null);
+  statsResolved = true;
+  paintStats();                 /* repaints the rows and the source line */
 }
 </script>
 </body>
