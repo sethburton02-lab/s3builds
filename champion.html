@@ -14,16 +14,16 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=117">
+<link rel="stylesheet" href="site.css?v=118">
 </head>
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=117"></script>
-<script src="guide-sanitise.js?v=117"></script>
-<script src="config.js?v=117"></script>
-<script src="guide-store.js?v=117"></script>
-<script src="guide-load.js?v=117"></script>
+<script src="site.js?v=118"></script>
+<script src="guide-sanitise.js?v=118"></script>
+<script src="config.js?v=118"></script>
+<script src="guide-store.js?v=118"></script>
+<script src="guide-load.js?v=118"></script>
 <script>
 renderChrome("Champions");
 
@@ -198,20 +198,42 @@ function statRows(){
   return STATS.filter(([, base]) => !(none && /^mp/.test(base)));
 }
 
+/* One stat, and where it came from. A field the mode's record omits falls
+   back to the archive's rather than dropping its row: Gangplank is the only
+   champion of the 72 whose record has no base health regen, and his growth
+   figure is present and matches the archive's exactly, so the base looks
+   dropped in the export rather than deliberately zero. Showing nothing
+   there loses a real number; showing the archive's and saying so doesn't.
+   Returns undefined when neither source has it, which is the honest gap. */
+function statValue(base){
+  if(CSTATS && CSTATS[base] !== undefined && CSTATS[base] !== null)
+    return {v: CSTATS[base], fellBack: false};
+  const dd = C.stats[base];
+  if(dd === undefined || dd === null) return null;
+  /* Flagged only when the mode's numbers are the ones otherwise on show —
+     with no CSTATS at all the whole list is the archive and the source line
+     already says so. */
+  return {v: dd, fellBack: !!CSTATS};
+}
+
 function paintStats(){
-  const s = CSTATS || C.stats;
   $("#lvlLabel").textContent = "Level " + level;
   $("#lvlOut").textContent = level;
+
+  const mixed = [];
   $("#statList").innerHTML = statRows().map(([label, base, per, unit]) => {
-    /* null is a stat the mode's file didn't carry; undefined is one the
-       archive doesn't have. Both mean "don't invent a row". */
-    if(s[base] === undefined || s[base] === null) return "";
+    const got = statValue(base);
+    if(!got) return "";                 /* neither source has it */
     /* Both resource rows, not just the first: labelling the bar "Energy" and
        the line under it "Resource regen" reads like two different stats. */
     const lbl = CSTATS && CSTATS.resource === "energy"
       ? label.replace(/^Resource/, "Energy") : label;
-    const val = per ? at(s[base], s[per]) : num(s[base]);
-    const growth = per && s[per] ? `<em>+${num(s[per])}/lvl</em>` : "";
+    if(got.fellBack) mixed.push(lbl.toLowerCase());
+    /* The growth figure follows its own base: a mode base paired with an
+       archive growth, or the reverse, is a number from nowhere. */
+    const g = per ? statValue(per) : null;
+    const val = g ? at(got.v, g.v) : num(got.v);
+    const growth = g && g.v ? `<em>+${num(g.v)}/lvl</em>` : "";
     return `<li><span>${lbl}${unit ? ` <em>${unit}</em>` : ""}</span><b>${val}${growth}</b></li>`;
   }).join("");
 
@@ -221,8 +243,19 @@ function paintStats(){
      say where the numbers came from. */
   const src = $("#statSrc");
   if(src) src.textContent = !statsResolved ? ""
-    : CSTATS ? "From the mode's own game files."
-    : "From the Season 3 archive — the mode's own figures couldn't be reached, and it tunes most champions a little higher.";
+    : !CSTATS
+      ? "From the Season 3 archive — the mode's own figures couldn't be reached, and it tunes most champions a little higher."
+    : mixed.length
+      ? `From the mode's own game files, except ${listWords(mixed)}, which the mode's file omits — those are the Season 3 archive's.`
+      : "From the mode's own game files.";
+}
+
+/* "a, b and c" — the source line names the fallen-back rows, so it has to
+   read as a sentence rather than a comma-joined array. */
+function listWords(xs){
+  const u = [...new Set(xs)];
+  return u.length < 2 ? (u[0] || "")
+    : u.slice(0, -1).join(", ") + " and " + u[u.length - 1];
 }
 
 /* Fetched after the page has painted, not before: the stat file is a

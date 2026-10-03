@@ -461,9 +461,11 @@ CLASSIC.readStatBin = function(binj){
      A per-second number under a "per 5s" label is a fivefold error that
      reads as entirely plausible. */
   const x5 = v => n(v) === null ? null : n(v) * 5;
-  /* Absent growth means no growth, not missing data: ranged champions have
-     no mrPerLevel key and melee ones carry 1.25. Same for the resource
-     growth on an energy champion. */
+  /* Absent growth on THESE fields is a real zero, verified across all 72
+     records: ranged champions carry no mrPerLevel key and melee ones carry
+     1.25, and an energy champion has no resource growth or regen growth.
+     Reading those as missing would send them to the archive for a number
+     the mode deliberately doesn't have. */
   const z  = v => n(v) === null ? 0 : n(v);
 
   const hp = n(R.baseHPModifiable);
@@ -472,14 +474,21 @@ CLASSIC.readStatBin = function(binj){
      otherwise fold a wall of nulls over good archive values. */
   if(hp === null && ad === null) return null;
 
+  /* Everything else keeps null for absent, because every record in the mode
+     carries these — the one exception being Gangplank's base health regen,
+     which is missing while his growth figure is present and matches the
+     archive exactly. So absence here means the export dropped something,
+     not that the stat doesn't scale, and the caller should fall back rather
+     than print a confident 0. Using z() here was the bug: it made "the file
+     omits this" and "this genuinely doesn't scale" the same value. */
   return {
-    hp, hpperlevel: z(R.hpPerLevelModifiable),
+    hp, hpperlevel: n(R.hpPerLevelModifiable),
     hpregen: x5(R.baseStaticHPRegenModifiable),
-    hpregenperlevel: x5(R.hpRegenPerLevelModifiable) || 0,
+    hpregenperlevel: x5(R.hpRegenPerLevelModifiable),
     mp: n(res[K.base]), mpperlevel: z(res[K.perLevel]),
-    mpregen: x5(res[K.regen]), mpregenperlevel: x5(res[K.regenPerLevel]) || 0,
-    attackdamage: ad, attackdamageperlevel: z(R.damagePerLevelModifiable),
-    armor: n(R.baseArmorModifiable), armorperlevel: z(R.armorPerLevelModifiable),
+    mpregen: x5(res[K.regen]), mpregenperlevel: z(x5(res[K.regenPerLevel])),
+    attackdamage: ad, attackdamageperlevel: n(R.damagePerLevelModifiable),
+    armor: n(R.baseArmorModifiable), armorperlevel: n(R.armorPerLevelModifiable),
     spellblock: n(R.baseMR), spellblockperlevel: z(R.mrPerLevel),
     movespeed: n(R.baseMoveSpeedModifiable),
     attackrange: n(R.attackRangeModifiable),

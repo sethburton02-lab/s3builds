@@ -50,11 +50,26 @@ const BINS = {
      stat line reading "Move speed" with nothing after it looks like the page
      broke, and is the shape a future field rename would take. */
   sparse: {"Characters/Jade_Sparse/CharacterRecords/Root": {
-    baseHPModifiable: {baseValue: 500}, hpPerLevelModifiable: {baseValue: 80},
+    baseHPModifiable: {baseValue: 500},
     baseDamageModifiable: {baseValue: 55}, damagePerLevelModifiable: {baseValue: 3},
     baseArmorModifiable: {baseValue: 20}, armorPerLevelModifiable: {baseValue: 3},
     baseMR: {baseValue: 30},
     primaryAbilityResource: {arType: 0, "{726ee5cd}": {baseValue: 300}}}},
+
+  /* Gangplank's real shape, and the reason statValue() falls back per field
+     rather than per record: he is the only champion of the 72 whose record
+     has no baseStaticHPRegenModifiable, while hpRegenPerLevelModifiable is
+     present and matches the archive's 0.75 per 5s exactly. */
+  gangplank: {"Characters/Jade_Gangplank/CharacterRecords/Root": {
+    baseHPModifiable: {baseValue: 576}, hpPerLevelModifiable: {baseValue: 81},
+    hpRegenPerLevelModifiable: {baseValue: 0.15},
+    baseDamageModifiable: {baseValue: 57}, damagePerLevelModifiable: {baseValue: 3},
+    baseArmorModifiable: {baseValue: 23.8}, armorPerLevelModifiable: {baseValue: 3.3},
+    baseMR: {baseValue: 31.25}, mrPerLevel: {baseValue: 1.25},
+    baseMoveSpeedModifiable: {baseValue: 345}, attackRangeModifiable: {baseValue: 125},
+    primaryAbilityResource: {arType: 0,
+      "{726ee5cd}": {baseValue: 255}, "{6216bf7b}": {baseValue: 40},
+      "{c4ab3550}": {baseValue: 1.44}, "{3a509002}": {baseValue: 0.14}}}},
 
   garen: {"Characters/Jade_Garen/CharacterRecords/Root": {
     baseHPModifiable: {baseValue: 551}, hpPerLevelModifiable: {baseValue: 96},
@@ -94,6 +109,17 @@ const DD = {
       rangeBurn: "1", effectBurn: [], vars: []}))}
 };
 
+DD.Gangplank = {id: "Gangplank", key: "41", name: "Gangplank", title: "the Saltwater Scourge",
+  tags: ["Fighter"], info: {attack: 8, magic: 4, defense: 5, difficulty: 3},
+  stats: {hp: 495, hpperlevel: 81, mp: 215, mpperlevel: 40, hpregen: 4.25,
+    hpregenperlevel: 0.75, mpregen: 6.5, mpregenperlevel: 0.7, armor: 16.5,
+    armorperlevel: 3.3, spellblock: 30, spellblockperlevel: 1.25,
+    attackdamage: 54, attackdamageperlevel: 3, movespeed: 345, attackrange: 125},
+  passive: {name: "Grog-Soaked Blade", image: {full: "p.png"}, description: "d"},
+  spells: [1,2,3,4].map(i => ({id: "s"+i, name: "s"+i, image: {full: "s.png"},
+    description: "d", tooltip: "t", cooldownBurn: "1", costBurn: "1",
+    rangeBurn: "1", effectBurn: [], vars: []}))};
+
 DD.Sparse = {id: "Sparse", key: "99", name: "Sparse", title: "the Incomplete",
   tags: ["Mage"], info: {attack: 5, magic: 5, defense: 5, difficulty: 5},
   stats: {hp: 400, hpperlevel: 80, mp: 300, mpperlevel: 50, hpregen: 5,
@@ -108,7 +134,8 @@ DD.Sparse = {id: "Sparse", key: "99", name: "Sparse", title: "the Incomplete",
 const SUMMARY = [
   {id: 60064, name: "Lee Sin", alias: "Jade_LeeSin"},
   {id: 60086, name: "Garen",   alias: "Jade_Garen"},
-  {id: 60099, name: "Sparse",  alias: "Jade_Sparse"}
+  {id: 60099, name: "Sparse",  alias: "Jade_Sparse"},
+  {id: 60041, name: "Gangplank", alias: "Jade_Gangplank"}
 ];
 
 /* ---- environment ---- */
@@ -307,12 +334,44 @@ src += `
   level = 1; CSTATS = null; statsResolved = false;
   paint(document.getElementById("main"));
   await loadClassicStats();
-  check("a field the mode's record omits drops its row instead of printing blank",
-    () => !/<span>Move speed/.test(rows()) && !/<span>Attack range/.test(rows()));
-  check("and the rows it does carry are still the mode's",
+  check("a field the mode's record omits falls back to the archive's value",
+    () => row("Move speed") === "335" && row("Attack range") === "550");
+  check("the rows the mode does carry are still the mode's",
     () => row("Health") === "500" && row("Armor") === "20");
-  check("an omitted regen drops its row rather than showing nothing",
-    () => !/<span>Health regen/.test(rows()));
+  /* The pairing rule, made observable: the mode has the health BASE (500)
+     and not its growth, and the archive's growth (80) is a figure the mode
+     never states. Correct is 500 + 17x80 = 1860. Taking the growth from
+     "whichever object is on show" instead drops it and gives 500 -- a
+     number from nowhere that looks like a stat. */
+  check("a mode base with an archive growth still scales (500 + 17x80 = 1860)",
+    () => { level = 18; paintStats(); const v = row("Health");
+            level = 1; paintStats(); return v === "1860"; });
+  check("the source line names the rows that fell back",
+    () => /mode's own game files, except/.test(srcLine()) &&
+          /move speed/.test(srcLine()) && /attack range/.test(srcLine()));
+  console.log("      source line: " + srcLine());
+  check("and doesn't list a row that came from the mode",
+    () => { const ex = (srcLine().split("except")[1] || "").split(", which")[0];
+            return !/\barmor\b/.test(ex) && !/\bhealth,/.test(ex); });
+
+  /* ---------- Gangplank: base absent, growth present ---------- */
+  fresh(); __setWorld({champ: "Gangplank", stats: "ok"});
+  C = (await DD_CHAMP_FOR_TEST("Gangplank"));
+  level = 1; CSTATS = null; statsResolved = false;
+  paint(document.getElementById("main"));
+  await loadClassicStats();
+  check("Gangplank's health regen row survives on the archive's base",
+    () => row("Health regen") === "4.25");
+  /* The growth has to come from the same source as the base it is added to.
+     Pairing the archive's 4.25 with the mode's 0.75 is the same number here,
+     but the rule is what keeps a future mismatch from inventing a figure. */
+  check("and it scales by the archive's growth, not a mix (4.25 + 17x0.75 = 17)",
+    () => { level = 18; paintStats(); const v = row("Health regen");
+            level = 1; paintStats(); return v === "17"; });
+  check("his health and attack damage are still the mode's, not the archive's",
+    () => row("Health") === "576" && row("Attack damage") === "57");
+  check("the source line singles out health regen only",
+    () => /except health regen, which/.test(srcLine()));
 
   /* ---------- the file unreachable ---------- */
   for(const how of ["down", "404"]){
