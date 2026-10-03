@@ -178,6 +178,7 @@ node tools/guide-render.js .     # the guide view end to end
 node tools/home-check.js .       # filters, sort, empty states
 node tools/worker-check.js .     # link previews, and every way they can fail
 node tools/roster-check.js .     # who the site thinks is in the mode
+node tools/create-check.js .     # the creator's matchup combobox
 node tools/champstats-check.js . # reading the mode's stat files
 node tools/champ-page-check.js . # and putting them on the champion page
 python3 tools/contrast-check.py .          # WCAG AA on both surfaces

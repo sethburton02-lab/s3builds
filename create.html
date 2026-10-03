@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=119">
+<link rel="stylesheet" href="site.css?v=120">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -316,7 +316,25 @@
 
   /* ---- matchups ---- */
   .mu-add{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-  .mu-add input{width:220px}
+  .mu-add input{width:230px}
+  /* The listbox is absolutely positioned so opening it doesn't shove the
+     rows underneath down the page, and z-index clears the sticky bars. */
+  .mu-combo{position:relative}
+  .mu-opts{position:absolute;z-index:40;top:calc(100% + 4px);left:0;width:268px;
+    max-height:272px;overflow:auto;background:#f0e4b1;padding:4px;
+    border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:0 6px 18px rgba(60,40,10,.22)}
+  .mu-opt{display:flex;align-items:center;gap:9px;width:100%;padding:5px 7px;
+    border:0;border-radius:6px;background:none;cursor:pointer;text-align:left}
+  /* .on is the keyboard cursor and :hover the mouse one — both highlight,
+     so arrowing down and moving the mouse don't fight over which is lit. */
+  .mu-opt:hover,.mu-opt.on{background:hsla(43,47%,60%,.55)}
+  .mu-opt .portrait{width:28px;height:28px;flex:none;border-radius:5px;
+    object-fit:cover;font-size:12px}
+  .mu-opt .nm{font-size:13.5px;color:var(--text);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .mu-opt .cls{margin-left:auto;flex:none;font-size:11px;color:var(--muted-2)}
+  .mu-opts .none{padding:9px;font-size:12.5px;color:var(--muted-2)}
   .mu-add .cap-note{color:var(--muted-2);font-size:11.5px}
   .mu-row{display:grid;grid-template-columns:34px 150px auto minmax(0,1fr) 28px;
     gap:9px;align-items:center;padding:7px 9px;margin-bottom:6px;
@@ -968,13 +986,19 @@
         someone needs in champion select. These show in a column beside the guide
         while it's being read, hardest first.</p>
 
-      <!-- A datalist rather than the full champion grid: this list wants a
-           name typed and confirmed, not browsed, and the grid is 72 tiles
-           that would dwarf the rows underneath it. -->
+      <!-- A <datalist> cannot draw anything: the browser renders its options
+           as plain strings and ignores markup inside them, so a portrait is
+           impossible there. This is a real combobox instead — an input and a
+           listbox we render ourselves — which costs the keyboard handling
+           below but can show the art. -->
       <div class="mu-add">
-        <input type="text" id="muChamp" list="muList" autocomplete="off"
-               placeholder="Champion…" aria-label="Champion to add as a matchup">
-        <datalist id="muList"></datalist>
+        <div class="mu-combo">
+          <input type="text" id="muChamp" autocomplete="off" role="combobox"
+                 aria-expanded="false" aria-controls="muOpts" aria-autocomplete="list"
+                 placeholder="Champion…" aria-label="Champion to add as a matchup">
+          <div class="mu-opts" id="muOpts" role="listbox"
+               aria-label="Champions" hidden></div>
+        </div>
         <button type="button" class="btn btn-sm" id="muAdd">+ Add matchup</button>
         <span class="cap-note" id="muCount"></span>
       </div>
@@ -1167,16 +1191,16 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="site.js?v=119"></script>
-<script src="data-rune-icons.js?v=119"></script>
-<script src="data-runes.js?v=119"></script>
-<script src="data-champ-focus.js?v=119"></script>
-<script src="data-mastery-tree.js?v=119"></script>
-<script src="data-masteries.js?v=119"></script>
-<script src="guide-sanitise.js?v=119"></script>
-<script src="config.js?v=119"></script>
-<script src="guide-store.js?v=119"></script>
-<script src="guide-load.js?v=119"></script>
+<script src="site.js?v=120"></script>
+<script src="data-rune-icons.js?v=120"></script>
+<script src="data-runes.js?v=120"></script>
+<script src="data-champ-focus.js?v=120"></script>
+<script src="data-mastery-tree.js?v=120"></script>
+<script src="data-masteries.js?v=120"></script>
+<script src="guide-sanitise.js?v=120"></script>
+<script src="config.js?v=120"></script>
+<script src="guide-store.js?v=120"></script>
+<script src="guide-load.js?v=120"></script>
 <script>
 /* Wrapped so this page's short helpers ($, esc, paint…) stay local and
    don't collide with the shared ones in site.js. */
@@ -2028,16 +2052,54 @@ addEventListener("scroll", hideSpellTip, {passive:true});
 const MU_MAX = 40, MU_NOTE_MAX = 200;
 const MU_DIFFS = [["easy", "Easy"], ["even", "Even"], ["hard", "Hard"]];
 
-function renderMuList(){
-  const dl = document.getElementById("muList");
-  if(!dl) return;
-  /* Already-added champions are left out of the suggestions — the list is
-     one row per champion, and offering a duplicate only to refuse it is
-     worse than not offering it. */
+/* ---- the champion combobox ----
+   Open state and keyboard cursor live here rather than being read back off
+   the DOM, so the list can be re-rendered on every keystroke without losing
+   which row is highlighted. */
+let muOpen = false, muActive = -1;
+
+/* Champions still addable, for the current query. Already-added ones are
+   left out: the list is one row per champion, and offering a duplicate only
+   to refuse it is worse than not offering it. */
+function muMatches(){
+  const q = normKey((document.getElementById("muChamp") || {}).value || "");
   const taken = new Set((S.matchups || []).map(m => m.champ));
-  dl.innerHTML = (CHAMPIONS || []).filter(c => !taken.has(c.name))
-    .map(c => `<option value="${esc(c.name)}"></option>`).join("");
+  return (CHAMPIONS || []).filter(c =>
+    !taken.has(c.name) && (!q || normKey(c.name).includes(q) || normKey(c.id).includes(q)));
 }
+
+function renderMuList(){
+  const box = document.getElementById("muOpts"), inp = document.getElementById("muChamp");
+  if(!box || !inp) return;
+  box.hidden = !muOpen;
+  inp.setAttribute("aria-expanded", String(muOpen));
+  if(!muOpen){ inp.removeAttribute("aria-activedescendant"); return; }
+
+  const list = muMatches();
+  if(muActive >= list.length) muActive = list.length - 1;
+  box.innerHTML = list.length
+    ? list.map((c, i) => `<button type="button" role="option" id="muOpt${i}"
+        class="mu-opt ${i === muActive ? "on" : ""}" aria-selected="${i === muActive}"
+        data-mu-pick="${esc(c.name)}">
+        ${champImgTag(c, "portrait")}
+        <span class="nm">${esc(c.name)}</span>
+        ${c.cls ? `<span class="cls">${esc(c.cls)}</span>` : ""}
+      </button>`).join("")
+    : `<p class="none">${(CHAMPIONS || []).length
+        ? "No champion left to add by that name."
+        : "Loading champions…"}</p>`;
+
+  if(muActive > -1 && list[muActive]){
+    inp.setAttribute("aria-activedescendant", "muOpt" + muActive);
+    /* Keep the keyboard cursor in view without scrolling the page itself. */
+    const el = box.querySelector(".mu-opt.on");
+    if(el && el.scrollIntoView) el.scrollIntoView({block: "nearest"});
+  }else{
+    inp.removeAttribute("aria-activedescendant");
+  }
+}
+
+function muShow(open){ muOpen = open; if(!open) muActive = -1; renderMuList(); }
 
 function renderMu(){
   const host = document.getElementById("muRows");
@@ -2088,7 +2150,22 @@ function addMatchup(){
 }
 
 document.addEventListener("click", e => {
+  /* Picking from the list adds straight away and leaves the box open, so a
+     run of matchups can be filled in without reaching for the button between
+     each one. The button is still there for a name the roster doesn't have. */
+  const pick = e.target.closest("[data-mu-pick]");
+  if(pick){
+    document.getElementById("muChamp").value = pick.dataset.muPick;
+    addMatchup();
+    const inp = document.getElementById("muChamp");
+    if(inp) inp.focus();
+    muActive = -1; muShow(true);
+    return;
+  }
   if(e.target.closest("#muAdd")){ addMatchup(); return; }
+  /* Anywhere else closes it — including the rows below, which would
+     otherwise sit underneath an open panel. */
+  if(muOpen && !e.target.closest(".mu-combo")) muShow(false);
   const row = e.target.closest("[data-mu]");
   if(!row) return;
   const i = +row.dataset.mu;
@@ -2117,11 +2194,42 @@ document.addEventListener("input", e => {
   autosave();
 });
 
-/* Enter in the champion box adds, rather than submitting the form around it. */
+/* Typing filters the list and opens it. */
+document.addEventListener("input", e => {
+  if(!e.target.closest("#muChamp")) return;
+  muActive = -1;
+  muShow(true);
+});
+document.addEventListener("focusin", e => {
+  if(e.target.closest("#muChamp")) muShow(true);
+});
+
+/* Keyboard, because a combobox we draw ourselves gets none of this free —
+   a <datalist> handled arrows and Enter on its own, and dropping it means
+   owning them. Enter also has to be swallowed: this input sits inside the
+   guide form, where the default would submit it. */
 document.addEventListener("keydown", e => {
-  if(e.key !== "Enter" || !e.target.closest("#muChamp")) return;
+  if(!e.target.closest("#muChamp")) return;
+  const list = muMatches();
+  if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+    e.preventDefault();
+    if(!muOpen){ muShow(true); return; }
+    if(!list.length) return;
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    muActive = (muActive + step + list.length) % list.length;
+    renderMuList();
+    return;
+  }
+  if(e.key === "Escape"){ if(muOpen){ e.preventDefault(); muShow(false); } return; }
+  if(e.key !== "Enter") return;
   e.preventDefault();
+  /* A highlighted row wins over what was typed: someone who arrowed down to
+     Kog'Maw and pressed Enter meant Kog'Maw, not the three letters in the box. */
+  if(muOpen && muActive > -1 && list[muActive])
+    document.getElementById("muChamp").value = list[muActive].name;
   addMatchup();
+  muActive = -1;
+  renderMuList();
 });
 
 function renderSpells(){
