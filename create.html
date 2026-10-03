@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=118">
+<link rel="stylesheet" href="site.css?v=119">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -313,6 +313,39 @@
   .slot-row.active{border-style:solid}
   .add-line{display:flex;align-items:center;gap:10px;margin-top:2px}
   .add-line .cap-note{color:var(--muted-2);font-size:11.5px}
+
+  /* ---- matchups ---- */
+  .mu-add{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .mu-add input{width:220px}
+  .mu-add .cap-note{color:var(--muted-2);font-size:11.5px}
+  .mu-row{display:grid;grid-template-columns:34px 150px auto minmax(0,1fr) 28px;
+    gap:9px;align-items:center;padding:7px 9px;margin-bottom:6px;
+    border:1px solid var(--line);border-radius:var(--radius);
+    background:hsla(43,47%,60%,.2)}
+  .mu-row .por{width:34px;height:34px;border-radius:6px;display:block;
+    border:1px solid var(--line);object-fit:cover;background:var(--bg-2)}
+  .mu-row .nm{font-size:14px;color:var(--text);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .mu-row input.note{width:100%;font-size:13px;padding:5px 8px}
+  /* Three states, one visible choice. Radio-style buttons rather than a
+     <select> so the current verdict is readable without opening anything —
+     the whole row is otherwise one line of text. */
+  .mu-seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;
+    overflow:hidden;flex:none}
+  .mu-seg button{background:none;border:0;padding:4px 11px;font-size:12px;
+    color:var(--muted);cursor:pointer}
+  .mu-seg button + button{border-left:1px solid var(--line)}
+  .mu-seg button.on.easy{background:rgba(60,110,40,.22);color:#2b4713}
+  .mu-seg button.on.even{background:rgba(120,100,40,.2);color:#473a0b}
+  .mu-seg button.on.hard{background:rgba(140,52,16,.18);color:#4a1a06}
+  .mu-del{background:none;border:0;color:var(--muted-2);font-size:15px;
+    line-height:1;padding:4px 6px;border-radius:6px;cursor:pointer}
+  .mu-del:hover{background:var(--panel-2);color:var(--red)}
+  .mu-empty{color:var(--muted-2);font-size:13px;margin:2px 0 0}
+  @media(max-width:760px){
+    .mu-row{grid-template-columns:34px minmax(0,1fr) 28px}
+    .mu-row .mu-seg,.mu-row input.note{grid-column:2 / 3}
+  }
 
   /* ---------- skill order ----------
      Framed and sheeted like the mastery and rune builders: parchment
@@ -928,6 +961,26 @@
       <div class="spell-tip" id="spellTip" role="tooltip" hidden></div>
     </div>
 
+    <!-- matchups -->
+    <div class="block">
+      <div class="block-hd"><h2 class="page-title">Matchups</h2></div>
+      <p class="hint">Who this pick beats and who beats it, one line each — what
+        someone needs in champion select. These show in a column beside the guide
+        while it's being read, hardest first.</p>
+
+      <!-- A datalist rather than the full champion grid: this list wants a
+           name typed and confirmed, not browsed, and the grid is 72 tiles
+           that would dwarf the rows underneath it. -->
+      <div class="mu-add">
+        <input type="text" id="muChamp" list="muList" autocomplete="off"
+               placeholder="Champion…" aria-label="Champion to add as a matchup">
+        <datalist id="muList"></datalist>
+        <button type="button" class="btn btn-sm" id="muAdd">+ Add matchup</button>
+        <span class="cap-note" id="muCount"></span>
+      </div>
+      <div id="muRows"></div>
+    </div>
+
   </form>
 
   <!-- ============ PREVIEW RAIL ============ -->
@@ -1114,16 +1167,16 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="site.js?v=118"></script>
-<script src="data-rune-icons.js?v=118"></script>
-<script src="data-runes.js?v=118"></script>
-<script src="data-champ-focus.js?v=118"></script>
-<script src="data-mastery-tree.js?v=118"></script>
-<script src="data-masteries.js?v=118"></script>
-<script src="guide-sanitise.js?v=118"></script>
-<script src="config.js?v=118"></script>
-<script src="guide-store.js?v=118"></script>
-<script src="guide-load.js?v=118"></script>
+<script src="site.js?v=119"></script>
+<script src="data-rune-icons.js?v=119"></script>
+<script src="data-runes.js?v=119"></script>
+<script src="data-champ-focus.js?v=119"></script>
+<script src="data-mastery-tree.js?v=119"></script>
+<script src="data-masteries.js?v=119"></script>
+<script src="guide-sanitise.js?v=119"></script>
+<script src="config.js?v=119"></script>
+<script src="guide-store.js?v=119"></script>
+<script src="guide-load.js?v=119"></script>
 <script>
 /* Wrapped so this page's short helpers ($, esc, paint…) stay local and
    don't collide with the shared ones in site.js. */
@@ -1298,6 +1351,10 @@ const BLANK={
   setups:[], active:0,
   skillPages:[], skillActive:0,
   sections:[{h:"Why this build works",b:""}],
+  /* Champion, verdict, one line. Named here as well as in normaliseGuide:
+     a draft that doesn't start with the key loads as undefined, and the
+     first thing that touches it has to guard. An empty array doesn't. */
+  matchups:[],
   /* A short note attached to each builder, which is how people
      actually explain a build — the reasoning next to the thing it is
      about, rather than all of it in one block at the end. */
@@ -1416,6 +1473,15 @@ function load(){
     for(const k of NOTE_KEYS)
       if(d.notes && Object.prototype.hasOwnProperty.call(d.notes, k))
         S.notes[k] = cleanRich(mdToHtml(d.notes[k]));
+    /* A draft saved before matchups existed has no array at all, and one
+       hand-edited in localStorage could hold anything. Rebuilt to the same
+       shape normaliseGuide enforces, so the editor never meets a row it
+       can't draw and publish never silently drops one. */
+    S.matchups = (Array.isArray(d.matchups) ? d.matchups : []).slice(0, MU_MAX)
+      .filter(m => m && typeof m.champ === "string" && m.champ.trim())
+      .map(m => ({champ: String(m.champ).trim(),
+                  diff: ["easy","even","hard"].includes(m.diff) ? m.diff : "even",
+                  note: String(m.note == null ? "" : m.note).slice(0, MU_NOTE_MAX)}));
     return true;
   }catch(e){ return false; }
 }
@@ -1955,6 +2021,108 @@ $("spellPills").addEventListener("focusin",  e => {
 });
 $("spellPills").addEventListener("focusout", hideSpellTip);
 addEventListener("scroll", hideSpellTip, {passive:true});
+
+/* ---------- matchups ----------
+   Capped at the same 40 normaliseGuide enforces. Capping only there would
+   let an author fill in 60 and silently lose twenty on publish. */
+const MU_MAX = 40, MU_NOTE_MAX = 200;
+const MU_DIFFS = [["easy", "Easy"], ["even", "Even"], ["hard", "Hard"]];
+
+function renderMuList(){
+  const dl = document.getElementById("muList");
+  if(!dl) return;
+  /* Already-added champions are left out of the suggestions — the list is
+     one row per champion, and offering a duplicate only to refuse it is
+     worse than not offering it. */
+  const taken = new Set((S.matchups || []).map(m => m.champ));
+  dl.innerHTML = (CHAMPIONS || []).filter(c => !taken.has(c.name))
+    .map(c => `<option value="${esc(c.name)}"></option>`).join("");
+}
+
+function renderMu(){
+  const host = document.getElementById("muRows");
+  if(!host) return;
+  const rows = S.matchups || (S.matchups = []);
+  const count = document.getElementById("muCount");
+  if(count) count.textContent = rows.length
+    ? `${rows.length} of ${MU_MAX}` : "";
+
+  host.innerHTML = rows.length ? rows.map((m, i) => {
+    const c = (CHAMPIONS || []).find(x => x.name === m.champ);
+    return `<div class="mu-row" data-mu="${i}">
+      ${c ? champImgTag(c, "por") : `<span class="por"></span>`}
+      <span class="nm">${esc(m.champ)}</span>
+      <span class="mu-seg">${MU_DIFFS.map(([k, label]) =>
+        `<button type="button" class="${m.diff === k ? "on " + k : ""}"
+           data-mu-diff="${k}" aria-pressed="${m.diff === k}">${label}</button>`).join("")}</span>
+      <input type="text" class="note" maxlength="${MU_NOTE_MAX}"
+             placeholder="One line — what decides this lane"
+             aria-label="Note for ${esc(m.champ)}" value="${esc(m.note || "")}">
+      <button type="button" class="mu-del" data-mu-del
+              aria-label="Remove ${esc(m.champ)}">✕</button>
+    </div>`;
+  }).join("") : `<p class="mu-empty">No matchups yet. They're optional —
+    add the two or three that decide the lane and leave the rest.</p>`;
+
+  renderMuList();
+}
+
+function addMatchup(){
+  const inp = document.getElementById("muChamp");
+  const raw = (inp.value || "").trim();
+  if(!raw) return;
+  const rows = S.matchups || (S.matchups = []);
+  if(rows.length >= MU_MAX){ toast(`That's the ${MU_MAX} matchup limit.`); return; }
+  /* Matched case-insensitively against the roster and stored under the
+     roster's spelling, so "kogmaw" and "Kog'Maw" land on the same row and
+     the guide page can find the portrait by name. A name the roster does
+     not have is still accepted as typed — the author may know something
+     the archive spells differently — it just won't draw a picture. */
+  const hit = (CHAMPIONS || []).find(c =>
+    normKey(c.name) === normKey(raw) || normKey(c.id) === normKey(raw));
+  const name = hit ? hit.name : raw;
+  if(rows.some(m => m.champ === name)){ toast(`${name} is already listed.`); return; }
+  rows.push({champ: name, diff: "even", note: ""});
+  inp.value = "";
+  renderMu(); autosave();
+}
+
+document.addEventListener("click", e => {
+  if(e.target.closest("#muAdd")){ addMatchup(); return; }
+  const row = e.target.closest("[data-mu]");
+  if(!row) return;
+  const i = +row.dataset.mu;
+  const rows = S.matchups || [];
+  if(!rows[i]) return;
+  const diff = e.target.closest("[data-mu-diff]");
+  if(diff){ rows[i].diff = diff.dataset.muDiff; renderMu(); autosave(); return; }
+  if(e.target.closest("[data-mu-del]")){
+    const gone = rows[i].champ;
+    const before = snapshot();
+    rows.splice(i, 1);
+    renderMu(); autosave();
+    offerUndo(`Removed ${gone}.`, before);
+  }
+});
+
+/* Typed into, not re-rendered: rebuilding the row on every keystroke moves
+   the caret to the end. Same reason the build line's label edits in place. */
+document.addEventListener("input", e => {
+  const inp = e.target.closest(".mu-row input.note");
+  if(!inp) return;
+  const row = inp.closest("[data-mu]");
+  const m = (S.matchups || [])[+row.dataset.mu];
+  if(!m) return;
+  m.note = inp.value.slice(0, MU_NOTE_MAX);
+  autosave();
+});
+
+/* Enter in the champion box adds, rather than submitting the form around it. */
+document.addEventListener("keydown", e => {
+  if(e.key !== "Enter" || !e.target.closest("#muChamp")) return;
+  e.preventDefault();
+  addMatchup();
+});
 
 function renderSpells(){
   if(!SPELLS.length){
@@ -4569,6 +4737,7 @@ function hydrate(){
   renderChampPicked(); renderChampGrid(); renderRoles(); renderTags();
   renderSpells(); renderPool(); renderRows(); renderSkills(); renderSkillPages();
   renderSetups(); renderMast(); renderRunes(); renderSections(); renderNotes();
+  renderMu();
   /* Every editor on the page has just been rebuilt — section bodies, the
      builder notes and the per-line notes — so this covers all of them at
      once rather than each render remembering to. */
@@ -4645,6 +4814,10 @@ else bootEditor();
   const jobs = [
     loadChampions().then(() => {
       renderChampGrid(); renderChampPicked(); paint_preview(); refreshRefs();
+      /* The matchup rows and the datalist both need the roster — before it
+         lands the rows draw without portraits and the box suggests nothing,
+         which is usable but looks broken. */
+      renderMu();
       /* A restored draft already has a champion — fetch its abilities now
          that the roster (and so the champion's key) is known. */
       syncAbilities();

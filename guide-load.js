@@ -101,6 +101,23 @@ function normaliseGuide(raw){
           : [{id: "p0", name: "Standard", mast: {}, runes: runePage(null)}],
     sections: arr(g.sections).map(s => ({h: str(s.h), b: rich(s.b)}))
                              .filter(s => s.h || s.b),
+    /* Matchups: one champion, one verdict, one line of why.
+       The note is PLAIN text, not rich — every other author-written field
+       here goes through rich() because it comes from a contenteditable
+       box, but this one is a single <input> and a one-liner. Running it
+       through rich() would quietly permit markup in a field whose whole
+       job is to be a short label, and the rail renders it inline.
+       Capped at 40 rows and 200 characters because the rail is a fixed
+       column beside the prose: an author pasting an essay into a matchup
+       note would push the build out of view rather than being told no.
+       An unknown difficulty becomes "even" rather than being dropped —
+       losing the champion over a bad enum would lose the author's work,
+       and "even" is the reading that claims least. */
+    matchups: arr(g.matchups).slice(0, 40).map(m => ({
+      champ: str(m && m.champ),
+      diff:  ["easy", "even", "hard"].includes(m && m.diff) ? m.diff : "even",
+      note:  str(m && m.note).slice(0, 200)
+    })).filter(m => m.champ),
     /* The per-builder notes, keyed by section. Values are rich text and
        get the same treatment; unknown keys are dropped rather than carried
        through unread. */
@@ -242,6 +259,16 @@ function listPublished({mine = false} = {}){
                              card needs has to be named here, because the
                              mapped shape is the whole of what a list can see. */
                           showcase: showcaseItems(g),
+                          /* Fourth and fifth fields to learn this lesson.
+                             views and patch are both columns the store
+                             already carries on the record and that no list
+                             could see, so the guides page had no way to
+                             show either without opening every guide. */
+                          views: g.views || 0,
+                          patch: g.patch || "",
+                          /* The count, not the rows: a card says "7
+                             matchups" and the guide page shows them. */
+                          matchups: Array.isArray(g.matchups) ? g.matchups.length : 0,
                           author: g.author || "", authorId: g.authorId || ""}))
     .sort((a, b) => b.at - a.at);
 }

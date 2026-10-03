@@ -35,6 +35,16 @@ const DRAFT = {
      note:"<p>Sheen first against a melee lane.</p>"}
   ],
   cardRow: "b",
+  /* Deliberately out of display order, with a bad enum, an over-long note
+     and a hostile one: the renderer sorts hardest first, an unknown
+     difficulty becomes "even" rather than dropping the row, and the note is
+     plain text so markup in it must come back escaped. */
+  matchups: [
+    {champ:"Ashe",   diff:"easy", note:"Outrange her <b>before 6</b>."},
+    {champ:"Zed",    diff:"nonsense", note:""},
+    {champ:"Ahri",   diff:"hard", note:"<img src=x onerror=alert(1)>charm dodges the ult"},
+    {champ:"Teemo",  diff:"hard", note:"x".repeat(400)}
+  ],
   skillPages: [
     {id:"s1", name:"Standard", skills:["W","Q","E","Q","Q","R","Q","W","W","R","W","E","E","R","E","E","E","E"]},
     {id:"s2", name:"Poke",     skills:["Q","W","E","Q","Q","R",null,null,null,null,null,null,null,null,null,null,null,null]}
@@ -322,6 +332,95 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     const out = document.getElementById("main").innerHTML;
     return out.includes("g-tally none") && out.includes("<b>0</b>");
   });
+  console.log("\\nmatchups:");
+  /* The whitelist is the trap: normaliseGuide builds its return value field
+     by field, so a field nobody named there is dropped in silence between
+     the editor and the page. Every other check here would still pass. */
+  await check("survive normaliseGuide's whitelist", async () => {
+    const g = normaliseGuide(DRAFT_FIXTURE);
+    return Array.isArray(g.matchups) && g.matchups.length === 4;
+  });
+  await check("an unknown difficulty becomes even, not a dropped row", async () => {
+    const g = normaliseGuide(DRAFT_FIXTURE);
+    const zed = g.matchups.find(m => m.champ === "Zed");
+    return !!zed && zed.diff === "even";
+  });
+  await check("a long note is capped rather than carried", async () => {
+    const g = normaliseGuide(DRAFT_FIXTURE);
+    return g.matchups.find(m => m.champ === "Teemo").note.length === 200;
+  });
+  await check("the rail renders, hardest first", async () => {
+    G = normaliseGuide(DRAFT_FIXTURE); paint();
+    const out = document.getElementById("main").innerHTML;
+    const i = n => out.indexOf(">" + n + "<");
+    return out.includes("g-rail") && out.includes('id="matchups"')
+        && i("Ahri") < i("Zed") && i("Zed") < i("Ashe");
+  });
+  await check("  and the body makes room for it", async () => {
+    return document.getElementById("main").innerHTML.includes("has-rail");
+  });
+  await check("  and it earns a jump link", async () => {
+    return document.getElementById("main").innerHTML.includes('href="#matchups"');
+  });
+  /* The note is the one author field here that is NOT rich text. If it ever
+     goes through the rich sanitiser instead, markup starts rendering in a
+     field the rail prints inline. */
+  /* Two layers, and the test checks both. normaliseGuide STRIPS angle
+     brackets from plain fields rather than escaping them, so nothing with a
+     tag in it should survive that far; and the renderer escapes on the way
+     out, so a note that reached it with a bracket intact still cannot open
+     one. Testing only the first would pass if the renderer stopped escaping. */
+  await check("  with the note stripped of markup on the way in", async () => {
+    const g = normaliseGuide(DRAFT_FIXTURE);
+    const note = g.matchups.find(m => m.champ === "Ahri").note;
+    return !/[<>]/.test(note) && note.includes("charm dodges the ult");
+  });
+  /* <b> is on the rich sanitiser's allowlist and <img> is not, so a note
+     carrying <b> is the only thing that tells the two apart. Without it,
+     swapping this field to rich text passes every check here. */
+  await check("  and plain, not rich: even an allowed tag is stripped", async () => {
+    const note = normaliseGuide(DRAFT_FIXTURE).matchups
+      .find(m => m.champ === "Ashe").note;
+    /* sanitiseText removes the brackets and leaves the letters, so this is
+       "Outrange her bbefore 6/b." — ugly, and the same treatment every
+       other plain field gets. What matters is that no bracket survives:
+       rich() would have kept <b> intact right here. */
+    return !/[<>]/.test(note) && note.includes("bbefore 6/b");
+  });
+  await check("  and escaped again on the way out", async () => {
+    /* Straight into G, bypassing normalise, so this is the renderer alone. */
+    G = {...normaliseGuide(DRAFT_FIXTURE),
+         matchups: [{champ: "Ahri", diff: "hard", note: '<img src=x onerror=alert(1)>'}]};
+    paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("&lt;img") && !out.includes("<img src=x");
+  });
+  await check("no matchups means no rail and no jump link", async () => {
+    G = normaliseGuide({...DRAFT_FIXTURE, matchups: []}); paint();
+    const out = document.getElementById("main").innerHTML;
+    return !out.includes("g-rail") && !out.includes('href="#matchups"')
+        && !out.includes("has-rail");
+  });
+  await check("they round-trip through publish and reload", async () => {
+    const slug = await publishGuide(DRAFT_FIXTURE);
+    const back = readStore()[slug];
+    return back && Array.isArray(back.matchups) && back.matchups.length === 4
+        && back.matchups.some(m => m.champ === "Ahri" && m.diff === "hard");
+  });
+  await check("and a list card counts them", async () => {
+    const row = listPublished().find(r => r.matchups);
+    return !!row && row.matchups === 4;
+  });
+
+  console.log("\\nthe guides list:");
+  await check("cards carry the champion portrait", async () => {
+    paintList();
+    return document.getElementById("main").innerHTML.includes("g-card");
+  });
+  await check('the stale stored-in-this-browser line is gone', async () => {
+    return !document.getElementById("main").innerHTML.includes("Stored in this browser");
+  });
+
   await check("scrollspy survives no observer", async () => { watchSections(); return true; });
 
   console.log("\\nedge cases:");
