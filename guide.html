@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=121">
+<link rel="stylesheet" href="site.css?v=122">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -28,7 +28,12 @@
      2000px monitor — 38% of the screen holding nothing. The prose stays at
      its 66ch cap regardless (see below); the extra width goes to the rail,
      which is content rather than longer lines. */
-  .guide-wrap{max-width:1500px;margin:0 auto;padding:0 20px}
+  /* 186 nav + 26 + 988 content + 26 + 340 rail + 40 padding = 1606.
+     1500 was the mistake in the first pass: it fit the rail by taking the
+     width out of the content column, which dropped the builders from the
+     988 they are explicitly sized for to 882. The rail has to be paid for
+     out of the margin, not out of the tables. */
+  .guide-wrap{max-width:1620px;margin:0 auto;padding:0 20px}
 
   /* ---- the measure ----
      Removing the caps along with the narrow column was half right. The
@@ -64,13 +69,13 @@
        this would otherwise overhang by the scrollbar's width and put a
        horizontal scrollbar on every guide. */
     max-width:100vw;overflow-x:clip}
-  .g-hero-inner{max-width:1500px;margin:0 auto;padding:0 20px}
+  .g-hero-inner{max-width:1620px;margin:0 auto;padding:0 20px}
   .g-hero{position:relative;overflow:hidden;border:1px solid var(--line);
     border-radius:var(--radius);background:#2a2418;margin-top:22px}
   /* Edge to edge means no rounded corners and no side borders to meet. */
   .g-hero-bleed .g-hero{border-radius:0;border-left:0;border-right:0;
     margin-top:0}
-  .g-hero-bleed .g-hero-body{max-width:1500px;margin:0 auto;padding-left:20px;
+  .g-hero-bleed .g-hero-body{max-width:1620px;margin:0 auto;padding-left:20px;
     padding-right:20px}
   /* Art gets more room to fill now it is spanning the viewport. */
   .g-hero-bleed .g-hero.has-art .g-hero-body{min-height:252px}
@@ -168,10 +173,10 @@
      rather than only matchups, is very nearly always. */
   .g-body.has-rail{grid-template-columns:186px minmax(0,1fr) 340px}
   .g-body.has-rail.no-nav{grid-template-columns:minmax(0,1fr) 340px}
-  /* 186 + 26 + 627 (66ch) + 26 + 340 + 40 padding = 1245, so the three
-     columns stop fitting just under 1280. Below this the rail spans the
-     whole grid and sits under the content instead. */
-  @media(max-width:1280px){
+  /* Below 1400 the content column would be squeezed under the 988 the item,
+     rune and mastery tables want, so the rail stops being a column and
+     becomes a block under the content instead. */
+  @media(max-width:1400px){
     .g-body.has-rail{grid-template-columns:186px minmax(0,1fr)}
     .g-body.has-rail.no-nav{grid-template-columns:minmax(0,1fr)}
     .g-rail{grid-column:1 / -1}
@@ -236,6 +241,31 @@
   .g-rc-items .g-item-img{width:42px;height:42px;border-radius:6px;display:block;
     border:1px solid var(--line);background:var(--bg-2);object-fit:cover}
   .g-rc-items + .g-rc-sub{margin:9px 0 0}
+
+  /* Abilities */
+  .g-rc-kit{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;
+    align-items:center;padding:6px 0;border-top:1px solid var(--line-soft)}
+  .g-rc-kit:first-of-type{border-top:0}
+  .g-rc-kit .k{position:relative;width:30px;height:30px;border-radius:5px;
+    overflow:hidden;background:var(--bg-2);border:1px solid var(--line);display:block}
+  .g-rc-kit .k img{width:100%;height:100%;object-fit:cover;display:block}
+  .g-rc-kit .k i{position:absolute;right:1px;bottom:0;font-style:normal;
+    font-size:9.5px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000}
+  .g-rc-kit .t{display:block;font-size:13px;color:var(--text);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .g-rc-kit .v{display:block;font-size:11px;color:var(--muted-2);
+    font-variant-numeric:tabular-nums}
+
+  /* Base stats */
+  .g-rc-stat{display:grid;grid-template-columns:minmax(0,1fr) 54px 54px;
+    gap:6px;padding:5px 0;border-top:1px solid var(--line-soft);font-size:12.5px}
+  .g-rc-stat:first-of-type{border-top:0}
+  .g-rc-stat span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .g-rc-stat b{font-weight:400;text-align:right;color:var(--text);
+    font-variant-numeric:tabular-nums}
+  .g-rc-stat.head{border-top:0;padding-bottom:2px}
+  .g-rc-stat.head b{font-size:11px;color:var(--muted-2)}
 
   /* More guides for this champion */
   .g-rc-row{display:block;padding:7px 0;border-top:1px solid var(--line-soft);
@@ -470,16 +500,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=121"></script>
-<script src="data-rune-icons.js?v=121"></script>
-<script src="data-runes.js?v=121"></script>
-<script src="data-champ-focus.js?v=121"></script>
-<script src="data-mastery-tree.js?v=121"></script>
-<script src="data-masteries.js?v=121"></script>
-<script src="guide-sanitise.js?v=121"></script>
-<script src="config.js?v=121"></script>
-<script src="guide-store.js?v=121"></script>
-<script src="guide-load.js?v=121"></script>
+<script src="site.js?v=122"></script>
+<script src="data-rune-icons.js?v=122"></script>
+<script src="data-runes.js?v=122"></script>
+<script src="data-champ-focus.js?v=122"></script>
+<script src="data-mastery-tree.js?v=122"></script>
+<script src="data-masteries.js?v=122"></script>
+<script src="guide-sanitise.js?v=122"></script>
+<script src="config.js?v=122"></script>
+<script src="guide-store.js?v=122"></script>
+<script src="guide-load.js?v=122"></script>
 <script>
 renderChrome("");
 
@@ -784,6 +814,60 @@ function railBuildHtml(){
   </div>`;
 }
 
+/* ---- the champion's abilities ----
+   Reference you want WHILE reading the prose, not after scrolling to find
+   it. The kit strip in the hero shows the icons and nothing else; this
+   gives the numbers behind them. Costs nothing to fetch — the page already
+   loads this document for the hero. */
+function railKitHtml(){
+  const doc = ABILITIES_DOC;
+  if(!doc || !(doc.spells || []).length) return "";
+  const num = v => Array.isArray(v) ? v.filter(n => n != null).join(" / ") : (v ?? "");
+  return `<div class="g-rc" id="rail-kit">
+    <h3>Abilities</h3>
+    ${(doc.spells || []).map(sp => {
+      const cd = num(sp.cooldown), cost = num(sp.cost);
+      const bits = [cd ? `${cd}s` : "", cost ? `${cost} cost` : ""].filter(Boolean);
+      return `<div class="g-rc-kit">
+        <span class="k">${sp.icon
+          ? `<img src="${esc(sp.icon)}" alt="" onerror="this.remove()">` : ""}<i>${esc(sp.letter)}</i></span>
+        <div>
+          <span class="t">${esc(sp.name)}</span>
+          ${bits.length ? `<span class="v">${esc(bits.join(" · "))}</span>` : ""}
+        </div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+/* ---- the champion's base stats ----
+   The mode's own numbers, read from its character records the same way
+   champion.html reads them. Shown at 1 and 18 rather than a slider: the
+   rail is reference, and the two ends are what a reader compares. */
+let RAIL_STATS = null;
+const RAIL_STAT_ROWS = [
+  ["Health",        "hp",           "hpperlevel"],
+  ["Attack damage", "attackdamage", "attackdamageperlevel"],
+  ["Armor",         "armor",        "armorperlevel"],
+  ["Magic resist",  "spellblock",   "spellblockperlevel"],
+  ["Move speed",    "movespeed",    null]
+];
+function railStatsHtml(){
+  const s = RAIL_STATS;
+  if(!s) return "";
+  const at = (b, p) => Math.round((b || 0) + (p || 0) * 17);
+  const rows = RAIL_STAT_ROWS.filter(([, base]) => s[base] != null);
+  if(!rows.length) return "";
+  return `<div class="g-rc" id="rail-stats">
+    <h3>Base stats</h3>
+    <div class="g-rc-stat head"><span></span><b>Lv 1</b><b>Lv 18</b></div>
+    ${rows.map(([label, base, per]) => `<div class="g-rc-stat">
+      <span>${label}</span><b>${num(s[base])}</b
+      ><b>${per && s[per] ? at(s[base], s[per]) : num(s[base])}</b>
+    </div>`).join("")}
+  </div>`;
+}
+
 /* ---- other guides for this champion ----
    With nine guides and climbing there was no way to get from one guide to a
    related one: every path went back through the index. */
@@ -840,7 +924,11 @@ function matchupsHtml(){
    which was most guides, and was the whole reason the space still looked
    blank after the last pass. */
 function railHtml(){
-  const cards = [railBuildHtml(), matchupsHtml(), railMoreHtml()].filter(Boolean);
+  /* Order is what a reader reaches for most, first. Build and kit are
+     always there once the catalogues land, so the column fills on every
+     guide rather than only on ones whose author wrote matchups. */
+  const cards = [railBuildHtml(), railKitHtml(), matchupsHtml(),
+                 railStatsHtml(), railMoreHtml()].filter(Boolean);
   if(!cards.length) return "";
   return `<aside class="g-rail">${cards.join("")}</aside>`;
 }
@@ -1431,6 +1519,17 @@ document.addEventListener("click", async e => {
     loadRuneArt().then(paint).catch(() => {})
   ];
   if(G.champ){
+    /* The rail's stat card, from the mode's own character record — the same
+       reader champion.html uses. Its own job rather than part of the kit
+       fetch below, so a champion whose record is unreachable still gets its
+       abilities, and vice versa. */
+    jobs.push(loadChampions()
+      .then(() => {
+        const c = (CHAMPIONS || []).find(x => x.name === G.champ);
+        return c && CLASSIC.champStats ? CLASSIC.champStats(c.key) : null;
+      })
+      .then(s => { RAIL_STATS = s; paint(); })
+      .catch(() => {}));
     jobs.push(loadChampions()
       .then(() => {
         const c = (CHAMPIONS || []).find(x => x.name === G.champ);

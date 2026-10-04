@@ -22,6 +22,8 @@ const path = require("path");
 
 const dir = process.argv[2] || ".";
 const html = fs.readFileSync(path.join(dir, "guide.html"), "utf8");
+/* The checks read the stylesheet back to verify the column arithmetic. */
+global.__GUIDE_HTML = html;
 
 /* ---- a draft with something in every section ---- */
 const DRAFT = {
@@ -499,11 +501,87 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
      340px strip of blank parchment beside the text is exactly the thing
      this whole pass exists to remove. */
   await check("a guide with nothing for the rail gets no rail at all", async () => {
+    /* Every source empty, not just the guide's own fields: the kit and stat
+       cards come from catalogues rather than from the document, so leaving
+       either loaded would keep the rail alive and make this check vacuous. */
+    const kit = ABILITIES_DOC, stats = RAIL_STATS;
+    ABILITIES_DOC = null; RAIL_STATS = null;
     G = normaliseGuide({...DRAFT_FIXTURE, champ: "Nobody", items: [],
                         cardRow: "", matchups: []});
     paint();
+    const ok = (() => {
+      const out = document.getElementById("main").innerHTML;
+      return !out.includes("g-rail") && !out.includes("has-rail");
+    })();
+    ABILITIES_DOC = kit; RAIL_STATS = stats;
+    return ok;
+  });
+  await check("the abilities card carries cooldowns and costs", async () => {
+    ABILITIES_DOC = {splash:"", passive:{name:"P",icon:"p.png"},
+      spells:[{key:"q",letter:"Q",name:"Deceive",icon:"q.png",
+               cooldown:[16,14,12,10,8], cost:[90,80,70,60,50]}]};
+    G = normaliseGuide(DRAFT_FIXTURE); paint();
     const out = document.getElementById("main").innerHTML;
-    return !out.includes("g-rail") && !out.includes("has-rail");
+    return out.includes('id="rail-kit"') && out.includes("Deceive")
+        && out.includes("16 / 14 / 12 / 10 / 8s") && out.includes("90 / 80 / 70 / 60 / 50 cost");
+  });
+  await check("the stats card shows level 1 and level 18", async () => {
+    RAIL_STATS = {hp:600, hpperlevel:85, attackdamage:50, attackdamageperlevel:3,
+                  armor:20, armorperlevel:3, spellblock:30, spellblockperlevel:0,
+                  movespeed:345};
+    paint();
+    const out = document.getElementById("main").innerHTML;
+    /* 600 + 17 x 85 = 2045, and move speed has no growth so both columns match. */
+    return out.includes('id="rail-stats"') && out.includes("2045") && out.includes("345");
+  });
+  await check("  and is absent until the record arrives", async () => {
+    RAIL_STATS = null; paint();
+    return !document.getElementById("main").innerHTML.includes('id="rail-stats"');
+  });
+
+
+
+  /* The one CSS fact worth asserting from here. Everything else about
+     layout needs a real browser, but this is arithmetic: the wrap has to be
+     wide enough for nav + content + rail + gutters, or the rail is paid for
+     out of the content column and the item, rune and mastery tables get
+     squeezed below the 988 they are built for. Shipping exactly that was
+     the bug in the previous pass. */
+  /* The one CSS fact worth asserting from here. Everything else about
+     layout needs a real browser, but this is arithmetic: the wrap has to be
+     wide enough for nav + content + rail + gutters, or the rail gets paid
+     for out of the content column and the item, rune and mastery tables are
+     squeezed below the 988 they are built for. Shipping exactly that was
+     the bug in the previous pass.
+
+     Parsed by hand rather than by regex: these checks live inside a
+     template literal, which eats the backslashes before the regex sees
+     them, so /\d+/ silently became /d+/ and every match returned null. */
+  await check("the wrap is wide enough to hold the rail without squeezing the tables", () => {
+    const h = __GUIDE_HTML;
+    const after = (block, key) => {
+      const i = h.indexOf(block); if(i < 0) return 0;
+      const j = h.indexOf(key, i); if(j < 0) return 0;
+      return parseInt(h.slice(j + key.length), 10) || 0;
+    };
+    const wrap = after(".guide-wrap{", "max-width:");
+    const pad  = after(".guide-wrap{", "padding:0 ");
+    const gap  = after(".g-body{", "gap:");
+    const ci   = h.indexOf(".g-body.has-rail{grid-template-columns:");
+    const cols = ci < 0 ? "" : h.slice(ci + ".g-body.has-rail{grid-template-columns:".length,
+                                       h.indexOf("}", ci)).trim();
+    const nav  = parseInt(cols, 10) || 0;
+    /* split(" ") rather than a regex: this block lives inside a template
+       literal, which eats the backslash, so /\s+/ arrived as /s+/ and split
+       on the letter s. rail then parsed as the nav's 186 and the whole
+       check went vacuous — it passed on a deliberately broken layout. */
+    const parts = cols.split(" ").filter(Boolean);
+    const rail = parseInt(parts[parts.length - 1], 10) || 0;
+    const need = nav + gap + 988 + gap + rail + pad * 2;
+    if(![wrap, nav, rail, gap, pad].every(n => n > 0))
+      console.log("      could not parse the columns:",
+                  JSON.stringify({wrap, nav, rail, gap, pad}));
+    return [wrap, nav, rail, gap, pad].every(n => n > 0) && wrap >= need;
   });
 
   console.log("\\nthe hero:");
