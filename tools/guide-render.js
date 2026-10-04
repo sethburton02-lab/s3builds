@@ -24,6 +24,7 @@ const dir = process.argv[2] || ".";
 const html = fs.readFileSync(path.join(dir, "guide.html"), "utf8");
 /* The checks read the stylesheet back to verify the column arithmetic. */
 global.__GUIDE_HTML = html;
+global.__SITE_CSS = fs.readFileSync(path.join(dir, "site.css"), "utf8");
 
 /* ---- a draft with something in every section ---- */
 const DRAFT = {
@@ -258,7 +259,11 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     if(!id) return false;
     return k.build({dataset:{tipMastery:id, tipPts:"3/4"}}).includes("3/4");
   });
-  await check("one listener serves them all", async () => TIP_KINDS.length === 6);
+  /* A deliberate tripwire: every tip goes through the one delegated
+     mouseover listener, and the count changing means someone added a kind.
+     Went 6 -> 7 when item refs got their own registration so they could
+     claim the wider shell. */
+  await check("one listener serves them all", async () => TIP_KINDS.length === 7);
 
   /* The markup has to carry the hooks, or the registrations above match
      nothing. Asserted on what the section actually renders. */
@@ -585,6 +590,29 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
      361px short of the table above it reads as broken. Pinned here because
      the comment arguing FOR the cap is still in the stylesheet, and it is
      persuasive enough that someone will try to restore it. */
+  /* An item hovered through a prose chip and the same item hovered through
+     a build slot are the same tooltip and must land in the same shell — the
+     one the build-path row and the shop text are sized for. showTip picks
+     the shell from the registered KIND, and the mouseover loop takes the
+     first matching selector, so the item-ref rule has to declare "item" and
+     be registered before the general ref rule.
+
+     Asserted against the live registry rather than the source text: this is
+     a question about what is registered and in what order, which is exactly
+     what TIP_KINDS holds. */
+  await check("an item ref claims the item shell, not the narrow one", () => {
+    const spec = TIP_KINDS.findIndex(t => t.selector.indexOf("item:") > -1 && t.kind === "item");
+    const gen  = TIP_KINDS.findIndex(t => t.kind === "ref");
+    return spec > -1 && gen > -1 && spec < gen;
+  });
+  /* And the component row is styled in whichever shell it lands in. It was
+     scoped to .item-tip, so anywhere else the icons fell back to natural
+     size in a vertical stack. */
+  await check("the build-path row is styled outside the item shell too", () => {
+    return __SITE_CSS.indexOf(".tip-path{display:flex") > -1
+        && __SITE_CSS.indexOf(".item-tip .tip-path{") === -1;
+  });
+
   await check("prose and note panels both span the column", () => {
     const h = __GUIDE_HTML;
     return h.includes(".g-prose{max-width:none}")

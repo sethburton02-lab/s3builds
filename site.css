@@ -605,14 +605,22 @@ section{padding:26px 0 60px}
    passive. The gold cost takes the .rank slot, right of the name, the way
    the shop prints it. */
 /* The build path at the foot of an item tooltip. Wraps, because a
-   component can feed eight things and the panel has a max-width. */
-.item-tip .tip-path{display:flex;align-items:center;flex-wrap:wrap;gap:4px;
+   component can feed eight things and the panel has a max-width.
+
+   NOT scoped to .item-tip. It was, and that was the bug: the shell class is
+   chosen from how the tip was REGISTERED, not from what it contains, so an
+   item hovered through the prose chips — which register as "ref" — landed
+   in .spell-tip, where none of this applied. The icons fell back to their
+   natural size and to block layout, which is a stack of 64px images where
+   a row of 24px ones belongs. Unscoped, the row is laid out correctly in
+   whichever shell it ends up in. */
+.tip-path{display:flex;align-items:center;flex-wrap:wrap;gap:4px;
   margin:7px 0 0;padding-top:6px;border-top:1px solid rgba(200,163,85,.25)}
-.item-tip .tip-path + .tip-path{border-top:0;padding-top:0;margin-top:5px}
-.item-tip .tip-path .lbl{flex:none;width:78px;font-size:12px;color:#a09b8c}
-.item-tip .tip-path .pi{width:24px;height:24px;border-radius:3px;
+.tip-path + .tip-path{border-top:0;padding-top:0;margin-top:5px}
+.tip-path .lbl{flex:none;width:78px;font-size:12px;color:#a09b8c}
+.tip-path .pi{width:24px;height:24px;border-radius:3px;flex:none;
   border:1px solid rgba(200,163,85,.35);background:#0b0d10}
-.item-tip .tip-path .more{font-size:12px;color:#a09b8c;margin-left:2px}
+.tip-path .more{font-size:12px;color:#a09b8c;margin-left:2px}
 
 .item-tip{max-width:330px}
 .item-tip .tip-hd .rank{color:#c8aa6e;font-variant-numeric:tabular-nums}

@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=126">
+<link rel="stylesheet" href="site.css?v=127">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -511,16 +511,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=126"></script>
-<script src="data-rune-icons.js?v=126"></script>
-<script src="data-runes.js?v=126"></script>
-<script src="data-champ-focus.js?v=126"></script>
-<script src="data-mastery-tree.js?v=126"></script>
-<script src="data-masteries.js?v=126"></script>
-<script src="guide-sanitise.js?v=126"></script>
-<script src="config.js?v=126"></script>
-<script src="guide-store.js?v=126"></script>
-<script src="guide-load.js?v=126"></script>
+<script src="site.js?v=127"></script>
+<script src="data-rune-icons.js?v=127"></script>
+<script src="data-runes.js?v=127"></script>
+<script src="data-champ-focus.js?v=127"></script>
+<script src="data-mastery-tree.js?v=127"></script>
+<script src="data-masteries.js?v=127"></script>
+<script src="guide-sanitise.js?v=127"></script>
+<script src="config.js?v=127"></script>
+<script src="guide-store.js?v=127"></script>
+<script src="guide-load.js?v=127"></script>
 <script>
 renderChrome("");
 
@@ -1302,6 +1302,13 @@ function hydrateRefs(){
    panel is never being shown by one handler and hidden by another. */
 registerTip("[data-tip-ab]",    "ab",    el => abilityTipHtml(el.dataset.tipAb));
 registerTip("[data-tip-spell]", "spell", el => spellTipHtml(el.dataset.tipSpell));
+/* Item refs are registered ahead of the general one and declare themselves
+   as items, so they get the wider shell the shop text needs. showTip picks
+   the panel from the KIND, and a reference to an item is an item tooltip
+   however the reader reached it — through a chip in the prose or a slot in
+   a build line. First matching selector wins, so this has to come first. */
+registerTip('.ref[data-ref^="item:"]', "item",
+            el => refTipHtml(el.getAttribute("data-ref")));
 registerTip(".ref[data-ref]",   "ref",   el => refTipHtml(el.getAttribute("data-ref")));
 
 /* Runes and masteries in their own sections. They had a title attribute
