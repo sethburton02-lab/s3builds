@@ -557,6 +557,19 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
      Parsed by hand rather than by regex: these checks live inside a
      template literal, which eats the backslashes before the regex sees
      them, so /\d+/ silently became /d+/ and every match returned null. */
+  /* The note panels hang off the builder above them — the skill grid, the
+     rune plate, the item lines — all of which span the full column. Capping
+     the panel at the prose measure left a 627px box under a 988px table,
+     which reads as a mistake however good the measure inside it is. */
+  await check("a builder's note panel spans the column, not the prose measure", () => {
+    const h = __GUIDE_HTML;
+    /* .g-prose keeps its cap; .g-note must not share it. */
+    const prose = h.includes(".g-prose{max-width:66ch}");
+    const pair  = h.includes(".g-prose, .g-note{max-width:66ch}");
+    const note  = h.includes(".g-note{max-width:none}");
+    return prose && note && !pair;
+  });
+
   await check("the wrap is wide enough to hold the rail without squeezing the tables", () => {
     const h = __GUIDE_HTML;
     const after = (block, key) => {

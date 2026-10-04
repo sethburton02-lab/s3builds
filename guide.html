@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=122">
+<link rel="stylesheet" href="site.css?v=124">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -44,14 +44,23 @@
      loses its place on the carriage return, which is why a wide guide felt
      tiring to read even though nothing about it looked wrong.
 
-     So the cap is back, but only on the two things that are words:
-     .g-prose is the author's section text and .g-note is the comment
-     attached to a builder. Everything else still spans the column, so the
-     page keeps the wide reference tables and gets a readable paragraph.
+     So the cap is back, but only on .g-prose — the author's section text,
+     which is the long-form reading. Everything else spans the column, so
+     the page keeps the wide reference tables and gets a readable paragraph.
      66ch measures 75 characters in this face at this size — checked
      against the rendered box rather than assumed, because ch is the width
      of a zero and runs wider than average lowercase. */
-  .g-prose, .g-note{max-width:66ch}
+  .g-prose{max-width:66ch}
+
+  /* .g-note is deliberately NOT capped. It is a panel attached to the
+     builder directly above it — the skill grid, the rune plate, the item
+     lines — and a 627px panel hanging under a 988px table reads as a
+     mistake however good the measure inside it is. Alignment wins here
+     because these notes are a few sentences rather than an essay: the
+     measure argument above is about sustained reading, which this isn't.
+     If a note ever does run long the fix is a cap on .g-note p, not on the
+     box, so the panel keeps its edges. */
+  .g-note{max-width:none}
 
   /* ---------- hero ----------
      Full-bleed. A 1200px dark banner floating in the middle of a 2000px
@@ -236,7 +245,7 @@
   .g-rc-sub{margin:0 0 10px;font-size:12px;color:var(--muted-2)}
   .g-rc > .g-rc-sub:last-child{margin-bottom:0}
 
-  /* Final build */
+  /* Core items */
   .g-rc-items{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
   .g-rc-items .g-item-img{width:42px;height:42px;border-radius:6px;display:block;
     border:1px solid var(--line);background:var(--bg-2);object-fit:cover}
@@ -500,16 +509,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=122"></script>
-<script src="data-rune-icons.js?v=122"></script>
-<script src="data-runes.js?v=122"></script>
-<script src="data-champ-focus.js?v=122"></script>
-<script src="data-mastery-tree.js?v=122"></script>
-<script src="data-masteries.js?v=122"></script>
-<script src="guide-sanitise.js?v=122"></script>
-<script src="config.js?v=122"></script>
-<script src="guide-store.js?v=122"></script>
-<script src="guide-load.js?v=122"></script>
+<script src="site.js?v=124"></script>
+<script src="data-rune-icons.js?v=124"></script>
+<script src="data-runes.js?v=124"></script>
+<script src="data-champ-focus.js?v=124"></script>
+<script src="data-mastery-tree.js?v=124"></script>
+<script src="data-masteries.js?v=124"></script>
+<script src="guide-sanitise.js?v=124"></script>
+<script src="config.js?v=124"></script>
+<script src="guide-store.js?v=124"></script>
+<script src="guide-load.js?v=124"></script>
 <script>
 renderChrome("");
 
@@ -787,15 +796,22 @@ function introHtml(){
 const DIFF_ORDER = {hard: 0, even: 1, easy: 2};
 const DIFF_LABEL = {hard: "Hard", even: "Even", easy: "Easy"};
 
-/* ---- the build, at a glance ----
+/* ---- core items ----
    The item build is the thing a reader checks most and it was the one thing
    you had to leave the text to see: the Item build section sits far below
    the introduction, so reading WHY you buy something and seeing WHAT you
    buy were never on screen together. Sticky, so it stays while you read.
 
    Uses the same row showcaseItems() picks for the card on the home page, so
-   the build shown here, on the home shelf and on the guides list are all
-   the same six items rather than three different guesses. */
+   the items shown here, on the home shelf and on the guides list are all
+   the same ones rather than three different guesses.
+
+   Titled "Core items" rather than "Final build" because that is the honest
+   claim. showcaseItems() returns whichever row the author chose to show —
+   their marked card row, else the first ordered one, else the first with
+   anything in it — and that row might be their starting items. A heading
+   saying "Final build" over two boots and a potion is the page asserting
+   something the data never promised. */
 function railBuildHtml(){
   const ids = typeof showcaseItems === "function" ? showcaseItems(G) : [];
   if(!ids.length) return "";
@@ -806,7 +822,7 @@ function railBuildHtml(){
   const total = rows.every(Boolean)
     ? rows.reduce((n, it) => n + (it.total || 0), 0) : null;
   return `<div class="g-rc" id="rail-build">
-    <h3>Final build</h3>
+    <h3>Core items</h3>
     <div class="g-rc-items">${ids.map(id =>
       `<span class="g-item" data-tip-item="${esc(id)}">${itemImgTag(id, "g-item-img")}</span>`
     ).join("")}</div>
