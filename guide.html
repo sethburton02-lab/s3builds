@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=127">
+<link rel="stylesheet" href="site.css?v=128">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -511,16 +511,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=127"></script>
-<script src="data-rune-icons.js?v=127"></script>
-<script src="data-runes.js?v=127"></script>
-<script src="data-champ-focus.js?v=127"></script>
-<script src="data-mastery-tree.js?v=127"></script>
-<script src="data-masteries.js?v=127"></script>
-<script src="guide-sanitise.js?v=127"></script>
-<script src="config.js?v=127"></script>
-<script src="guide-store.js?v=127"></script>
-<script src="guide-load.js?v=127"></script>
+<script src="site.js?v=128"></script>
+<script src="data-rune-icons.js?v=128"></script>
+<script src="data-runes.js?v=128"></script>
+<script src="data-champ-focus.js?v=128"></script>
+<script src="data-mastery-tree.js?v=128"></script>
+<script src="data-masteries.js?v=128"></script>
+<script src="guide-sanitise.js?v=128"></script>
+<script src="config.js?v=128"></script>
+<script src="guide-store.js?v=128"></script>
+<script src="guide-load.js?v=128"></script>
 <script>
 renderChrome("");
 
@@ -872,6 +872,10 @@ function railKitHtml(){
    champion.html reads them. Shown at 1 and 18 rather than a slider: the
    rail is reference, and the two ends are what a reader compares. */
 let RAIL_STATS = null;
+/* The champion's whole character record, for the ability tooltips. Same
+   document the stat card reads, cached by site.js, so holding it here
+   costs nothing beyond the reference. */
+let CHAMP_BIN = null;
 const RAIL_STAT_ROWS = [
   ["Health",        "hp",           "hpperlevel"],
   ["Attack damage", "attackdamage", "attackdamageperlevel"],
@@ -1184,12 +1188,26 @@ function abilityTipHtml(letter){
   const passive = letter === "P";
   const sp = passive ? doc.passive : (doc.spells || []).find(x => x.letter === letter);
   if(!sp) return "";
+
+  /* The full effect text with its numbers filled in from the character
+     record, falling back to the one-line summary when the record hasn't
+     arrived or the ability's formulas are a shape the reader doesn't
+     understand. The summary is always there, so the tooltip never empties. */
+  let body = "";
+  if(!passive && CHAMP_BIN && sp.dyn){
+    const scope = CLASSIC.spellScope(CHAMP_BIN, letter);
+    if(scope) body = CLASSIC.tipText(sp.dyn, scope, sp.ranks || 5);
+  }
+  /* esc() on the fallback and NOT on the resolved text: tipText returns
+     HTML it escaped itself, and escaping twice would print the tags. */
+  const bodyHtml = body || esc(sp.desc || "");
+
   return `<div class="tip-hd">
       ${sp.icon ? `<img src="${esc(sp.icon)}" alt="">` : ""}
       <h4>${esc(sp.name)}</h4>
       <span class="rank">${passive ? "Passive" : letter}</span>
     </div>
-    <p class="tip-body">${esc(sp.desc || "")}</p>
+    <p class="tip-body">${bodyHtml}</p>
     ${passive ? "" : numsRow([["Cooldown", sp.cooldown ? sp.cooldown + "s" : null],
                               ["Cost", sp.cost], ["Range", sp.range]])}`;
 }
@@ -1560,7 +1578,11 @@ document.addEventListener("click", async e => {
     jobs.push(loadChampions()
       .then(() => {
         const c = (CHAMPIONS || []).find(x => x.name === G.champ);
-        return c && CLASSIC.champStats ? CLASSIC.champStats(c.key) : null;
+        if(!c) return null;
+        /* The record first, then the stats read out of it — champStats
+           goes through the same cache, so this is one fetch. */
+        return CLASSIC.champBin(c.key)
+          .then(bin => { CHAMP_BIN = bin; return CLASSIC.champStats(c.key); });
       })
       .then(s => { RAIL_STATS = s; paint(); })
       .catch(() => {}));

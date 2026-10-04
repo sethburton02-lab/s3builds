@@ -189,7 +189,11 @@ src += `
   /* Floats out of the export carry single-precision noise, so stats are
      compared to a tolerance rather than for equality. */
   const near = (a, b) => a !== null && a !== undefined && Math.abs(a - b) < 0.0005;
-  const fresh = () => { CLASSIC._roster = null; CLASSIC._stats = null; __memClear(); };
+  /* _bins too: champStats now reads the trimmed stats out of a cached
+     character record, so leaving that behind means the unreachable-file
+     cases are served the record an earlier check already fetched. */
+  const fresh = () => { CLASSIC._roster = null; CLASSIC._stats = null;
+                        CLASSIC._bins = null; __memClear(); };
 
   /* ---------- the reader, on the four real shapes ---------- */
 

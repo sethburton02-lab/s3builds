@@ -505,6 +505,41 @@ CLASSIC.statBinUrl = function(alias){
   return `${root.replace(/\/plugins\/.*$/, "")}/game/data/characters/jade_${slug}/jade_${slug}.bin.json`;
 };
 
+/* The whole parsed character record, cached in memory for the session.
+
+   The stats below used to fetch this, read eight fields out of it and drop
+   the rest — including every ability's numbers, which is the one place in
+   the mode's data they exist. Keeping the document means the ability
+   tooltips cost no extra request on a page that already shows the stats.
+
+   NOT put in sessionStorage: a bin is 40-60KB parsed and five champions
+   would be most of the 5MB quota, where the trimmed stat block is a few
+   hundred bytes and still is cached there. Memory for the big document,
+   storage for the small summary. */
+CLASSIC._bins = null;
+CLASSIC.champBin = async function(key){
+  const k = Number(key);
+  if(!Number.isInteger(k)) return null;
+  CLASSIC._bins = CLASSIC._bins || new Map();
+  if(CLASSIC._bins.has(k)) return CLASSIC._bins.get(k);
+
+  let out = null;
+  try{
+    const idx = await CLASSIC.rosterIndex().catch(() => null);
+    const alias = idx && idx.aliases && idx.aliases.get(k);
+    const url = alias && CLASSIC.statBinUrl(alias);
+    if(!url) throw new Error(`no Classic alias for key ${k}`);
+    const res = await fetch(url, {mode: "cors"});
+    if(!res.ok) throw new Error(`${alias} record ${res.status}`);
+    out = await res.json();
+  }catch(err){
+    console.warn("Classic character record unavailable:", err.message);
+    out = null;
+  }
+  CLASSIC._bins.set(k, out);
+  return out;
+};
+
 /* The mode's stats for one champion, or null. Never throws: a champion page
    that can't reach the file shows the archive's numbers and says so, which
    is worth more than an error state. */
@@ -526,14 +561,10 @@ CLASSIC.champStats = async function(key){
 
   let out = null;
   try{
-    const idx = await CLASSIC.rosterIndex().catch(() => null);
-    const alias = idx && idx.aliases && idx.aliases.get(k);
-    const url = alias && CLASSIC.statBinUrl(alias);
-    if(!url) throw new Error(`no Classic alias for key ${k}`);
-    const res = await fetch(url, {mode: "cors"});
-    if(!res.ok) throw new Error(`${alias} stats ${res.status}`);
-    out = CLASSIC.readStatBin(await res.json());
-    if(!out) throw new Error(`${alias} stats unreadable`);
+    const bin = await CLASSIC.champBin(k);
+    if(!bin) throw new Error(`no record for key ${k}`);
+    out = CLASSIC.readStatBin(bin);
+    if(!out) throw new Error(`record for key ${k} unreadable`);
     try{ sessionStorage.setItem(cacheKey, JSON.stringify(out)); }catch(_){}
   }catch(err){
     console.warn("Classic stats unavailable, using the Season 3 archive:", err.message);
@@ -541,6 +572,290 @@ CLASSIC.champStats = async function(key){
   }
   CLASSIC._stats.set(k, out);
   return out;
+};
+
+/* ------------------------------------------------------------
+   ABILITY NUMBERS
+
+   The mode's champion file carries the tooltip TEXT with the numbers left
+   as @Placeholders@, and its own coefficient and effectAmount arrays are
+   all zeroes — the values genuinely are not in that file. They live in the
+   character record, as named data values and small formula trees, which is
+   why this exists.
+
+   Measured across all 72 champions: 440 calculations built from 866 parts,
+   and four part types account for 90% of them. The rest are handled where
+   the shape is unambiguous and SKIPPED where it isn't — a placeholder that
+   can't be resolved drops out of the sentence, because prose missing a
+   number still reads, and prose with a confidently wrong number does not.
+
+   Stat ids, from the records themselves: 0 ability power, 1 armour,
+   2 attack damage, 9 maximum health, 12 bonus health. The rest appear once
+   or twice each across the whole roster and are named generically.
+   ------------------------------------------------------------ */
+CLASSIC.STAT_NAMES = {0: "AP", 1: "armour", 2: "AD", 3: "attack speed",
+                      6: "CDR", 7: "crit chance", 8: "crit damage",
+                      9: "max health", 10: "current health",
+                      11: "missing health", 12: "bonus health", 13: "bonus AD"};
+
+/* Every data value and calculation one ability can see.
+
+   Which folder belongs to which key comes from the record's own spellNames,
+   in Q W E R order, and NOT from the folder name. Spell folders are named
+   after the ability, not the slot: Master Yi's Q lives in
+   .../Jade_MasterYiAlphaStrikeAbility and Miss Fortune's in
+   .../Jade_MissFortuneRicochetShotAbility. Matching on "<name>QAbility"
+   works for Gangplank and Shaco, which is exactly why it looked correct,
+   and resolved nothing at all for the forty-odd champions whose abilities
+   have names — Master Yi and Miss Fortune scored 0 of 12.
+
+   Child spells are folded in with their parent. A quarter of all tooltip
+   placeholders are defined on a child rather than the ability itself —
+   Gangplank's ult keeps its damage on an R_Ball child. */
+CLASSIC.ABILITY_ORDER = ["Q", "W", "E", "R"];
+CLASSIC.spellScope = function(bin, letter){
+  if(!bin || typeof bin !== "object") return null;
+  const L = String(letter || "").toUpperCase();
+  const slot = CLASSIC.ABILITY_ORDER.indexOf(L);
+  if(slot < 0) return null;
+
+  const rootKey = Object.keys(bin).find(k => /\/CharacterRecords\/Root$/.test(k));
+  const names = rootKey && bin[rootKey] && bin[rootKey].spellNames;
+  if(!Array.isArray(names) || !names[slot]) return null;
+  /* "Jade_AsheQAbility/Jade_AsheQ" — the folder is the part before the
+     slash, and every spell under it belongs to this ability. */
+  const folder = String(names[slot]).split("/")[0];
+  if(!folder) return null;
+
+  const values = new Map(), calcs = new Map();
+  for(const k of Object.keys(bin)){
+    if(!k.includes("/Spells/" + folder)) continue;
+    const sp = bin[k] && bin[k].mSpell;
+    if(!sp) continue;
+    for(const d of (sp.DataValues || []))
+      if(d && d.name && !values.has(d.name)) values.set(d.name, d.values || []);
+    for(const [name, calc] of Object.entries(sp.mSpellCalculations || {}))
+      if(!calcs.has(name)) calcs.set(name, calc);
+  }
+  return (values.size || calcs.size) ? {values, calcs} : null;
+};
+
+/* One data value at a rank. The arrays are the same two shapes the spell
+   ranks use elsewhere in this file: 7 long with a rank-0 entry leading, or
+   6 long without one. Reading the wrong layout shifts every rank by one,
+   which looks entirely plausible and is wrong everywhere. */
+CLASSIC.dataAt = function(values, rank){
+  if(!Array.isArray(values) || !values.length) return null;
+  const real = values.length >= 7 ? values.slice(1) : values;
+  const v = real[Math.min(rank, real.length - 1)];
+  return typeof v === "number" ? v : null;
+};
+
+/* A calculation, evaluated at one rank.
+
+   Returns {flat, terms} — a number, plus the scaling terms that go in
+   brackets after it — or null when any part of the tree is a shape this
+   doesn't understand. Null is deliberate and propagates: a formula that is
+   half-read is worse than one that is not read at all, because the half
+   that resolved looks like the whole answer. */
+CLASSIC.evalCalc = function(calc, scope, rank, depth){
+  if(!calc || typeof calc !== "object" || (depth || 0) > 6) return null;
+  const D = (depth || 0) + 1;
+  const num = v => typeof v === "number" ? v : null;
+
+  /* A calculation that multiplies another one. */
+  if(calc.__type === "GameCalculationModified"){
+    const inner = scope.calcs.get(calc.mModifiedGameCalculation);
+    const got = inner ? CLASSIC.evalCalc(inner, scope, rank, D) : null;
+    if(!got) return null;
+    const mult = CLASSIC.part(calc.mMultiplier, scope, rank, D);
+    if(!mult || mult.terms.length) return null;      /* a scaling multiplier isn't expressible */
+    return {flat: got.flat * mult.flat,
+            terms: got.terms.map(t => ({...t, pct: t.pct * mult.flat}))};
+  }
+
+  const parts = calc.mFormulaParts;
+  if(!Array.isArray(parts) || !parts.length) return null;
+  let flat = 0; const terms = [];
+  for(const p of parts){
+    const got = CLASSIC.part(p, scope, rank, D);
+    if(!got) return null;
+    flat += got.flat;
+    terms.push(...got.terms);
+  }
+  if(calc.mMultiplier){
+    const m = CLASSIC.part(calc.mMultiplier, scope, rank, D);
+    if(!m || m.terms.length) return null;
+    flat *= m.flat;
+    for(const t of terms) t.pct *= m.flat;
+  }
+  return {flat, terms};
+};
+
+/* One formula part. Same contract as above: null means "not understood",
+   and the caller abandons the whole calculation rather than guessing. */
+CLASSIC.part = function(p, scope, rank, depth){
+  if(!p || typeof p !== "object" || (depth || 0) > 6) return null;
+  const D = (depth || 0) + 1;
+  const val = name => CLASSIC.dataAt(scope.values.get(name), rank);
+  const none = [];
+
+  switch(p.__type){
+    /* A named per-rank number: the common case, 370 of 866 parts. */
+    case "NamedDataValueCalculationPart": {
+      const v = val(p.mDataValue);
+      return v === null ? null : {flat: v, terms: none};
+    }
+    /* A bare constant. */
+    case "NumberCalculationPart":
+      return typeof p.mNumber === "number" ? {flat: p.mNumber, terms: none} : null;
+
+    /* ratio x stat, where the ratio is itself a named per-rank value. */
+    case "StatByNamedDataValueCalculationPart": {
+      const r = val(p.mDataValue);
+      return r === null ? null
+        : {flat: 0, terms: [{stat: p.mStat || 0, pct: r}]};
+    }
+    /* ratio x stat, where the ratio is a literal. mStat is omitted for
+       ability power, which is why the default is 0 rather than an error. */
+    case "StatByCoefficientCalculationPart": {
+      const c = num(p.mCoefficient);
+      return c === null ? null
+        : {flat: 0, terms: [{stat: p.mStat || 0, pct: c}]};
+    }
+
+    case "SumOfSubPartsCalculationPart": {
+      let flat = 0; const terms = [];
+      for(const s of (p.mSubparts || [])){
+        const got = CLASSIC.part(s, scope, rank, D);
+        if(!got) return null;
+        flat += got.flat; terms.push(...got.terms);
+      }
+      return {flat, terms};
+    }
+    /* Only when one side is a plain number — a product of two scaling
+       terms has no sensible flat-plus-ratio form. */
+    case "ProductOfSubPartsCalculationPart": {
+      const a = CLASSIC.part(p.mPart1, scope, rank, D);
+      const b = CLASSIC.part(p.mPart2, scope, rank, D);
+      if(!a || !b) return null;
+      if(!a.terms.length && !b.terms.length) return {flat: a.flat * b.flat, terms: none};
+      if(!a.terms.length) return {flat: b.flat * a.flat,
+                                  terms: b.terms.map(t => ({...t, pct: t.pct * a.flat}))};
+      if(!b.terms.length) return {flat: a.flat * b.flat,
+                                  terms: a.terms.map(t => ({...t, pct: t.pct * b.flat}))};
+      return null;
+    }
+    default:
+      /* ByCharLevel*, BuffCounter*, AbilityResource*, Cooldown*, Effect* —
+         all depend on something the tooltip has no value for at rest
+         (the reader's level, a stack count, a live resource). Skipped
+         rather than guessed; see the note at the top. */
+      return null;
+  }
+};
+
+/* A calculation rendered the way a tooltip prints it: every rank, then the
+   ratios. "80 / 120 / 160 / 200 / 240 (+60% AP)". */
+CLASSIC.calcText = function(name, scope, ranks){
+  const calc = scope && scope.calcs.get(name);
+  if(!calc) {
+    /* Some placeholders are a plain data value with no calculation around
+       them — a duration, a slow percentage — and those resolve too. */
+    const raw = scope && scope.values.get(name);
+    if(!Array.isArray(raw) || !raw.length) return null;
+    const real = raw.length >= 7 ? raw.slice(1, 1 + ranks) : raw.slice(0, ranks);
+    return CLASSIC.rankList(real);
+  }
+  const out = [];
+  for(let r = 0; r < ranks; r++){
+    const got = CLASSIC.evalCalc(calc, scope, r, 0);
+    if(!got) return null;
+    out.push(got);
+  }
+  const nums = CLASSIC.rankList(out.map(o => o.flat));
+  /* Ratios don't vary by rank in anything on this roster, so the first
+     rank's terms describe them all; if that ever stops being true the
+     numbers are still right and only the bracket is simplified. */
+  const terms = out[0].terms
+    .filter(t => t.pct)
+    .map(t => `+${CLASSIC.pct(t.pct)} ${CLASSIC.STAT_NAMES[t.stat] || "bonus"}`);
+  return nums + (terms.length ? ` (${terms.join(", ")})` : "");
+};
+
+/* "80 / 120 / 160", or one number when every rank is the same. */
+CLASSIC.rankList = function(values){
+  const tidy = values.map(v => typeof v === "number"
+    ? String(Math.round(v * 100) / 100) : String(v));
+  if(!tidy.length) return null;
+  return tidy.every(v => v === tidy[0]) ? tidy[0] : tidy.join(" / ");
+};
+CLASSIC.pct = n => `${Math.round(n * 1000) / 10}%`;
+
+/* Tokens that are never a number: client boilerplate, and the cost and
+   cooldown lines the tooltip already prints from its own fields. */
+const TIP_BOILERPLATE = /^(SpellModifierDescriptionAppend|AbilityResourceName|Cost|Cooldown|f\d+)$/;
+
+/* The mode's tooltip text with its numbers filled in.
+
+   Takes the raw dynamicDescription and returns SAFE HTML: the keyword tags
+   the client uses for colouring become spans, <br> survives, and everything
+   else is escaped. The input is Riot's, not a user's, but it reaches the
+   page through innerHTML either way and the sanitiser does not care where a
+   string came from.
+
+   A token that cannot be resolved takes its surrounding clause with it
+   where that reads cleanly, and otherwise just disappears — never left as a
+   raw @Name@ on the page, which is the one outcome that looks broken. */
+CLASSIC.tipText = function(raw, scope, ranks){
+  let s = String(raw || "");
+  if(!s.trim()) return "";
+
+  /* Escape first, so the author's text can't carry markup of its own, then
+     put back only the tags this format legitimately uses. */
+  s = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  /* @Name@ and @Name*100@ — the multiplier form is how percentages are
+     written, e.g. a 0.25 slow printed as "@Slow*100@%".
+
+     The multiplier can be NEGATIVE: a slow is stored as -0.2 and printed
+     with "@SlowAmount*-100@%" to turn it back into a positive 20%. Without
+     the sign in this pattern the token doesn't match at all, and an
+     unmatched token survives the whole function and lands on the page as
+     a literal @SlowAmount*-100@ — which is what Shaco's E did. */
+  s = s.replace(/@([A-Za-z0-9_.]+)(\*(-?[\d.]+))?@/g, (whole, name, _m, mult) => {
+    if(TIP_BOILERPLATE.test(name)) return "";
+    const text = scope ? CLASSIC.calcText(name, scope, ranks) : null;
+    if(text === null || text === undefined) return "\u0000";   /* marked for removal */
+    if(!mult) return text;
+    /* Scale every number in the list, keeping any ratio bracket intact. */
+    const f = Number(mult);
+    return text.replace(/-?[\d.]+/g, n => String(Math.round(Number(n) * f * 100) / 100));
+  });
+
+  /* Anything still wearing @…@ was a shape the pattern above didn't know.
+     It is swept here rather than left, because every other failure mode in
+     this function degrades to readable prose and this one degrades to
+     visible machinery. Belt and braces: the pattern should match every
+     token, and when it doesn't, the reader shouldn't be the one to find
+     out. */
+  s = s.replace(/@[^@\s]{1,60}@/g, "\u0000");
+
+  /* A clause that lost its number reads as a half-sentence, so the whole
+     sentence goes rather than leaving "deals  damage to nearby enemies". */
+  if(s.includes("\u0000")){
+    s = s.split(/(?<=[.!?])\s+/).filter(part => !part.includes("\u0000")).join(" ");
+    s = s.replace(/\u0000/g, "");
+  }
+
+  /* The client's colour tags. Everything not on this list stays escaped. */
+  s = s.replace(/&lt;br\s*\/?&gt;/gi, "<br>")
+       .replace(/&lt;(\/?)(physicalDamage|magicDamage|trueDamage|healing|shield|status|scaleAP|scaleAD|keywordStealth|keywordMajor|attention|speed|OnHit|rules)&gt;/gi,
+                (m, close, tag) => close ? "</span>" : `<span class="tip-kw ${tag.toLowerCase()}">`)
+       /* Anything else that still looks like a tag was never a tag. */
+       .replace(/&lt;\/?[a-zA-Z][^&]*?&gt;/g, "");
+
+  return s.replace(/\s+([.,])/g, "$1").replace(/\s{2,}/g, " ").trim();
 };
 
 CLASSIC.spellByName = name => (CLASSIC._spellsByName &&
@@ -823,6 +1138,10 @@ function classicSpell(raw){
     key, letter: key.toUpperCase(), name: raw.name || key.toUpperCase(),
     icon: raw.abilityIconPath ? assetUrl(raw.abilityIconPath) : null,
     desc: raw.description || "",
+    /* The full effect text, with its numbers still as @placeholders@. Kept
+       raw because resolving it needs the character record, which arrives
+       separately; CLASSIC.tipText does the filling in. */
+    dyn: raw.dynamicDescription || "",
     cost: free ? null : (literalCost || burnList(cost)),
     cooldown: allZero(cd) ? null : burnList(cd),
     range: allZero(rng) ? null : burnList(rng),

@@ -585,6 +585,20 @@ section{padding:26px 0 60px}
 .mast-tip .tip-where,.spell-tip .tip-where,.item-tip .tip-where{font-size:12px;color:#a09b8c;margin:0 0 6px}
 /* .mastery-description */
 .mast-tip .tip-body,.spell-tip .tip-body,.item-tip .tip-body{font-size:14px;line-height:1.4;color:#fff;margin:0}
+/* The client's own colour tags, kept because an ability's text leans on
+   them to separate a damage number from the sentence around it. Only the
+   tags CLASSIC.tipText allows through can reach these — everything else is
+   escaped before it gets near the page. */
+.tip-kw{color:inherit}
+.tip-kw.physicaldamage{color:#ff9d6b}
+.tip-kw.magicdamage{color:#8fd6ff}
+.tip-kw.truedamage{color:#ffe9a8}
+.tip-kw.healing,.tip-kw.shield{color:#9ae6a0}
+.tip-kw.scaleap{color:#8fd6ff}
+.tip-kw.scalead{color:#ff9d6b}
+.tip-kw.keywordstealth,.tip-kw.keywordmajor,.tip-kw.attention,
+.tip-kw.speed,.tip-kw.onhit,.tip-kw.status{color:#c8aa6e}
+.tip-kw.rules{color:#a09b8c;font-style:italic}
 .mast-tip .tip-body b,.spell-tip .tip-body b,.item-tip .tip-body b{color:#f0e6d2;font-weight:400}
 .mast-tip .tip-ladder,.spell-tip .tip-ladder,.item-tip .tip-ladder{margin:6px 0 0;font-size:13px;color:#a09b8c}
 .mast-tip .tip-ladder s,.spell-tip .tip-ladder s,.item-tip .tip-ladder s{text-decoration:none}

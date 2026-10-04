@@ -256,7 +256,10 @@ src += `
      storage: left populated, the unreachable-file cases got Lee Sin's real
      stats handed back out of memory and the fallback looked broken when it
      was the harness holding the answer. */
-  const fresh = () => { __reset(); CLASSIC._stats = null; CLASSIC._roster = null; };
+  /* _bins too — see the note in champstats-check: the stat block is read
+     out of a cached character record, and a stale one survives __reset. */
+  const fresh = () => { __reset(); CLASSIC._stats = null; CLASSIC._roster = null;
+                        CLASSIC._bins = null; };
   const rows = () => __byId("statList").innerHTML;
   const srcLine = () => __byId("statSrc").textContent;
   /* One stat row's value, by its label. */
