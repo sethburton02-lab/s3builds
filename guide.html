@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=125">
+<link rel="stylesheet" href="site.css?v=126">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -249,8 +249,13 @@
   .g-rc-items + .g-rc-sub{margin:9px 0 0}
 
   /* Abilities */
+  /* cursor:help rather than pointer: hovering shows the full description,
+     but the row isn't a link and shouldn't promise it goes anywhere. */
   .g-rc-kit{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;
-    align-items:center;padding:6px 0;border-top:1px solid var(--line-soft)}
+    align-items:center;padding:6px 0;border-top:1px solid var(--line-soft);
+    cursor:help;border-radius:4px}
+  .g-rc-kit:hover{background:hsla(43,47%,60%,.32)}
+  .g-rc-kit:hover .t{color:var(--gold-hi)}
   .g-rc-kit:first-of-type{border-top:0}
   .g-rc-kit .k{position:relative;width:30px;height:30px;border-radius:5px;
     overflow:hidden;background:var(--bg-2);border:1px solid var(--line);display:block}
@@ -506,16 +511,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=125"></script>
-<script src="data-rune-icons.js?v=125"></script>
-<script src="data-runes.js?v=125"></script>
-<script src="data-champ-focus.js?v=125"></script>
-<script src="data-mastery-tree.js?v=125"></script>
-<script src="data-masteries.js?v=125"></script>
-<script src="guide-sanitise.js?v=125"></script>
-<script src="config.js?v=125"></script>
-<script src="guide-store.js?v=125"></script>
-<script src="guide-load.js?v=125"></script>
+<script src="site.js?v=126"></script>
+<script src="data-rune-icons.js?v=126"></script>
+<script src="data-runes.js?v=126"></script>
+<script src="data-champ-focus.js?v=126"></script>
+<script src="data-mastery-tree.js?v=126"></script>
+<script src="data-masteries.js?v=126"></script>
+<script src="guide-sanitise.js?v=126"></script>
+<script src="config.js?v=126"></script>
+<script src="guide-store.js?v=126"></script>
+<script src="guide-load.js?v=126"></script>
 <script>
 renderChrome("");
 
@@ -836,20 +841,29 @@ function railKitHtml(){
   const doc = ABILITIES_DOC;
   if(!doc || !(doc.spells || []).length) return "";
   const num = v => Array.isArray(v) ? v.filter(n => n != null).join(" / ") : (v ?? "");
+  /* The passive leads, as it does in the hero strip and in the client. It
+     was missing here, which left the rail disagreeing with the kit icons
+     directly above it about how many abilities the champion has. */
+  const rows = [
+    doc.passive ? {letter: "P", name: doc.passive.name, icon: doc.passive.icon,
+                   sub: "Passive"} : null,
+    ...(doc.spells || []).map(sp => {
+      const cd = num(sp.cooldown), cost = num(sp.cost);
+      return {letter: sp.letter, name: sp.name, icon: sp.icon,
+              sub: [cd ? `${cd}s` : "", cost ? `${cost} cost` : ""].filter(Boolean).join(" · ")};
+    })
+  ].filter(Boolean);
+
   return `<div class="g-rc" id="rail-kit">
     <h3>Abilities</h3>
-    ${(doc.spells || []).map(sp => {
-      const cd = num(sp.cooldown), cost = num(sp.cost);
-      const bits = [cd ? `${cd}s` : "", cost ? `${cost} cost` : ""].filter(Boolean);
-      return `<div class="g-rc-kit">
-        <span class="k">${sp.icon
-          ? `<img src="${esc(sp.icon)}" alt="" onerror="this.remove()">` : ""}<i>${esc(sp.letter)}</i></span>
+    ${rows.map(r => `<div class="g-rc-kit" data-tip-ab="${esc(r.letter)}">
+        <span class="k">${r.icon
+          ? `<img src="${esc(r.icon)}" alt="" onerror="this.remove()">` : ""}<i>${esc(r.letter)}</i></span>
         <div>
-          <span class="t">${esc(sp.name)}</span>
-          ${bits.length ? `<span class="v">${esc(bits.join(" · "))}</span>` : ""}
+          <span class="t">${esc(r.name)}</span>
+          ${r.sub ? `<span class="v">${esc(r.sub)}</span>` : ""}
         </div>
-      </div>`;
-    }).join("")}
+      </div>`).join("")}
   </div>`;
 }
 

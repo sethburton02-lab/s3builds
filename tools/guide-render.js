@@ -517,13 +517,36 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     return ok;
   });
   await check("the abilities card carries cooldowns and costs", async () => {
-    ABILITIES_DOC = {splash:"", passive:{name:"P",icon:"p.png"},
-      spells:[{key:"q",letter:"Q",name:"Deceive",icon:"q.png",
-               cooldown:[16,14,12,10,8], cost:[90,80,70,60,50]}]};
+    ABILITIES_DOC = {splash:"", passive:{name:"Backstab",icon:"p.png",desc:"From behind."},
+      spells:[{key:"q",letter:"Q",name:"Deceive",icon:"q.png",desc:"Blink.",
+               cooldown:[16,14,12,10,8], cost:[90,80,70,60,50], range:[400]}]};
     G = normaliseGuide(DRAFT_FIXTURE); paint();
     const out = document.getElementById("main").innerHTML;
     return out.includes('id="rail-kit"') && out.includes("Deceive")
         && out.includes("16 / 14 / 12 / 10 / 8s") && out.includes("90 / 80 / 70 / 60 / 50 cost");
+  });
+  /* The hero strip lists the passive, so a rail that didn't disagreed with
+     the icons directly above it about the size of the champion's kit. */
+  await check("  including the passive, led by it", async () => {
+    const out = document.getElementById("main").innerHTML;
+    const card = out.slice(out.indexOf('id="rail-kit"'));
+    return card.indexOf("Backstab") < card.indexOf("Deceive");
+  });
+  /* Hover tips come from the page's existing delegated handler, so the row
+     only has to carry the hook the selector matches. If the attribute is
+     dropped the rows still render and look right — nothing else would
+     notice, which is why this is asserted rather than eyeballed. */
+  await check("  and every row carries the tooltip hook", async () => {
+    const out = document.getElementById("main").innerHTML;
+    const card = out.slice(out.indexOf('id="rail-kit"'));
+    const end  = card.indexOf("</div></aside>") > -1 ? card.indexOf("</div></aside>") : card.length;
+    const rows = (card.slice(0, end).match(/class="g-rc-kit"/g) || []).length;
+    const hook = (card.slice(0, end).match(/data-tip-ab="/g) || []).length;
+    return rows === 2 && hook === 2;
+  });
+  await check("  and the tip the hook resolves to is the real ability text", async () => {
+    return abilityTipHtml("Q").includes("Blink.")
+        && abilityTipHtml("P").includes("From behind.");
   });
   await check("the stats card shows level 1 and level 18", async () => {
     RAIL_STATS = {hp:600, hpperlevel:85, attackdamage:50, attackdamageperlevel:3,
