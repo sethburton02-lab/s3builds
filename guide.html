@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=128">
+<link rel="stylesheet" href="site.css?v=129">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -301,6 +301,39 @@
   .g-diff.even{background:rgba(120,100,40,.16);color:#473a0b;border:1px solid rgba(120,100,40,.45)}
   .g-diff.hard{background:rgba(140,52,16,.15);color:#4a1a06;border:1px solid rgba(140,52,16,.45)}
 
+  /* ---- comments ---- */
+  .g-cm-form{margin:0 0 16px}
+  .g-cm-form textarea{width:100%;max-width:720px;display:block;padding:10px 12px;
+    font:inherit;font-size:15px;line-height:1.5;border:1px solid var(--line);
+    border-radius:var(--radius);background:#f0e4b1;color:var(--text);resize:vertical}
+  .g-cm-send{display:flex;align-items:center;gap:12px;margin-top:8px;max-width:720px}
+  .g-cm-err{flex:1;font-size:13px;color:#8c3410}
+  .g-cm-note{margin:0 0 14px;font-size:14px;color:var(--muted)}
+  .g-cm-note a{color:var(--gold-hi)}
+  .g-cm-list{max-width:720px}
+  .g-cm{padding:11px 0;border-top:1px solid var(--line-soft)}
+  .g-cm:first-child{border-top:0}
+  /* A hidden comment is only ever sent to its author and to moderators, so
+     this marking is for them — without it, hiding looks like it did
+     nothing, because the row is still sitting there. */
+  .g-cm.is-hidden{opacity:.62}
+  .g-cm-hd{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;font-size:13px}
+  .g-cm-hd b{font-weight:400;color:var(--text)}
+  .g-cm-hd b a{color:var(--gold-hi);text-decoration:none}
+  .g-cm-hd time{color:var(--muted-2);font-size:12px}
+  .g-cm-flag{padding:1px 7px;border-radius:999px;font-size:11px;
+    background:rgba(140,52,16,.15);color:#4a1a06;border:1px solid rgba(140,52,16,.45)}
+  .g-cm-acts{margin-left:auto;display:flex;gap:10px}
+  .g-cm-acts .lnk{background:none;border:0;padding:0;font-size:12px;
+    color:var(--muted-2);cursor:pointer}
+  .g-cm-acts .lnk:hover{color:var(--gold-hi)}
+  .g-cm-acts .lnk.del:hover{color:#8c3410}
+  /* Comment text is the one thing on this page a stranger wrote, so it
+     keeps the readable measure the prose gave up — and white-space:pre-wrap
+     so line breaks survive without any markup being allowed. */
+  .g-cm-body{margin:5px 0 0;font-size:15px;line-height:1.55;color:var(--text);
+    white-space:pre-wrap;overflow-wrap:anywhere;max-width:66ch}
+
   /* A note the author wrote about that section. */
   .g-note{margin:12px 0 0;padding:14px 16px;border:1px solid var(--line-soft);
     border-radius:var(--radius);background:hsla(43,47%,60%,.18);
@@ -511,16 +544,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=128"></script>
-<script src="data-rune-icons.js?v=128"></script>
-<script src="data-runes.js?v=128"></script>
-<script src="data-champ-focus.js?v=128"></script>
-<script src="data-mastery-tree.js?v=128"></script>
-<script src="data-masteries.js?v=128"></script>
-<script src="guide-sanitise.js?v=128"></script>
-<script src="config.js?v=128"></script>
-<script src="guide-store.js?v=128"></script>
-<script src="guide-load.js?v=128"></script>
+<script src="site.js?v=129"></script>
+<script src="data-rune-icons.js?v=129"></script>
+<script src="data-runes.js?v=129"></script>
+<script src="data-champ-focus.js?v=129"></script>
+<script src="data-mastery-tree.js?v=129"></script>
+<script src="data-masteries.js?v=129"></script>
+<script src="guide-sanitise.js?v=129"></script>
+<script src="config.js?v=129"></script>
+<script src="guide-store.js?v=129"></script>
+<script src="guide-load.js?v=129"></script>
 <script>
 renderChrome("");
 
@@ -830,6 +863,154 @@ function railBuildHtml(){
     ).join("")}</div>
     ${total ? `<p class="g-rc-sub">${total.toLocaleString()} gold</p>` : ""}
   </div>`;
+}
+
+/* Repaints only the comment list, so posting doesn't rebuild the whole
+   guide underneath the reader and lose their scroll position. */
+function paintComments(){
+  const host = document.getElementById("cmList");
+  if(!host) return;
+  host.innerHTML = COMMENTS === null
+    ? `<p class="g-cm-note">${COMMENTS_STATE === "error"
+        ? "Couldn't load the comments just now." : "Loading comments…"}</p>`
+    : COMMENTS.length
+      ? COMMENTS.map(commentHtml).join("")
+      : `<p class="g-cm-note">No comments yet.</p>`;
+}
+
+async function loadComments(){
+  if(!G || !G.slug) return;
+  const rows = await listComments(G.slug);
+  COMMENTS = rows;
+  COMMENTS_STATE = rows === null ? "error" : "ok";
+  paintComments();
+}
+
+/* One delegated handler for the list, because it is rebuilt on every
+   action and per-row listeners would be rebound constantly. */
+document.addEventListener("click", async e => {
+  const row = e.target.closest("[data-cm]");
+  if(!row) return;
+  const id = row.dataset.cm;
+  const del  = e.target.closest("[data-cm-del]");
+  const hide = e.target.closest("[data-cm-hide]");
+  if(!del && !hide) return;
+
+  if(del && !confirm("Delete this comment? This cannot be undone.")) return;
+  for(const b of row.querySelectorAll("button")) b.disabled = true;
+  try{
+    if(del){
+      await deleteComment(id);
+      COMMENTS = (COMMENTS || []).filter(c => String(c.id) !== String(id));
+    }else{
+      const want = hide.dataset.cmHide === "1";
+      await setCommentHidden(id, want);
+      const hit = (COMMENTS || []).find(c => String(c.id) === String(id));
+      if(hit) hit.hidden = want;
+    }
+    paintComments();
+  }catch(err){
+    for(const b of row.querySelectorAll("button")) b.disabled = false;
+    const note = document.createElement("p");
+    note.className = "g-cm-err";
+    note.textContent = err.message;
+    row.appendChild(note);
+  }
+});
+
+document.addEventListener("submit", async e => {
+  const form = e.target.closest("#cmForm");
+  if(!form) return;
+  e.preventDefault();
+  const box = document.getElementById("cmBody");
+  const err = document.getElementById("cmErr");
+  const btn = form.querySelector("button[type=submit]");
+  if(err) err.textContent = "";
+  const text = (box.value || "").trim();
+  if(!text){ if(err) err.textContent = "Write something first."; return; }
+  btn.disabled = true;
+  try{
+    const added = await addComment(G.slug, text);
+    box.value = "";
+    /* Prepended rather than refetched: the list is newest first, and a
+       round trip here would make posting feel slower than it is. */
+    if(added) COMMENTS = [added, ...(COMMENTS || [])];
+    else await loadComments();
+    paintComments();
+  }catch(e2){
+    if(err) err.textContent = e2.message;
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+/* ---- comments ----
+   Held here rather than refetched on every paint: the page repaints once
+   per catalogue as the art lands, and refetching the list each time would
+   be five requests and a list that jumps while you read it.
+
+   null means "not loaded yet or the fetch failed" and [] means "loaded, and
+   nobody has commented" — two different things that have to look different
+   on the page. */
+let COMMENTS = null, COMMENTS_STATE = "idle";
+
+function commentHtml(c){
+  const me = currentUser();
+  /* Shown only to people whose request would actually succeed. The policies
+     decide either way, but offering a reader a Delete button on somebody
+     else's comment and then failing is worse than not offering it. */
+  const canDelete = c.mine || isModerator();
+  const canHide   = isModerator();
+  return `<article class="g-cm${c.hidden ? " is-hidden" : ""}" data-cm="${esc(String(c.id))}">
+    <div class="g-cm-hd">
+      <b>${c.author
+        ? `<a href="author.html?u=${encodeURIComponent(c.author)}">${esc(c.author)}</a>`
+        : "<i>deleted account</i>"}</b>
+      <time>${c.at ? new Date(c.at).toLocaleDateString(undefined,
+        {day: "numeric", month: "short", year: "numeric"}) : ""}</time>
+      ${c.hidden ? `<span class="g-cm-flag">hidden</span>` : ""}
+      <span class="g-cm-acts">
+        ${canHide ? `<button type="button" class="lnk" data-cm-hide="${c.hidden ? "0" : "1"}"
+          >${c.hidden ? "Restore" : "Hide"}</button>` : ""}
+        ${canDelete ? `<button type="button" class="lnk del" data-cm-del>Delete</button>` : ""}
+      </span>
+    </div>
+    <p class="g-cm-body">${esc(c.body)}</p>
+  </article>`;
+}
+
+function commentsHtml(){
+  const me = currentUser();
+  const live = typeof commentsLive === "function" && commentsLive();
+
+  const list = COMMENTS === null
+    ? `<p class="g-cm-note">${COMMENTS_STATE === "error"
+        ? "Couldn't load the comments just now."
+        : "Loading comments…"}</p>`
+    : COMMENTS.length
+      ? COMMENTS.map(commentHtml).join("")
+      : `<p class="g-cm-note">No comments yet.</p>`;
+
+  const box = !live
+    ? `<p class="g-cm-note">Comments need the live site.</p>`
+    : me
+      ? `<form class="g-cm-form" id="cmForm">
+           <textarea id="cmBody" rows="3" maxlength="2000"
+             placeholder="Add a comment — a correction, a matchup, what you'd change."
+             aria-label="Your comment"></textarea>
+           <div class="g-cm-send">
+             <span class="g-cm-err" id="cmErr"></span>
+             <button type="submit" class="btn btn-gold btn-sm">Post comment</button>
+           </div>
+         </form>`
+      : `<p class="g-cm-note">
+           <a href="account.html">Sign in</a> to leave a comment.</p>`;
+
+  return `<section class="g-sec" id="comments">
+    <h2>Comments</h2>
+    ${box}
+    <div class="g-cm-list" id="cmList">${list}</div>
+  </section>`;
 }
 
 /* ---- the champion's abilities ----
@@ -1357,12 +1538,19 @@ function paint(){
     ["masteries", "Masteries",        masteriesHtml()]
   ].filter(p => p[2]);
 
+  /* Comments are always present, unlike the builders — an empty comments
+     section is an invitation where an empty rune page is just missing. Kept
+     OUT of `parts` so it can't make an empty guide look like it has
+     content: "this guide is still empty" is decided by what the author
+     wrote, not by whether the page has a comment box on it. */
+  const commentsPart = ["comments", "Comments", commentsHtml()];
+
   /* The rail sits beside <main>, not inside it, so it can take the third
      grid column. It still earns a nav entry: below 1180px it drops into
      the flow under the content, where a jump link is the only thing that
      makes it findable without scrolling past the whole guide. */
   const rail = railHtml();
-  const nav = parts.map(p => [p[0], p[1]]);
+  const nav = parts.concat([commentsPart]).map(p => [p[0], p[1]]);
   /* Only matchups earn a jump link — the build card and the champion's
      other guides are reference, not sections you navigate to, and listing
      them would make the nav claim the guide has chapters it doesn't. */
@@ -1375,8 +1563,8 @@ function paint(){
       nav.length < 3 ? "no-nav" : ""} ${rail ? "has-rail" : ""}">
       <nav class="g-nav">${nav.map(([id, label]) =>
         `<a href="#${id}">${label}</a>`).join("")}</nav>
-      <main>${parts.map(p => p[2]).join("")
-        || `<p class="g-empty">This guide is still empty.</p>`}</main>
+      <main>${(parts.map(p => p[2]).join("")
+        || `<p class="g-empty">This guide is still empty.</p>`) + commentsPart[2]}</main>
       ${rail}
     </div></div>`;
 
@@ -1560,6 +1748,11 @@ document.addEventListener("click", async e => {
      number includes the reader looking at it. */
   recordView(G.slug).then(counted => { if(counted) paint(); })
                     .catch(() => {});
+
+  /* Not awaited and not part of the catalogue jobs below: the comments are
+     their own request against the backend rather than Community Dragon, and
+     they repaint only their own list. */
+  loadComments();
 
   /* The catalogues arrive after the first paint. Each repaints on its own,
      so a slow one never blocks the rest of the page. */

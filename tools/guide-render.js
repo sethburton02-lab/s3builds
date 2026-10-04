@@ -615,9 +615,14 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
 
   await check("prose and note panels both span the column", () => {
     const h = __GUIDE_HTML;
+    /* The two rules by name, rather than hunting for "66ch" anywhere in
+       the stylesheet — comment bodies legitimately keep a readable measure,
+       and a string search called that a regression. */
     return h.includes(".g-prose{max-width:none}")
         && h.includes(".g-note{max-width:none}")
-        && !h.includes("max-width:66ch");
+        && !h.includes(".g-prose{max-width:66ch}")
+        && !h.includes(".g-note{max-width:66ch}")
+        && !h.includes(".g-prose, .g-note{max-width:66ch}");
   });
 
   await check("the wrap is wide enough to hold the rail without squeezing the tables", () => {
@@ -800,6 +805,112 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
 
   await check("no moderator controls with no backend", async () =>
     isModerator() === false);
+
+  console.log("\\ncomments:");
+  /* Every comment path needs the backend. There is no local stand-in the
+     way there is for guides, on purpose: a comment nobody else can read is
+     not a comment, and a box that quietly kept your words in your own
+     browser would be worse than one that says it can't. */
+  await check("the section renders and says why it can't take one", async () => {
+    G = normaliseGuide(DRAFT_FIXTURE); G.slug = "a-slug"; paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes('id="comments"') && out.includes("Comments need the live site")
+        && !out.includes("<textarea");
+  });
+  await check("  and it still earns a jump link", async () =>
+    document.getElementById("main").innerHTML.includes('href="#comments"'));
+  /* The comments section must not make an empty guide look furnished. */
+  await check("an empty guide still says it is empty", async () => {
+    G = normaliseGuide({title: "Bare", champ: "Kog'Maw", role: "Mid"});
+    G.slug = "bare"; paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("This guide is still empty") && out.includes('id="comments"');
+  });
+  /* Signed out but with a backend: the one state that should invite you to
+     sign in rather than show a box that cannot work. Unreachable offline,
+     so commentsLive is stood in for. */
+  await check("signed out with a live backend gets a sign-in prompt", async () => {
+    const real = commentsLive;
+    commentsLive = () => true;
+    try{
+      G = normaliseGuide(DRAFT_FIXTURE); G.slug = "a-slug"; paint();
+      const out = document.getElementById("main").innerHTML;
+      return out.includes("Sign in</a> to leave a comment")
+          && !out.includes("<textarea");
+    }finally{ commentsLive = real; }
+  });
+
+  await check("posting with no backend is refused, not silently dropped", async () => {
+    try{ await addComment("a-slug", "hello"); return false; }
+    catch(err){ return /live site/i.test(err.message); }
+  });
+  await check("listing with no backend is empty rather than an error", async () =>
+    JSON.stringify(await listComments("a-slug")) === "[]");
+  await check("hiding a comment with no backend is refused", async () => {
+    try{ await setCommentHidden(1, true); return false; }
+    catch(err){ return /live site/i.test(err.message); }
+  });
+
+  /* The list rendering, driven directly — the fetch needs a backend but the
+     markup does not, and the markup is where a permission leak would show. */
+  await check("a comment renders its author, date and text", async () => {
+    G = normaliseGuide(DRAFT_FIXTURE); G.slug = "a-slug";
+    COMMENTS = [{id: 7, authorId: "u1", author: "Rayne", body: "Try Wriggle's first.",
+                 at: Date.parse("2026-10-01"), hidden: false, mine: false}];
+    COMMENTS_STATE = "ok"; paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("Rayne") && out.includes("Try Wriggle&#39;s first.")
+        && out.includes("author.html?u=Rayne");
+  });
+  /* The policies refuse it either way, but offering a reader a Delete
+     button on somebody else's comment and then failing is worse than not
+     offering it at all. */
+  await check("  with no delete button on somebody else's comment", async () => {
+    const out = document.getElementById("main").innerHTML;
+    return !out.includes("data-cm-del") && !out.includes("data-cm-hide");
+  });
+  await check("  and a delete button on your own", async () => {
+    COMMENTS = [{id: 8, authorId: "me", author: "Seth", body: "Mine.",
+                 at: Date.now(), hidden: false, mine: true}];
+    paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("data-cm-del") && !out.includes("data-cm-hide");
+  });
+  /* Comment text is the only thing on this page a stranger wrote. */
+  await check("comment text is escaped, never rendered", async () => {
+    COMMENTS = [{id: 9, authorId: "u2", author: "x", at: Date.now(),
+                 hidden: false, mine: false,
+                 body: "<img src=x onerror=alert(1)>"}];
+    paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("&lt;img") && !out.includes("<img src=x");
+  });
+  await check("  and so is the author name", async () => {
+    COMMENTS = [{id: 10, authorId: "u3", author: "<script>bad</script>",
+                 body: "hi", at: Date.now(), hidden: false, mine: false}];
+    paint();
+    return !document.getElementById("main").innerHTML.includes("<script>bad");
+  });
+  /* Only the author and moderators are ever sent a hidden row, so the flag
+     is a label for them — without it, hiding looks like it did nothing
+     because the comment is still sitting there. */
+  await check("a hidden comment is marked rather than silently shown", async () => {
+    COMMENTS = [{id: 11, authorId: "me", author: "Seth", body: "x",
+                 at: Date.now(), hidden: true, mine: true}];
+    paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("is-hidden") && out.includes(">hidden<");
+  });
+  await check("loading and empty read differently", async () => {
+    COMMENTS = []; COMMENTS_STATE = "ok"; paint();
+    const empty = document.getElementById("main").innerHTML.includes("No comments yet");
+    COMMENTS = null; COMMENTS_STATE = "idle"; paint();
+    const loading = document.getElementById("main").innerHTML.includes("Loading comments");
+    COMMENTS = null; COMMENTS_STATE = "error"; paint();
+    const failed = document.getElementById("main").innerHTML.includes("Couldn't load");
+    return empty && loading && failed;
+  });
+  COMMENTS = null; COMMENTS_STATE = "idle";
 
   await check("  so the hero draws no mod button", async () => {
     G.slug = "seeded";

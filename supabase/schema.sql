@@ -540,3 +540,140 @@ grant update (patch) on public.guides to authenticated;
 -- The client leaves the field out entirely when it has not learned the
 -- live patch yet. An absent stamp is a question mark; a guessed one is a
 -- lie, and this column exists precisely because the page was telling one.
+
+
+-- ============================================================
+-- COMMENTS
+--
+-- Signed-in accounts only, flat, moderated by moderators alone.
+--
+-- Signed-in only because there is no spam defence on this site and an
+-- anonymous box would need one within a week. Every comment therefore has
+-- a profile behind it, which is what the moderation below acts on.
+--
+-- Moderators only, and deliberately NOT the guide's author: an author who
+-- can delete comments on their own guide can quietly remove every
+-- correction to a wrong build, and the corrections are the point. An
+-- author deletes their own comments like anybody else, and nothing more.
+--
+-- Flat, newest first. A parent_id can be added later without migrating
+-- what is already here; threading now would be UI nobody uses at this
+-- volume plus a rule for what a hidden parent does to its replies.
+-- ============================================================
+
+create table if not exists public.comments (
+  id          bigint generated always as identity primary key,
+  guide_slug  text not null references public.guides on delete cascade,
+  author_id   uuid not null references auth.users on delete cascade,
+  -- Denormalised the same way guides.author_name is, and kept in step by
+  -- the same trigger below. A comment list that had to join profiles would
+  -- be a second round trip on every guide.
+  author_name text not null default '',
+  body        text not null,
+  created_at  timestamptz not null default now(),
+  -- Hidden rather than destroyed, like a guide: the row keeps its author
+  -- and its place, stays visible to that author and to moderators, and can
+  -- be put back. Hard delete still exists for what deserves it.
+  hidden      boolean not null default false
+);
+
+create index if not exists comments_guide_idx
+  on public.comments (guide_slug, created_at desc);
+
+alter table public.comments enable row level security;
+
+-- A hidden comment is still readable by the person who wrote it and by a
+-- moderator, so neither is left wondering whether the button worked.
+create policy comments_read on public.comments for select
+  using (hidden = false or (select auth.uid()) = author_id or public.is_moderator());
+
+create policy comments_insert on public.comments for insert
+  to authenticated with check ((select auth.uid()) = author_id);
+
+create policy comments_delete on public.comments for delete
+  using ((select auth.uid()) = author_id or public.is_moderator());
+
+-- No UPDATE policy and no UPDATE grant at all. There is no edit feature,
+-- and a capability nothing calls is surface for nothing. Hiding does not
+-- need one either: set_comment_hidden below is SECURITY DEFINER and runs
+-- as the owner, so it is not subject to RLS.
+--
+-- Adding comment editing later means adding BOTH back — a policy admitting
+-- the author, and a column grant naming `body` and nothing else. The
+-- grant is the part that matters: RLS picks the ROW, column grants pick
+-- the COLUMN, and a table-level UPDATE here would let an author clear
+-- their own hidden flag and undo a moderator. Revoking one column out of a
+-- table-level grant is a no-op in Postgres, so it has to be granted
+-- narrowly in the first place.
+revoke update on public.comments from anon, authenticated;
+
+-- Same reasoning for INSERT, and it bites harder: without naming the
+-- columns a client could post a comment with author_name forged to
+-- somebody else's, or created_at backdated to sit at the top of the list.
+revoke insert on public.comments from anon, authenticated;
+grant  insert (guide_slug, author_id, body) on public.comments to authenticated;
+grant  select on public.comments to anon, authenticated;
+grant  delete on public.comments to authenticated;
+
+-- author_name is filled in by the database from the profile, never by the
+-- client — which is why it is not in the insert grant above.
+create or replace function public.sync_comment_author()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  select coalesce(p.name, '') into new.author_name
+    from public.profiles p where p.id = new.author_id;
+  return new;
+end $$;
+
+drop trigger if exists comments_author_name on public.comments;
+create trigger comments_author_name before insert on public.comments
+  for each row execute function public.sync_comment_author();
+
+revoke execute on function public.sync_comment_author() from anon, authenticated, public;
+
+-- A count on the guide, kept in step by trigger for the same reason the
+-- vote tally is: a number the client increments drifts from the rows it
+-- counts, and a comment count is read on pages that never load comments.
+alter table public.guides add column if not exists comments integer not null default 0;
+
+create or replace function public.sync_comment_count()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+declare slug text;
+begin
+  slug := coalesce(new.guide_slug, old.guide_slug);
+  update public.guides g
+     set comments = (select count(*) from public.comments c
+                      where c.guide_slug = slug and c.hidden = false)
+   where g.slug = slug;
+  return null;
+end $$;
+
+drop trigger if exists comments_count on public.comments;
+create trigger comments_count after insert or update or delete on public.comments
+  for each row execute function public.sync_comment_count();
+
+revoke execute on function public.sync_comment_count() from anon, authenticated, public;
+
+-- Hiding is a moderator's act and nothing else, so it goes through a
+-- definer function that checks the role — exactly like set_guide_featured.
+-- A column grant cannot express this: there is no UPDATE grant on this
+-- table at all, and adding one for `hidden` would hand it to the comment's
+-- author as well, since any update policy that admits a moderator here
+-- would have to admit them too.
+create or replace function public.set_comment_hidden(c_id bigint, want boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_moderator() then
+    raise exception 'not a moderator';
+  end if;
+  update public.comments set hidden = want where id = c_id;
+end $$;
+
+revoke execute on function public.set_comment_hidden(bigint, boolean) from anon, public;
+grant  execute on function public.set_comment_hidden(bigint, boolean) to authenticated;

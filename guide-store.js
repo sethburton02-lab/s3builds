@@ -551,6 +551,66 @@ const STORE = {
     return !!featured;
   },
 
+  /* ---- comments ----
+     Not cached with the guides. A guide record is read by every list on
+     the site and is worth holding; comments are read on one page, change
+     while you are looking at them, and would go stale in a cache that
+     nothing invalidates. So they are fetched when the section renders. */
+  async comments(slug){
+    const rows = await sbFetch(
+      `/rest/v1/comments?guide_slug=eq.${encodeURIComponent(slug)}` +
+      `&select=id,author_id,author_name,body,created_at,hidden` +
+      `&order=created_at.desc&limit=200`);
+    return (rows || []).map(r => ({
+      id: r.id, authorId: r.author_id, author: r.author_name || "",
+      body: r.body || "", at: Date.parse(r.created_at) || 0,
+      hidden: !!r.hidden,
+      /* Who may act on this row, decided here from the same facts the
+         policies use, so the page never draws a control whose request
+         would be refused. */
+      mine: !!ME && r.author_id === ME.id
+    }));
+  },
+
+  async addComment(slug, body){
+    if(!ME) throw new Error("Sign in to comment.");
+    const text = String(body || "").trim();
+    if(!text) throw new Error("Write something first.");
+    /* author_name is NOT sent: it is not in the column grant and the
+       database fills it from the profile, which is what stops a comment
+       arriving under somebody else's name. */
+    const [row] = await sbFetch("/rest/v1/comments", {
+      method: "POST", body: {guide_slug: slug, author_id: ME.id, body: text},
+      headers: {Prefer: "return=representation"}
+    }) || [];
+    if(CACHE[slug]) CACHE[slug].comments = (CACHE[slug].comments || 0) + 1;
+    return row ? {id: row.id, authorId: row.author_id,
+                  author: row.author_name || ME.name, body: row.body,
+                  at: Date.parse(row.created_at) || Date.now(),
+                  hidden: false, mine: true} : null;
+  },
+
+  async deleteComment(id){
+    if(!ME) throw new Error("Sign in first.");
+    await sbFetch(`/rest/v1/comments?id=eq.${encodeURIComponent(id)}`,
+                  {method: "DELETE", headers: {Prefer: "return=minimal"}});
+  },
+
+  /* Hiding is a moderator's act alone, so it goes through the definer
+     function rather than a PATCH — same arrangement as featuring a guide,
+     and for the same reason: no column grant can tell a moderator from the
+     comment's author, because any policy admitting one admits the other.
+     The practical difference is that a refused PATCH silently updates zero
+     rows, while this comes back with an error worth showing. */
+  async setCommentHidden(id, hidden){
+    if(!ME) throw new Error("Sign in first.");
+    await sbFetch("/rest/v1/rpc/set_comment_hidden", {
+      method: "POST", body: {c_id: id, want: !!hidden},
+      headers: {Prefer: "return=minimal"}
+    });
+    return !!hidden;
+  },
+
   profile: profileOf,
   profileByName,
   allProfiles: () => PROFILES,

@@ -306,6 +306,35 @@ const isHidden = slug => !!(readStore()[slug] || {}).hidden;
 
 const isFeatured = slug => !!(readStore()[slug] || {}).featured;
 
+/* ---- comments ----
+   Every one of these needs the backend. There is no local stand-in the way
+   there is for guides: a comment nobody else can read is not a comment, and
+   a box that silently kept your words in your own browser would be worse
+   than a box that says it can't. */
+/* A function declaration rather than a const arrow so a harness can stand
+   in for it. The signed-out-with-a-backend case — the one that should show
+   a sign-in prompt rather than a dead box — is otherwise unreachable
+   offline, and a branch no test can enter is a branch nobody checks. */
+function commentsLive(){ return backendLive(); }
+
+async function listComments(slug){
+  if(!backendLive()) return [];
+  try{ return await STORE.comments(slug); }
+  catch(err){ console.warn("Comments unavailable:", err.message); return null; }
+}
+async function addComment(slug, body){
+  if(!backendLive()) throw new Error("Commenting needs the live site.");
+  return STORE.addComment(slug, body);
+}
+async function deleteComment(id){
+  if(!backendLive()) throw new Error("Commenting needs the live site.");
+  return STORE.deleteComment(id);
+}
+async function setCommentHidden(id, hidden){
+  if(!backendLive()) throw new Error("Moderation needs the live site.");
+  return STORE.setCommentHidden(id, hidden);
+}
+
 async function setGuideHidden(slug, hidden){
   if(!backendLive()) throw new Error("Moderation needs the live site.");
   return STORE.setHidden(slug, hidden);
