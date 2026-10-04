@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=124">
+<link rel="stylesheet" href="site.css?v=125">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -44,22 +44,19 @@
      loses its place on the carriage return, which is why a wide guide felt
      tiring to read even though nothing about it looked wrong.
 
-     So the cap is back, but only on .g-prose — the author's section text,
-     which is the long-form reading. Everything else spans the column, so
-     the page keeps the wide reference tables and gets a readable paragraph.
-     66ch measures 75 characters in this face at this size — checked
-     against the rendered box rather than assumed, because ch is the width
-     of a zero and runs wider than average lowercase. */
-  .g-prose{max-width:66ch}
+     The caps are now GONE AGAIN, deliberately, and this comment is kept so
+     nobody re-derives the argument above and puts them back thinking it an
+     oversight. Everything on the page — the tables, the note panels and the
+     prose — spans the content column, because a text block that stops 361px
+     short of the table above it reads as broken layout, and that cost more
+     than the long measure does. Owner's call, made twice, after seeing both.
 
-  /* .g-note is deliberately NOT capped. It is a panel attached to the
-     builder directly above it — the skill grid, the rune plate, the item
-     lines — and a 627px panel hanging under a 988px table reads as a
-     mistake however good the measure inside it is. Alignment wins here
-     because these notes are a few sentences rather than an essay: the
-     measure argument above is about sustained reading, which this isn't.
-     If a note ever does run long the fix is a cap on .g-note p, not on the
-     box, so the panel keeps its edges. */
+     The tradeoff is real and worth knowing: at 988px the prose runs about
+     118 characters a line, past the ~90 where the eye starts losing the
+     carriage return. If that ever becomes the complaint, the fix is to
+     NARROW THE COLUMN — give the rail more of the width — rather than to
+     re-cap the text, because capping is what produced the ragged edge. */
+  .g-prose{max-width:none}
   .g-note{max-width:none}
 
   /* ---------- hero ----------
@@ -509,16 +506,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=124"></script>
-<script src="data-rune-icons.js?v=124"></script>
-<script src="data-runes.js?v=124"></script>
-<script src="data-champ-focus.js?v=124"></script>
-<script src="data-mastery-tree.js?v=124"></script>
-<script src="data-masteries.js?v=124"></script>
-<script src="guide-sanitise.js?v=124"></script>
-<script src="config.js?v=124"></script>
-<script src="guide-store.js?v=124"></script>
-<script src="guide-load.js?v=124"></script>
+<script src="site.js?v=125"></script>
+<script src="data-rune-icons.js?v=125"></script>
+<script src="data-runes.js?v=125"></script>
+<script src="data-champ-focus.js?v=125"></script>
+<script src="data-mastery-tree.js?v=125"></script>
+<script src="data-masteries.js?v=125"></script>
+<script src="guide-sanitise.js?v=125"></script>
+<script src="config.js?v=125"></script>
+<script src="guide-store.js?v=125"></script>
+<script src="guide-load.js?v=125"></script>
 <script>
 renderChrome("");
 
