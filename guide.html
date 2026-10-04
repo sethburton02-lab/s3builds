@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=120">
+<link rel="stylesheet" href="site.css?v=121">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -24,7 +24,11 @@
   /* Wider than the reading pages. A guide is a reference you scan as much
      as prose you read, and the narrow measure meant scrolling past the same
      content twice over. */
-  .guide-wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+  /* 1240 left 373px of blank parchment either side of the content on a
+     2000px monitor — 38% of the screen holding nothing. The prose stays at
+     its 66ch cap regardless (see below); the extra width goes to the rail,
+     which is content rather than longer lines. */
+  .guide-wrap{max-width:1500px;margin:0 auto;padding:0 20px}
 
   /* ---- the measure ----
      Removing the caps along with the narrow column was half right. The
@@ -44,9 +48,32 @@
      of a zero and runs wider than average lowercase. */
   .g-prose, .g-note{max-width:66ch}
 
-  /* ---------- hero ---------- */
+  /* ---------- hero ----------
+     Full-bleed. A 1200px dark banner floating in the middle of a 2000px
+     parchment field was the single thing that read as "empty page", and
+     splash art is the one element here that genuinely wants to be big.
+     The band spans the viewport; its CONTENTS stay on the same centred
+     column as everything below, so the title still lines up with the nav.
+
+     100vw rather than 100% because the band is inside .guide-wrap, which is
+     capped. The negative margin pulls it back out to the viewport edge.
+     calc(50% - 50vw) rather than a fixed value so it works at any width,
+     and it costs nothing when the viewport is narrower than the cap. */
+  .g-hero-bleed{margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);
+    /* The page scrollbar is inside 100vw but outside 100%, so on Windows
+       this would otherwise overhang by the scrollbar's width and put a
+       horizontal scrollbar on every guide. */
+    max-width:100vw;overflow-x:clip}
+  .g-hero-inner{max-width:1500px;margin:0 auto;padding:0 20px}
   .g-hero{position:relative;overflow:hidden;border:1px solid var(--line);
     border-radius:var(--radius);background:#2a2418;margin-top:22px}
+  /* Edge to edge means no rounded corners and no side borders to meet. */
+  .g-hero-bleed .g-hero{border-radius:0;border-left:0;border-right:0;
+    margin-top:0}
+  .g-hero-bleed .g-hero-body{max-width:1500px;margin:0 auto;padding-left:20px;
+    padding-right:20px}
+  /* Art gets more room to fill now it is spanning the viewport. */
+  .g-hero-bleed .g-hero.has-art .g-hero-body{min-height:252px}
   .g-splash{position:absolute;inset:0;overflow:hidden}
   .g-splash img{position:absolute;left:0;top:50%;width:100%;
     transform:translateY(calc(-1 * var(--face,22%)));display:block}
@@ -136,16 +163,24 @@
      empty 186px column beside two paragraphs is worse than no column. */
   .g-body.no-nav{grid-template-columns:minmax(0,1fr)}
   .g-body.no-nav .g-nav{display:none}
-  /* The third column only exists when there is something to put in it. */
-  .g-body.has-rail{grid-template-columns:186px minmax(0,1fr) 304px}
-  .g-body.has-rail.no-nav{grid-template-columns:minmax(0,1fr) 304px}
-  /* Where 186 + 26 + 66ch + 26 + 304 stops fitting. Below this the rail
-     spans the whole grid and sits under the content instead. */
-  @media(max-width:1180px){
+  /* The third column only exists when there is something to put in it —
+     which, now the rail carries the build and the champion's other guides
+     rather than only matchups, is very nearly always. */
+  .g-body.has-rail{grid-template-columns:186px minmax(0,1fr) 340px}
+  .g-body.has-rail.no-nav{grid-template-columns:minmax(0,1fr) 340px}
+  /* 186 + 26 + 627 (66ch) + 26 + 340 + 40 padding = 1245, so the three
+     columns stop fitting just under 1280. Below this the rail spans the
+     whole grid and sits under the content instead. */
+  @media(max-width:1280px){
     .g-body.has-rail{grid-template-columns:186px minmax(0,1fr)}
     .g-body.has-rail.no-nav{grid-template-columns:minmax(0,1fr)}
     .g-rail{grid-column:1 / -1}
-    .g-rail .g-mu{position:static}
+    /* In the flow it is a block under the content, so sticking it would
+       pin it to the top of a section it no longer sits beside. */
+    .g-rail{position:static}
+    /* And the cards lay out side by side rather than in a 340px column. */
+    .g-rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      align-items:start}
   }
   .g-nav{position:sticky;top:76px}
   .g-nav a{display:block;padding:6px 10px;border-radius:var(--radius);
@@ -185,12 +220,30 @@
      Below 1180px the rail becomes a full-width block under the content —
      ONE element either way, moved by grid placement. Rendering it twice and
      hiding one would read it twice to a screen reader and double the ids. */
-  .g-rail{min-width:0}
-  .g-rail .g-mu{position:sticky;top:80px;padding:14px;border:1px solid var(--line);
-    border-radius:var(--radius);background:hsla(43,47%,60%,.22);scroll-margin-top:80px}
+  /* The whole stack sticks, not each card: cards that stick individually
+     slide over one another as you scroll, which looks like a bug. */
+  .g-rail{min-width:0;position:sticky;top:80px;display:flex;
+    flex-direction:column;gap:12px}
+  .g-rc{padding:14px;border:1px solid var(--line);border-radius:var(--radius);
+    background:hsla(43,47%,60%,.22);scroll-margin-top:80px}
   .g-rail h3{margin:0 0 4px;font-family:var(--font-head);font-size:18px;
     font-weight:400;color:var(--title)}
-  .g-rail .sub{margin:0 0 10px;font-size:12px;color:var(--muted-2)}
+  .g-rc-sub{margin:0 0 10px;font-size:12px;color:var(--muted-2)}
+  .g-rc > .g-rc-sub:last-child{margin-bottom:0}
+
+  /* Final build */
+  .g-rc-items{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+  .g-rc-items .g-item-img{width:42px;height:42px;border-radius:6px;display:block;
+    border:1px solid var(--line);background:var(--bg-2);object-fit:cover}
+  .g-rc-items + .g-rc-sub{margin:9px 0 0}
+
+  /* More guides for this champion */
+  .g-rc-row{display:block;padding:7px 0;border-top:1px solid var(--line-soft);
+    text-decoration:none;color:inherit}
+  .g-rc-row:first-of-type{border-top:0}
+  .g-rc-row .t{display:block;font-size:13.5px;line-height:1.35;color:var(--text)}
+  .g-rc-row:hover .t{color:var(--gold-hi)}
+  .g-rc-row .v{display:block;margin-top:2px;font-size:11.5px;color:var(--muted-2)}
   .g-mu-row{display:grid;grid-template-columns:34px minmax(0,1fr);gap:9px;
     padding:8px 0;border-top:1px solid var(--line-soft)}
   .g-mu-row:first-of-type{border-top:0}
@@ -417,16 +470,16 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=120"></script>
-<script src="data-rune-icons.js?v=120"></script>
-<script src="data-runes.js?v=120"></script>
-<script src="data-champ-focus.js?v=120"></script>
-<script src="data-mastery-tree.js?v=120"></script>
-<script src="data-masteries.js?v=120"></script>
-<script src="guide-sanitise.js?v=120"></script>
-<script src="config.js?v=120"></script>
-<script src="guide-store.js?v=120"></script>
-<script src="guide-load.js?v=120"></script>
+<script src="site.js?v=121"></script>
+<script src="data-rune-icons.js?v=121"></script>
+<script src="data-runes.js?v=121"></script>
+<script src="data-champ-focus.js?v=121"></script>
+<script src="data-mastery-tree.js?v=121"></script>
+<script src="data-masteries.js?v=121"></script>
+<script src="guide-sanitise.js?v=121"></script>
+<script src="config.js?v=121"></script>
+<script src="guide-store.js?v=121"></script>
+<script src="guide-load.js?v=121"></script>
 <script>
 renderChrome("");
 
@@ -589,7 +642,7 @@ function heroHtml(){
 
   const tag = G.tag && (typeof TAGS !== "undefined" ? TAGS.find(t => t.k === G.tag) : null);
 
-  return `<div class="guide-wrap"><div class="g-hero ${splash ? "has-art" : ""}">
+  return `<div class="g-hero-bleed"><div class="g-hero ${splash ? "has-art" : ""}">
     <div class="g-splash">${splash
       ? `<img src="${esc(splash)}" alt="" style="--face:${faceY}%" onerror="this.remove()">` : ""}</div>
     <div class="g-hero-body">
@@ -704,6 +757,53 @@ function introHtml(){
 const DIFF_ORDER = {hard: 0, even: 1, easy: 2};
 const DIFF_LABEL = {hard: "Hard", even: "Even", easy: "Easy"};
 
+/* ---- the build, at a glance ----
+   The item build is the thing a reader checks most and it was the one thing
+   you had to leave the text to see: the Item build section sits far below
+   the introduction, so reading WHY you buy something and seeing WHAT you
+   buy were never on screen together. Sticky, so it stays while you read.
+
+   Uses the same row showcaseItems() picks for the card on the home page, so
+   the build shown here, on the home shelf and on the guides list are all
+   the same six items rather than three different guesses. */
+function railBuildHtml(){
+  const ids = typeof showcaseItems === "function" ? showcaseItems(G) : [];
+  if(!ids.length) return "";
+  /* Only counted once every id resolves — a partial total while the shop is
+     still loading is a wrong number, and a wrong number that looks right is
+     worse than no number. */
+  const rows = ids.map(id => ITEM_BY_ID.get(String(id)) || null);
+  const total = rows.every(Boolean)
+    ? rows.reduce((n, it) => n + (it.total || 0), 0) : null;
+  return `<div class="g-rc" id="rail-build">
+    <h3>Final build</h3>
+    <div class="g-rc-items">${ids.map(id =>
+      `<span class="g-item" data-tip-item="${esc(id)}">${itemImgTag(id, "g-item-img")}</span>`
+    ).join("")}</div>
+    ${total ? `<p class="g-rc-sub">${total.toLocaleString()} gold</p>` : ""}
+  </div>`;
+}
+
+/* ---- other guides for this champion ----
+   With nine guides and climbing there was no way to get from one guide to a
+   related one: every path went back through the index. */
+function railMoreHtml(){
+  if(!G.champ || typeof listPublished !== "function") return "";
+  const rows = listPublished()
+    .filter(r => r.champ === G.champ && r.slug !== G.slug && !r.hidden)
+    .sort((a, b) => (b.votes || 0) - (a.votes || 0))
+    .slice(0, 5);
+  if(!rows.length) return "";
+  return `<div class="g-rc" id="rail-more">
+    <h3>More ${esc(G.champ)} guides</h3>
+    ${rows.map(r => `<a class="g-rc-row" href="guide.html?g=${encodeURIComponent(r.slug)}">
+      <span class="t">${esc(r.title)}</span>
+      <span class="v">${r.role ? esc(r.role) : ""}${
+        r.votes ? ` · ▲ ${r.votes}` : ""}</span>
+    </a>`).join("")}
+  </div>`;
+}
+
 function matchupsHtml(){
   const rows = (G.matchups || []).slice()
     .sort((a, b) => (DIFF_ORDER[a.diff] ?? 1) - (DIFF_ORDER[b.diff] ?? 1));
@@ -713,9 +813,9 @@ function matchupsHtml(){
     .filter(k => counts[k]).map(k => `${counts[k]} ${DIFF_LABEL[k].toLowerCase()}`)
     .join(" · ");
 
-  return `<aside class="g-rail"><div class="g-mu" id="matchups">
+  return `<div class="g-rc g-mu" id="matchups">
     <h3>Matchups</h3>
-    <p class="sub">${esc(sub)}</p>
+    <p class="g-rc-sub">${esc(sub)}</p>
     ${rows.map(m => {
       /* Matched by name against the roster, exactly as the card and the
          hero do. An unmatched name still renders — the author may have
@@ -731,7 +831,18 @@ function matchupsHtml(){
         </div>
       </div>`;
     }).join("")}
-  </div></aside>`;
+  </div>`;
+}
+
+/* The rail itself: whichever cards have something to say, in the order a
+   reader wants them. Before this it held matchups and nothing else, so a
+   guide whose author hadn't filled any in showed an empty 340px column —
+   which was most guides, and was the whole reason the space still looked
+   blank after the last pass. */
+function railHtml(){
+  const cards = [railBuildHtml(), matchupsHtml(), railMoreHtml()].filter(Boolean);
+  if(!cards.length) return "";
+  return `<aside class="g-rail">${cards.join("")}</aside>`;
 }
 
 function itemsHtml(){
@@ -1110,9 +1221,12 @@ function paint(){
      grid column. It still earns a nav entry: below 1180px it drops into
      the flow under the content, where a jump link is the only thing that
      makes it findable without scrolling past the whole guide. */
-  const rail = matchupsHtml();
+  const rail = railHtml();
   const nav = parts.map(p => [p[0], p[1]]);
-  if(rail) nav.push(["matchups", "Matchups"]);
+  /* Only matchups earn a jump link — the build card and the champion's
+     other guides are reference, not sections you navigate to, and listing
+     them would make the nav claim the guide has chapters it doesn't. */
+  if(G.matchups && G.matchups.length) nav.push(["matchups", "Matchups"]);
 
   document.getElementById("main").innerHTML = heroHtml() + `
     <div class="guide-wrap"><div class="g-body ${

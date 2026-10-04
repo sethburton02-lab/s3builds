@@ -395,11 +395,130 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     const out = document.getElementById("main").innerHTML;
     return out.includes("&lt;img") && !out.includes("<img src=x");
   });
-  await check("no matchups means no rail and no jump link", async () => {
+  await check("no matchups drops the card and the jump link", async () => {
     G = normaliseGuide({...DRAFT_FIXTURE, matchups: []}); paint();
     const out = document.getElementById("main").innerHTML;
-    return !out.includes("g-rail") && !out.includes('href="#matchups"')
-        && !out.includes("has-rail");
+    return !out.includes('id="matchups"') && !out.includes('href="#matchups"');
+  });
+  /* The rail used to BE the matchups card, so a guide without matchups
+     showed an empty 340px column — which was most guides, and was why the
+     page still looked blank after that pass. It now carries the build and
+     the champion's other guides too, so it survives on its own. */
+  await check("  but the rail itself survives on the build card", async () => {
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("g-rail") && out.includes("has-rail")
+        && out.includes('id="rail-build"');
+  });
+
+  console.log("\\nthe rail:");
+  await check("the build card shows the showcase six", async () => {
+    G = normaliseGuide(DRAFT_FIXTURE); paint();
+    const out = document.getElementById("main").innerHTML;
+    /* Core build is the ordered row showcaseItems() picks: 3020/3116/3089. */
+    return out.includes('id="rail-build"') && out.includes("3020") && out.includes("3089");
+  });
+  await check("  and totals the gold once every item resolves", async () => {
+    ITEM_BY_ID = new Map([["3020",{id:"3020",name:"A",total:1000}],
+                          ["3116",{id:"3116",name:"B",total:2000}],
+                          ["3089",{id:"3089",name:"C",total:3000}]]);
+    paint();
+    return document.getElementById("main").innerHTML.includes("6,000 gold");
+  });
+  /* A partial total while the shop is still loading is a wrong number that
+     looks like a right one, which is worse than showing none. */
+  /* Scoped to the card: the Item build section further down prices its own
+     lines, so checking the whole page for "gold" tests nothing. */
+  await check("  and says nothing when an item hasn't resolved yet", async () => {
+    ITEM_BY_ID = new Map([["3020",{id:"3020",name:"A",total:1000}]]);
+    paint();
+    const out = document.getElementById("main").innerHTML;
+    const i = out.indexOf('id="rail-build"');
+    const card = out.slice(i, out.indexOf("</div>", out.indexOf("g-rc-items", i)) + 6);
+    return i > -1 && !card.includes("gold");
+  });
+  await check("a guide with no items has no build card", async () => {
+    ITEM_BY_ID = new Map();
+    G = normaliseGuide({...DRAFT_FIXTURE, items: [], cardRow: ""}); paint();
+    return !document.getElementById("main").innerHTML.includes('id="rail-build"');
+  });
+  await check("other guides for the champion are listed, best first", async () => {
+    await publishGuide({...DRAFT_FIXTURE, title: "Second Kog guide"});
+    G = normaliseGuide(DRAFT_FIXTURE); G.slug = "not-a-real-slug"; paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes('id="rail-more"') && out.includes("Second Kog guide");
+  });
+  await check("  and the guide you are reading is not one of them", async () => {
+    const slug = await publishGuide({...DRAFT_FIXTURE, title: "Self link test"});
+    G = normaliseGuide(DRAFT_FIXTURE); G.slug = slug; paint();
+    const out = document.getElementById("main").innerHTML;
+    return !out.includes("Self link test");
+  });
+  /* Best first, because the card shows at most five of them and the five
+     worth showing are the ones people upvoted. */
+  /* The upvoted guide is published FIRST and the unvoted one second, so
+     listPublished's own newest-first order would put them the wrong way
+     round. Publishing them the other way made this pass with no sort at
+     all — recency alone produced the expected order. */
+  await check("  sorted by votes, not by publish order", async () => {
+    const high = await publishGuide({...DRAFT_FIXTURE, title: "High vote Kog"});
+    await publishGuide({...DRAFT_FIXTURE, title: "Low vote Kog"});
+    await toggleVote(high);
+    G = normaliseGuide(DRAFT_FIXTURE); G.slug = "reading-something-else"; paint();
+    const out = document.getElementById("main").innerHTML;
+    const i = out.indexOf('id="rail-more"');
+    return out.indexOf("High vote Kog", i) < out.indexOf("Low vote Kog", i);
+  });
+  /* The column is 340px and this is a sidebar, not an index — a champion
+     with twenty guides would otherwise push everything below it off screen. */
+  await check("  and capped at five however many exist", async () => {
+    for(let i = 0; i < 8; i++)
+      await publishGuide({...DRAFT_FIXTURE, title: "Filler Kog " + i});
+    G = normaliseGuide(DRAFT_FIXTURE); G.slug = "reading-something-else"; paint();
+    const out = document.getElementById("main").innerHTML;
+    const card = out.slice(out.indexOf('id="rail-more"'));
+    const rows = (card.slice(0, card.indexOf("</aside>")).match(/class="g-rc-row"/g) || []).length;
+    return rows === 5;
+  });
+  /* A moderator hid it. Listing it in the rail would both promote a guide
+     that was taken down and send readers to a page they cannot open. */
+  await check("  and a hidden guide is never promoted there", async () => {
+    const slug = await publishGuide({...DRAFT_FIXTURE, title: "Taken down Kog"});
+    /* setGuideHidden() refuses without a backend — that is itself checked
+       further down — so the flag goes straight onto the stored record, which
+       is the shape a moderator's hide would leave behind. */
+    const all = readStore(); all[slug].hidden = true; writeStore(all);
+    G = normaliseGuide(DRAFT_FIXTURE); G.slug = "reading-something-else"; paint();
+    return !document.getElementById("main").innerHTML.includes("Taken down Kog");
+  });
+
+  await check("a champion with no other guides has no more-guides card", async () => {
+    G = normaliseGuide({...DRAFT_FIXTURE, champ: "Nobody"}); paint();
+    return !document.getElementById("main").innerHTML.includes('id="rail-more"');
+  });
+  /* With every card empty there is nothing to put in the column, and a
+     340px strip of blank parchment beside the text is exactly the thing
+     this whole pass exists to remove. */
+  await check("a guide with nothing for the rail gets no rail at all", async () => {
+    G = normaliseGuide({...DRAFT_FIXTURE, champ: "Nobody", items: [],
+                        cardRow: "", matchups: []});
+    paint();
+    const out = document.getElementById("main").innerHTML;
+    return !out.includes("g-rail") && !out.includes("has-rail");
+  });
+
+  console.log("\\nthe hero:");
+  await check("the hero spans the viewport, not the centred column", async () => {
+    G = normaliseGuide(DRAFT_FIXTURE); paint();
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("g-hero-bleed");
+  });
+  await check("  and no longer sits inside guide-wrap", async () => {
+    const out = document.getElementById("main").innerHTML;
+    const hero = out.indexOf("g-hero-bleed");
+    const wrap = out.indexOf("guide-wrap");
+    /* The first guide-wrap in the document now belongs to the body below
+       the hero, not to the hero itself. */
+    return hero > -1 && (wrap === -1 || wrap > hero);
   });
   await check("they round-trip through publish and reload", async () => {
     const slug = await publishGuide(DRAFT_FIXTURE);
