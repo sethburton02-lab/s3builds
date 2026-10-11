@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=185">
+<link rel="stylesheet" href="site.css?v=186">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -1260,17 +1260,17 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="site.js?v=185"></script>
-<script src="data-rune-icons.js?v=185"></script>
-<script src="data-runes.js?v=185"></script>
-<script src="data-champ-focus.js?v=185"></script>
-<script src="data-mastery-tree.js?v=185"></script>
-<script src="data-masteries.js?v=185"></script>
-<script src="data-map.js?v=185"></script>
-<script src="guide-sanitise.js?v=185"></script>
-<script src="config.js?v=185"></script>
-<script src="guide-store.js?v=185"></script>
-<script src="guide-load.js?v=185"></script>
+<script src="site.js?v=186"></script>
+<script src="data-rune-icons.js?v=186"></script>
+<script src="data-runes.js?v=186"></script>
+<script src="data-champ-focus.js?v=186"></script>
+<script src="data-mastery-tree.js?v=186"></script>
+<script src="data-masteries.js?v=186"></script>
+<script src="data-map.js?v=186"></script>
+<script src="guide-sanitise.js?v=186"></script>
+<script src="config.js?v=186"></script>
+<script src="guide-store.js?v=186"></script>
+<script src="guide-load.js?v=186"></script>
 <script>
 /* Wrapped so this page's short helpers ($, esc, paint…) stay local and
    don't collide with the shared ones in site.js. */
@@ -1518,6 +1518,22 @@ function migrateSkillPages(d){
 }
 
 let draftUpgraded=false;
+/* Set once a new guide is published, so nothing writes the draft back. */
+let publishedAndCleared=false;
+
+/* Named, so the harness can run the same code the publish path runs
+   rather than a copy of it. Publishing a NEW guide used to leave the draft
+   in place: the creator reopened holding what you had just published, it
+   read as a failed publish, and publishing again minted a second guide
+   instead of updating the first. */
+function clearDraftAfterPublish(){
+  try{ localStorage.removeItem(saveKey()); }catch(_){}
+  if(!editingSlug){
+    try{ localStorage.removeItem(KEY); localStorage.removeItem(OLD_KEY); }catch(_){}
+    publishedAndCleared = true;
+  }
+  return {cleared: saveKey(), blankedNewDraft: !editingSlug};
+}
 function load(){
   try{
     let raw=null, legacy=false;
@@ -1531,6 +1547,14 @@ function load(){
       }
     } else {
       raw = localStorage.getItem(KEY);
+      /* A preview taken during an edit session leaves that guide here.
+         It is not a new-guide draft and must not open as one. */
+      try{
+        if(raw && JSON.parse(raw)._previewOf){
+          localStorage.removeItem(KEY);
+          raw = null;
+        }
+      }catch(_){}
       if(!raw){ raw=localStorage.getItem(OLD_KEY); legacy=!!raw; }
     }
     if(!raw) return false;
@@ -5489,8 +5513,12 @@ $("btnPublish").onclick=async()=>{
       : await publishGuide(S);
   }catch(err){ toast(err.message); return; }
 
-  /* The edit session's working copy has served its purpose. */
-  if(editingSlug){ try{ localStorage.removeItem(saveKey()); }catch(_){} }
+  /* The working copy has served its purpose -- for a NEW guide too, which
+     is the part this missed. Publishing left the draft in place, so the
+     creator reopened holding the guide you had just published: it looked
+     like the publish had failed, and publishing again minted a SECOND
+     guide rather than updating the first. */
+  clearDraftAfterPublish();
 
   /* Resolved by the browser rather than by chopping the address apart.
      The old version chopped the page's own filename off the address with
@@ -5546,7 +5574,12 @@ document.addEventListener("keydown",e=>{
 $("btnPreview").onclick=()=>{
   /* Preview reads the plain draft key, so an edit session has to put its
      current state there for the moment the preview opens. */
-  try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(_){}
+  /* guide.html reads the plain draft key, so an edit session has to put
+     its state there. Stamped, because otherwise that copy is still sitting
+     in the new-guide slot afterwards and the next "write a guide" opens
+     the guide you were editing. load() drops anything carrying this. */
+  const forPreview = editingSlug ? Object.assign({}, S, {_previewOf: editingSlug}) : S;
+  try{ localStorage.setItem(KEY, JSON.stringify(forPreview)); }catch(_){}
   window.open("guide.html", "_blank", "noopener");
 };
 
@@ -5606,7 +5639,14 @@ $("btnDiscard").onclick=()=>{
   offerUndo("Draft discarded.", before);
 };
 
-window.addEventListener("beforeunload",()=>{ try{ localStorage.setItem(KEY,JSON.stringify(S)) }catch(_){} });
+/* saveKey(), NOT KEY. This wrote every unload into the new-guide slot, so
+   closing an edit session left that guide sitting there as the draft, and
+   the next "write a guide" opened it. Reported by a reader who published,
+   came back, and thought her guide had not gone through. */
+window.addEventListener("beforeunload",()=>{
+  if(publishedAndCleared) return;      /* just published: leave the slot empty */
+  try{ localStorage.setItem(saveKey(),JSON.stringify(S)) }catch(_){}
+});
 
 /* =============================================================
    BOOT

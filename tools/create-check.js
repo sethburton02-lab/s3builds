@@ -93,7 +93,9 @@ global.localStorage = global.sessionStorage = {
   setItem: (k,v) => mem.set(k,String(v)), removeItem: k => mem.delete(k),
   clear: () => mem.clear()
 };
-global.addEventListener = () => {}; global.removeEventListener = () => {};
+global.__listeners = {};
+global.addEventListener = (ev, fn) => { (global.__listeners[ev] = global.__listeners[ev] || []).push(fn); };
+global.removeEventListener = () => {};
 global.requestAnimationFrame = cb => setTimeout(cb, 0);
 global.setTimeout = global.setTimeout;
 global.matchMedia = () => ({matches:false, addListener(){}, addEventListener(){}});
@@ -1156,6 +1158,54 @@ const CHECKS = `
     S.plans = []; planAdd(); planAdd(); planAdd();
     S.planActive = 2; planRemove(2);
     return S.planActive === 1 && !!curPlan();
+  });
+
+  /* ---- the draft lifecycle ----
+     A reader published a guide, came back to write another, and the
+     creator opened holding the guide she had just published -- so she
+     thought the publish had failed. Worse, publishing again would have
+     minted a SECOND guide rather than updating the first, because the
+     new-guide path never cleared the draft.
+
+     These drive the real functions, not copies of them. */
+  console.log("\\nthe draft lifecycle:");
+
+  const DKEY = "riftvault.draft.v2";
+
+  check("publishing a new guide clears the draft", () => {
+    localStorage.setItem(DKEY, JSON.stringify({title: "Published thing"}));
+    clearDraftAfterPublish();
+    return localStorage.getItem(DKEY) === null;
+  });
+
+  check("  and nothing writes it back on unload", () => {
+    localStorage.setItem(DKEY, JSON.stringify({title: "x"}));
+    clearDraftAfterPublish();
+    for(const fn of (global.__listeners.beforeunload || [])) fn();
+    return localStorage.getItem(DKEY) === null;
+  });
+
+  check("  an unload handler is actually registered", () =>
+    (global.__listeners.beforeunload || []).length > 0);
+
+  check("a preview taken while editing is not offered as a new guide", () => {
+    localStorage.setItem(DKEY, JSON.stringify({title: "Someone else's guide",
+                                               _previewOf: "shaco-abc123"}));
+    const got = load();
+    return got === false && localStorage.getItem(DKEY) === null;
+  });
+
+  check("  but an ordinary draft still loads", () => {
+    /* built from BLANK: a hand-written stub missing the arrays makes
+       load() throw into its own catch and return false, which would have
+       looked like the preview guard eating real drafts. */
+    const real = Object.assign(structuredClone(BLANK), {title: "My work in progress",
+                                                        champ: "Ashe"});
+    localStorage.setItem(DKEY, JSON.stringify(real));
+    const got = load();
+    if(got === false || S.title !== "My work in progress")
+      return "load() returned " + got + ", S.title is " + JSON.stringify(S.title);
+    return true;
   });
 
   console.log(failed ? "\\n" + failed + " FAILED" : "\\nthe matchup combobox and the plan editor hold up");
