@@ -2,35 +2,19 @@
      role="img" aria-label="S3 Builds">
   <title>S3 Builds</title>
   <!-- An item slot: gold frame, dark well, S3 inside.
-
-       The letters are stroked geometry, not type. Two circles make an S and
-       two make a 3, which is roughly how both are drawn anyway. Nothing
-       here needs a font to be installed or licensed — which matters while
-       the Friz Quadrata question is open, and matters permanently for a
-       favicon, where the renderer may have no fonts at all.
-
-       Proportions are the whole game at this size. A first pass used r=6
-       bowls with a stroke of 5, which leaves a one-unit counter: rendered
-       at any real size both characters filled in solid and the mark read as
-       two gold blobs. r=7 with a stroke of 3.5 keeps a counter wider than
-       the stroke, which is what makes the letters survive being shrunk.
-
-       One consequence: this can't be edited by retyping. Changing the mark
-       means changing the arcs. -->
+       Letters are Friz Quadrata Pro Bold as OUTLINES, so no font need be
+       installed or licensed at render time. Regenerate with
+       tools/make-logo.py; this file cannot be edited by retyping. -->
   <defs>
     <linearGradient id="s3frame" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#e6cf9a"/>
       <stop offset="1" stop-color="#8a6d24"/>
     </linearGradient>
   </defs>
-
   <rect x="2" y="2" width="60" height="60" rx="6" fill="url(#s3frame)"/>
   <rect x="7" y="7" width="50" height="50" rx="3" fill="#1d1811"/>
-
-  <g fill="none" stroke="#e6cf9a" stroke-width="3.5" stroke-linecap="round">
-    <!-- S — top bowl opens up-right, bottom bowl opens down-left. -->
-    <path d="M27.95 20.05 A7 7 0 1 0 23 32 A7 7 0 1 1 18.05 43.95"/>
-    <!-- 3 — both bowls open left, so they stack into a single spine. -->
-    <path d="M36.05 20.05 A7 7 0 1 1 41 32 A7 7 0 1 1 36.05 43.95"/>
+  <g fill="#e6cf9a" transform="translate(17.000 40.545) scale(0.024590 -0.024590)">
+    <path d="M294 709Q387 709 473 678V555Q392 602 324 602Q281 602 255.5 584.0Q230 566 230 536Q230 509 250.0 492.5Q270 476 325 452Q392 424 424.5 404.5Q457 385 484 360Q551 299 551 211Q551 155 524.5 105.0Q498 55 438 23Q404 4 361.5 -5.0Q319 -14 257 -14Q209 -14 161.0 -5.5Q113 3 56 24L21 175Q72 134 130.0 113.5Q188 93 246 93Q297 93 326.0 113.0Q355 133 355 170Q355 192 346.5 206.0Q338 220 315.0 234.5Q292 249 244 273L196 297Q151 319 118.0 341.0Q85 363 59.0 403.5Q33 444 33 503Q33 565 64.5 611.5Q96 658 155.0 683.5Q214 709 294 709Z"/>
+    <path transform="translate(595 0)" d="M283 709Q352 709 407.0 687.5Q462 666 493.0 628.5Q524 591 524 544Q524 525 515.0 497.5Q506 470 479.5 442.5Q453 415 405 401Q565 358 565 217Q565 151 525.0 98.0Q485 45 414.0 15.5Q343 -14 253 -14Q170 -14 90 6L59 133Q92 115 134.5 102.0Q177 89 223 89Q283 89 322.5 126.0Q362 163 362 218Q362 280 319.0 307.5Q276 335 212 335H154V428H185Q254 428 289.0 453.0Q324 478 324 524Q324 562 297.0 585.5Q270 609 225 609Q194 609 159.5 599.0Q125 589 78 566L113 684Q205 709 283 709Z"/>
   </g>
 </svg>
