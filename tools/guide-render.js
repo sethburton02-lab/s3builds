@@ -62,6 +62,29 @@ const DRAFT = {
   ],
   active: 0,
   sections: [{h:"Why this build works", b:"<p>Range is the whole plan.</p>"}],
+  /* Two plans, so the tab strip has something to switch between. The first
+     carries every feature at once — a route by place name, a route with a
+     raw point, markers of each kind, and freehand ink. The hostile values
+     are the point of the rest: a colour with a quote in it must not reach
+     the markup, a place key with a space in it must not become a class, and
+     a step naming a camp that does not exist must vanish rather than draw at
+     NaN — which is what a guide written against an older map would do. */
+  plans: [
+    {id:"m1", title:"Full clear from blue", kind:"jungle",
+     note:"<p>Start blue, finish on <b>red</b>.</p>",
+     routes:[
+       {id:"r1", colour:"blue", label:"Levels 1-4",
+        steps:[{place:"blue-buff"},{place:"blue-wolves"},{place:"blue-wraiths"},{place:"blue-red"}]},
+       {id:"r2", colour:"x\" onload=alert(1)", label:"<img src=x onerror=1>",
+        steps:[{place:"ghost-camp"},{place:"baron"},{x:0.5,y:0.5}]}
+     ],
+     markers:[{place:"blue-wraiths",kind:"ward"},{place:"red-buff",kind:"pink"},
+              {place:"baron",kind:"danger"},{place:"dragon",kind:"objective"},
+              {place:"a b c",kind:"note"}],
+     ink:[{colour:"red", w:9, pts:[[0.1,0.1],[0.2,0.2],[0.3,0.25]]}]},
+    {id:"m2", title:"Ward setup", kind:"wards",
+     routes:[], markers:[{place:"dragon",kind:"ward"},{place:"baron",kind:"ward"}], ink:[]}
+  ],
   notes: {items:"<p>Rush the component.</p>", runes:"<p>Armour seals.</p>"}
 };
 
@@ -191,7 +214,203 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     const out = masteriesHtml(); MASTERY_TREE = had;
     return out === "";
   });
+  /* ---- the game plan ---- */
+  await check("game plan renders", async () => plansHtml().includes("Game plan"));
+  await check("  draws the map under it", async () => plansHtml().includes("m-fig"));
+  await check("  and the plan layer over it", async () => plansHtml().includes("m-plan"));
+  await check("  a route by place name lands on the camp", async () => {
+    const svg = mapPlanSvg(G.plans[0]);
+    /* no backticks: these checks are themselves inside a template literal,
+       so a nested one ends the harness string early */
+    const c = MAP_CAMPS.find(x => x.key === "blue-buff");
+    return svg.indexOf('cx="' + c.x + '"') >= 0;
+  });
+  /* NO REGEX AND NO BACKTICKS IN HERE. These checks are appended to the
+     page source inside a template literal, so a backslash is eaten before
+     the regex is ever compiled and a backtick ends the harness string. */
+  await check("  steps are numbered", async () => {
+    const svg = mapPlanSvg(G.plans[0]);
+    return svg.indexOf(">1<") >= 0 && svg.indexOf(">4<") >= 0 && svg.indexOf(">5<") < 0;
+  });
+  await check("  ward markers use the recoloured icons",
+    async () => mapPlanSvg(G.plans[0]).indexOf("art/ward-green.png") >= 0);
+  await check("  freehand ink survives the round trip",
+    async () => mapPlanSvg(G.plans[0]).includes("pl-ink"));
+  await check("  two plans give a tab strip", async () => plansHtml().includes('data-tab="plan"'));
+  await check("  the second tab renders its own plan", async () => {
+    view.plan = 1; const out = plansHtml(); view.plan = 0;
+    return out.includes("Ward setup") && !out.includes("pl-ink");
+  });
+  await check("  a tab is NOT drawn for a single plan", async () => {
+    const had = G.plans; G.plans = [had[0]];
+    const out = plansHtml(); G.plans = had;
+    return !out.includes('data-tab="plan"');
+  });
+  /* the hostile fixture values */
+  await check("  a hostile route colour never reaches the markup", async () => {
+    const svg = mapPlanSvg(G.plans[0]);
+    return svg.indexOf("onload") < 0 && svg.indexOf("arrow-x") < 0;
+  });
+  /* TWO LAYERS, TESTED SEPARATELY. normaliseGuide strips angle brackets
+     before the legend ever runs, so a label that arrived hostile reaches
+     mapPlanLegend already inert -- which means a single end-to-end check
+     cannot tell whether the legend escapes anything at all. An earlier
+     version of this check looked for "&lt;img" and failed correct code,
+     because by then there was no "<" left to escape. */
+  await check("  a hostile route label survives sanitising as inert text", async () => {
+    const l = mapPlanLegend(G.plans[0]);
+    /* the label text only: between the last </i> and the </li> that closes
+       its row. Slicing to the end instead swept up the closing tags the
+       legend itself writes, which obviously contain "<". */
+    const from = l.lastIndexOf("</i>") + 4;
+    const label = l.slice(from, l.indexOf("</li>", from));
+    return label.indexOf("<") < 0 && label.indexOf("onerror") >= 0;
+  });
+  await check("  and the legend escapes on its own, without that help", async () => {
+    const l = mapPlanLegend({routes:[{colour:"gold", label:"<img src=x onerror=1>"}]});
+    return l.indexOf("<img") < 0 && l.indexOf("&lt;img") >= 0;
+  });
+  await check("  a malformed place key is dropped, not rendered", async () => {
+    const svg = mapPlanSvg(G.plans[0]);
+    return svg.indexOf("a b c") < 0 && svg.indexOf("NaN") < 0;
+  });
+  await check("  a step naming a camp that no longer exists just vanishes", async () => {
+    const svg = mapPlanSvg(G.plans[0]);
+    return svg.indexOf("NaN") < 0 && svg.indexOf("undefined") < 0;
+  });
+  await check("  a guide with no plans has no section", async () => {
+    const had = G.plans; G.plans = [];
+    const out = plansHtml(); G.plans = had;
+    return out === "";
+  });
+  await check("  the section is NOT in the rail", async () => !railHtml().includes("m-plan"));
+  await check("  plan colours are declared in the stylesheet",
+    async () => __SITE_CSS.indexOf(".pl-line{") >= 0 && __SITE_CSS.indexOf(".pl-pip") >= 0);
+
+  /* ---- the rules normaliseGuide enforces on plans ----
+     These were only ever exercised by throwaway node runs, which is to say
+     not exercised at all: a mutation run removed every cap, clamp and enum
+     here and nothing noticed. Checked against normaliseGuide DIRECTLY,
+     because that is where the rule lives. */
+  const NP = o => normaliseGuide({plans: o}).plans;
+  const manySteps = [];
+  for(let i = 0; i < 90; i++) manySteps.push({place: "blue-buff"});
+  const manyPlans = [];
+  for(let i = 0; i < 20; i++) manyPlans.push({routes:[{steps:[{place:"blue-buff"},{place:"blue-red"}]}]});
+
+  await check("  plans are capped", async () => NP(manyPlans).length === 6);
+  await check("  steps are capped", async () =>
+    NP([{routes:[{steps: manySteps}]}])[0].routes[0].steps.length === 40);
+  await check("  ink strokes and their points are capped", async () => {
+    const pts = []; for(let i = 0; i < 900; i++) pts.push([0.5, 0.5]);
+    const ink = []; for(let i = 0; i < 99; i++) ink.push({pts: pts});
+    const out = NP([{ink: ink}])[0];
+    return out.ink.length === 40 && out.ink[0].pts.length === 200;
+  });
+  await check("  coordinates are clamped to the square", async () => {
+    const st = NP([{routes:[{steps:[{x:-5,y:9},{x:0.2,y:0.2}]}]}])[0].routes[0].steps[0];
+    return st.x === 0 && st.y === 1;
+  });
+  await check("  a route with fewer than two steps is dropped", async () =>
+    NP([{routes:[{steps:[{place:"blue-buff"}]}]}]).length === 0);
+  await check("  an unknown marker kind becomes a plain note", async () =>
+    NP([{markers:[{place:"baron", kind:"<script>"}]}])[0].markers[0].kind === "note");
+  await check("  an unknown route colour becomes gold", async () =>
+    NP([{routes:[{colour:"nonsense", steps:[{place:"blue-buff"},{place:"blue-red"}]}]}])[0]
+      .routes[0].colour === "gold");
+  await check("  a step that is neither a place nor a point is dropped", async () =>
+    NP([{routes:[{steps:[{nonsense:1},{place:"blue-buff"},{place:"blue-red"}]}]}])[0]
+      .routes[0].steps.length === 2);
+
+  /* ---- what mapPlanSvg must do ON ITS OWN ----
+     Feeding hostile values through normaliseGuide first proves nothing about
+     the renderer: by the time the svg is built the enum has already replaced
+     them. These call it directly, so the renderer has to defend itself. */
+  await check("  the renderer rejects a bad colour without normaliseGuide's help", async () => {
+    const svg = mapPlanSvg({routes:[{colour:'x" onload=alert(1)',
+      steps:[{place:"blue-buff"},{place:"blue-red"}]}]});
+    return svg.indexOf("onload") < 0 && svg.indexOf("arrow-x") < 0 && svg.indexOf("arrow-gold") > 0;
+  });
+  await check("  every marker-end it writes points at a marker it defined", async () => {
+    const svg = mapPlanSvg({routes:[{colour:'bad"x', steps:[{place:"baron"},{place:"dragon"}]}]});
+    const ref = svg.slice(svg.indexOf("url(#") + 5);
+    const id = ref.slice(0, ref.indexOf(")"));
+    return svg.indexOf('<marker id="' + id + '"') >= 0;
+  });
+  await check("  an unknown place draws nothing rather than a point at the origin", async () => {
+    const svg = mapPlanSvg({routes:[{colour:"gold",
+      steps:[{place:"ghost-one"},{place:"ghost-two"},{place:"ghost-three"}]}]});
+    return svg.indexOf("pl-pip") < 0 && svg.indexOf("pl-route") < 0;
+  });
+  await check("  and a route half of whose stops are gone keeps only the real ones", async () => {
+    const svg = mapPlanSvg({routes:[{colour:"gold",
+      steps:[{place:"ghost-one"},{place:"blue-buff"},{place:"blue-red"}]}]});
+    const n = svg.split("pl-pip").length - 1;
+    return n === 2 && svg.indexOf('cx="0" cy="0"') < 0;
+  });
+  await check("  the objective marker is a blue flag, not a ring", async () => {
+    const svg = mapPlanSvg({markers:[{place:"baron", kind:"objective"}]});
+    return svg.indexOf("pl-flag") >= 0 && svg.indexOf("pl-pole") >= 0
+        && __SITE_CSS.indexOf(".pl-obj .pl-flag{fill:#3f8fe0") >= 0;
+  });
+  await check("  a trinket and a control ward use different files", async () => {
+    /* Riot ships both ally wards in BLUE -- the filename names the ward type,
+       the pixels carry the team colour -- so they have to come from our
+       recoloured copies, and from two different ones. */
+    const svg = mapPlanSvg({markers:[{place:"baron", kind:"ward"},
+                                     {place:"dragon", kind:"pink"}]});
+    return svg.indexOf("art/ward-green.png") >= 0
+        && svg.indexOf("art/ward-pink.png") >= 0
+        && svg.indexOf("communitydragon") < 0;
+  });
+  await check("  and every marker kind draws something distinct", async () => {
+    /* Compared on SHAPE, not on the whole string. Raw svg let two kinds draw
+       the identical shape and still pass because they sat at different
+       coordinates; stripping only the digits then let them differ purely by
+       how the template happened to be line-wrapped. So coordinates AND
+       whitespace both come out, leaving the elements and classes each kind
+       actually uses -- which is the thing that has to differ. */
+    const shapeOf = svg => svg.split("").filter(ch =>
+      (ch < "0" || ch > "9") && ch !== "." && ch !== "-"
+      && ch > " ").join("");   /* ch > " " drops every whitespace character
+                                  without needing an escape -- these checks
+                                  live in a template literal, where "\n"
+                                  becomes a real newline inside the string
+                                  and the file stops parsing. */
+    const kinds = ["ward", "pink", "danger", "objective", "note"];
+    const seen = {};
+    for(const k of kinds){
+      const svg = mapPlanSvg({markers:[{place:"baron", kind:k}]});
+      if(svg.length < 40) return false;
+      const sig = shapeOf(svg);
+      if(seen[sig]) return false;
+      seen[sig] = k;
+    }
+    return true;
+  });
+  await check("  the FIRST stop of a path shows straight away", async () => {
+    /* It used to take two: anything under two points rendered as nothing, so
+       in the editor the opening click of a path looked like a miss. */
+    const svg = mapPlanSvg({routes:[{colour:"gold", steps:[{place:"blue-buff"}]}]});
+    return svg.indexOf("pl-pip") >= 0 && svg.indexOf(">1<") >= 0;
+  });
+  await check("  with no line until there is a second stop to join it to", async () => {
+    const one = mapPlanSvg({routes:[{colour:"gold", steps:[{place:"blue-buff"}]}]});
+    const two = mapPlanSvg({routes:[{colour:"gold",
+      steps:[{place:"blue-buff"},{place:"blue-wolves"}]}]});
+    return one.indexOf("pl-line") < 0 && one.indexOf("marker-end") < 0
+        && two.indexOf("pl-line") >= 0 && two.indexOf("marker-end") >= 0;
+  });
+  await check("  but a one-stop path is still dropped when the guide publishes",
+    async () => normaliseGuide({plans:[{routes:[{steps:[{place:"blue-buff"}]}]}]}).plans.length === 0);
+
+  await check("  the renderer clamps a stroke width the data did not", async () => {
+    const svg = mapPlanSvg({ink:[{colour:"gold", w:9999, pts:[[0,0],[1,1]]}]});
+    return svg.indexOf('stroke-width="40"') >= 0;
+  });
+
   await check("whole page paints", async () => { paint(); return document.getElementById("main").innerHTML.length > 500; });
+  await check("  and the plan is in it", async () => document.getElementById("main").innerHTML.includes("m-plan"));
 
   console.log("\\nwith the catalogues populated:");
   CHAMPIONS = [{id:"KogMaw", name:"Kog'Maw", key:"96", cls:"Marksman"}];
@@ -1022,7 +1241,8 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
   await check("all three parts join cleanly", async () => {
     G.author = "sefferton"; G.patch = "16.16"; G.slug = "s"; LIVE_PATCH = "16.16";
     const h = bylineHtml();
-    return h.includes("sefferton") && h.includes("16.16") && !doubled(h);
+    /* 16.16 is what is stored; 26.16 is what a reader sees. */
+    return h.includes("sefferton") && h.includes("26.16") && !doubled(h);
   });
 
   await check("an author on their own has no separators at all", async () => {
@@ -1034,7 +1254,7 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
   await check("no author, no leading separator", async () => {
     G.author = ""; G.patch = "16.16"; G.slug = ""; LIVE_PATCH = null;
     const h = bylineHtml();
-    return h.includes("16.16") && !doubled(h);
+    return h.includes("26.16") && !doubled(h);
   });
 
   await check("nothing at all is an empty line, not a lone dot", async () => {
@@ -1044,17 +1264,45 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
 
   G.author = "Seth"; G.patch = ""; G.slug = "seeded"; LIVE_PATCH = null;
 
+  console.log("\\nwhat the mode calls the patch:");
+  /* Data Dragon returns Riot's internal numbering -- 16.20.1 today -- while
+     the client, the patch notes and every player say 26.20. */
+  await check("an internal patch number is shown the way the mode shows it",
+    async () => classicPatch("16.20") === "26.20");
+  await check("  the build part survives", async () => classicPatch("16.19.1") === "26.19.1");
+  await check("  a number already in the mode convention is untouched",
+    async () => classicPatch("26.20") === "26.20");
+  await check("  an empty patch stays empty rather than becoming one", async () =>
+    /* Number("") is 0 -- finite, and under the threshold -- so a
+       split-and-add version of this invented "10" out of nothing. */
+    classicPatch("") === "" && classicPatch(null) === "" && classicPatch(undefined) === "");
+  await check("  a non-version string is left alone",
+    async () => classicPatch("lolpatch_7.20") === "lolpatch_7.20");
+  await check("  the label a reader sees uses it", async () => {
+    const had = LIVE_PATCH; LIVE_PATCH = "16.20";
+    const out = patchLabel(); LIVE_PATCH = had;
+    return out === "Patch 26.20";
+  });
+  await check("  and a guide stamp reads in the same convention", async () => {
+    const had = LIVE_PATCH, was = G.patch;
+    LIVE_PATCH = "16.20"; G.patch = "16.18";
+    const out = guidePatchText();
+    LIVE_PATCH = had; G.patch = was;
+    return out.indexOf("26.18") >= 0 && out.indexOf("26.20") >= 0
+        && out.indexOf("16.18") < 0 && out.indexOf("16.20") < 0;
+  });
+
   console.log("\\nthe patch stamp:");
 
   await check("a stamped guide says which patch it was checked on", async () => {
     G.patch = "16.16"; LIVE_PATCH = null;
-    return /Checked on patch 16\.16/.test(guidePatchText());
+    return /Checked on patch 26\.16/.test(guidePatchText());
   });
 
   await check("  and flags it when the live patch has moved on", async () => {
     G.patch = "16.16"; LIVE_PATCH = "16.19";
     const out = guidePatchText();
-    return /Checked on patch 16\.16/.test(out) && /live is 16\.19/.test(out);
+    return /Checked on patch 26\.16/.test(out) && /live is 26\.19/.test(out);
   });
 
   await check("  but says nothing extra when they match", async () => {
@@ -1099,6 +1347,9 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
   });
 
   await check("  and it is stamped when the live patch is known", async () => {
+    /* STORED INTERNAL, shown mapped. Writing the displayed number would make
+       every guide published before today read ten patches out of date, with
+       nothing in the row to say which convention it used. */
     LIVE_PATCH = "16.19";
     const row = toRow({title:"t"}, "s", "u", "n");
     return row.patch === "16.19";
@@ -1206,10 +1457,82 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
   await check("paint() runs the hydrator", async () =>
     /hydrateRefs\s*\(\s*\)/.test(String(paint)));
 
+  /* ---- coincident glyphs ----
+     Found by rendering the demo plans as a published guide and looking:
+     stop 3 was invisible under a danger marker and stop 5 under the next
+     route's stop 1. Nothing failed -- the svg was valid and every element
+     was present, just stacked. So this asserts SEPARATION, not presence;
+     a check that counted pips would have passed throughout the bug.
+
+     Measured on real demo plans rather than a fixture built to collide,
+     because the point is that ordinary planning produces this. */
+  const glyphGaps = plan => {
+    const svg = mapPlanSvg(plan), items = [];
+    for(const m of svg.matchAll(/<circle cx="([-0-9.]+)" cy="([-0-9.]+)" r="15"/g))
+      items.push({x: +m[1], y: +m[2], r: 15});
+    for(const m of svg.matchAll(/<image class="pl-mark" href="[^"]*" x="([-0-9.]+)" y="([-0-9.]+)"/g))
+      items.push({x: +m[1] + 19, y: +m[2] + 19, r: 19});
+    let worst = Infinity;
+    for(let i = 0; i < items.length; i++)
+      for(let j = i + 1; j < items.length; j++){
+        const a = items[i], b = items[j];
+        worst = Math.min(worst, Math.hypot(a.x - b.x, a.y - b.y) - a.r - b.r);
+      }
+    return {worst, n: items.length};
+  };
+
+  await check("two things on one spot do not hide each other", async () => {
+    let n = 0;
+    for(const plan of DEMO_PLANS){
+      const g = glyphGaps(plan);
+      n += g.n;
+      if(g.worst < 0) return false;
+    }
+    return n > 10;          /* and it actually looked at a plan's worth */
+  });
+
+  /* The guard above is worthless if no demo plan ever collides -- it would
+     pass on a renderer that does no spreading at all. So: confirm the raw
+     places really do coincide, i.e. that the fixture still exercises it. */
+  await check("  and the demo plans really do contain collisions", async () => {
+    let dup = 0;
+    for(const plan of DEMO_PLANS){
+      const at = new Set();
+      const put = q => { const k = Math.round(q.x) + ":" + Math.round(q.y);
+                         if(at.has(k)) dup++; at.add(k); };
+      for(const r of plan.routes || [])
+        for(const st of r.steps || []){ const q = mapPoint(st); if(q) put(q); }
+      for(const mk of plan.markers || []){ const q = mapPoint(mk); if(q) put(q); }
+    }
+    return dup >= 4;
+  });
+
+  await check("the route line still joins the TRUE points", async () => {
+    /* only the glyph steps aside; a reader traces the path, so moving the
+       line would change what the plan says */
+    const plan = DEMO_PLANS.find(p => (p.routes || []).length > 1);
+    const first = (plan.routes[1].steps || []).map(mapPoint).filter(Boolean)[0];
+    const svg = mapPlanSvg(plan);
+    /* no space after the M -- the path builder concatenates the command
+       straight onto the coordinate, and a regex that assumed one simply
+       found nothing and failed. */
+    const ds = [...svg.matchAll(/class="pl-line" d="M([-0-9.]+) ([-0-9.]+)/g)];
+    return ds.some(m => Math.abs(+m[1] - first.x) < 0.2 &&
+                        Math.abs(+m[2] - first.y) < 0.2);
+  });
+
   console.log(failed ? "\\n" + failed + " failure(s)" : "\\nthe guide view renders end to end");
   if(failed) process.exitCode = 1;
 })();
 `;
+
+/* The demo plans are the fixture for the coincident-glyph checks, read from
+   the dev page rather than re-typed here: a copy would drift, and the point
+   of these checks is that plans people actually write collide. */
+const demoSrc = fs.readFileSync(path.join(dir, "demo-plans.html"), "utf8");
+const demoM = demoSrc.match(/const DEMO = (\[[\s\S]*?\n\]);/);
+if(!demoM) throw new Error("could not find DEMO in demo-plans.html");
+global.DEMO_PLANS = JSON.parse(demoM[1]);
 
 global.DRAFT_FIXTURE = DRAFT;
 (0, eval)(src);

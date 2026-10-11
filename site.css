@@ -1305,3 +1305,267 @@ body.creator .wrap{max-width:min(1660px,96vw)}
   border:1px solid var(--line);border-radius:8px}
 .acct-pw input:focus{border-color:#c8aa6e;box-shadow:0 0 0 2px hsla(43,47%,60%,.45);
   outline:none}
+
+/* ============================================================
+   THE RIFT SCHEMATIC
+   Riot's own minimap palette rather than the parchment one: sand ground,
+   lavender-grey rock, muted water. A map that reads as a map is worth more
+   here than a map that matches the page, and the gold frame plus the
+   parchment under it already tie it in.
+
+   Nothing here sets a corridor width. Those come out of the brush that
+   painted them and live in data-map.js, so a lane is rewidened by painting
+   it again, not by overriding it from the stylesheet.
+
+   Opacity goes on the GROUPS, never on the paths. Forty-two half-transparent
+   rocks darken wherever two overlap, and the seams read as cracks.
+   ============================================================ */
+.m-svg{display:block;width:100%;height:auto;border-radius:16px}
+
+/* Every corridor is one round-capped stroke; only the colour changes. */
+.m-band{fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+.m-bases{opacity:.62}
+.m-base{stroke:none}
+
+/* edge pass under fill pass — the rim that stops everything reading flat */
+.m-lane-edge .m-band{stroke:#b59c6f}
+.m-lane .m-band{stroke:#e8d9b2}
+
+.m-river-edge .m-band{stroke:#5b8ba8;opacity:.75}
+
+.m-wall-edge .m-band{stroke:#6f6275}
+.m-wall .m-band{stroke:#9e8fa6}
+
+/* Camps and pits carry the names a plan refers to, so they get the only
+   hard outlines on the map. */
+/* No badge. The disc is a soft shadow the portrait sits in, not a frame
+   around it — a cream ring with a hard stroke made every camp read as a
+   sticker on top of the map rather than part of it. When the portrait
+   loads it covers this entirely; when it doesn't, this is what carries
+   the letter. */
+.m-camp circle,.m-pit circle{fill:rgba(26,19,11,.38);stroke:none}
+/* No text on the map any more. The short labels still exist in the data,
+   because a plan refers to places by name -- they are just not drawn. */
+
+.m-frame{fill:none;stroke:var(--line,#c9a23c);stroke-width:4}
+
+/* A camp is a target once a plan is being drawn on top; inert until then. */
+.m-svg.pickable .m-camp,.m-svg.pickable .m-pit{cursor:pointer}
+.m-svg.pickable .m-camp:hover circle,.m-svg.pickable .m-pit:hover ellipse{stroke:#c73e00}
+
+/* The figure stacks a backdrop and the marker layer in one square. Both fill
+   it, so a marker measured as a fraction lands in the same place whichever
+   backdrop is underneath. */
+.m-fig{position:relative;width:100%;aspect-ratio:1/1;border-radius:16px;overflow:hidden}
+.m-fig>*{position:absolute;inset:0;width:100%;height:100%}
+.m-photo{object-fit:cover;display:block}
+.m-overlay{display:block}
+
+/* Over photographic art the markers need their own contrast — on the
+   schematic the ground is flat and a plain outline was enough. */
+
+
+/* The "30" spawn labels that the discs used to have to cover are gone from
+   the clean plate, so nothing needs oversizing to hide them any more. */
+
+/* Structures: square turret, diamond inhibitor, larger diamond nexus. Three
+   silhouettes rather than three colours alone, so they stay apart from the
+   round camps when the map is small or the reader is colour-blind. */
+.m-struct rect,.m-struct path{stroke-width:3;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.m-struct.blue rect,.m-struct.blue path{fill:#3f8fe0;stroke:#13365e}
+.m-struct.red rect,.m-struct.red path{fill:#e06048;stroke:#5e2113}
+.m-struct.nexus rect,.m-struct.nexus path{stroke-width:4}
+
+/* Game icons sit over the plain markers rather than replacing them, so a
+   dead URL degrades to the disc and letter instead of a hole. The disc also
+   gives a portrait something to sit on, the way the game's own round
+   minimap icons do. */
+/* These are the game's own minimap glyphs now, drawn as-is: no grading, no
+   feather. A shadow seats them on the plate without altering the art. */
+.m-camp image,.m-pit image{pointer-events:none;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+.m-struct image{pointer-events:none;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+/* with an icon on top the coloured fill would only show at the rim, which
+   reads as a halo — so the structure shape becomes a quiet backing plate */
+.m-struct rect,.m-struct path{opacity:.001}
+.m-fig[data-skin="schematic"] .m-struct rect,
+.m-fig[data-skin="schematic"] .m-struct path{opacity:1}
+/* An icon that failed to load removes itself and sets this, so the marker
+   underneath comes back to full strength instead of leaving a hole. */
+.m-struct[data-noicon] rect,.m-struct[data-noicon] path{opacity:1}
+.m-camp[data-noicon] circle,.m-pit[data-noicon] circle{opacity:1}
+
+/* ---------- the game plan on a guide ---------- */
+.plan-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 10px}
+.plan-fig{max-width:620px}
+.plan-note{margin-top:12px}
+
+/* The legend is the only thing that says which coloured line is which, so it
+   sits beside the kind chip rather than under the map where it would be
+   below the fold on a short screen. */
+.m-legend{display:flex;gap:14px;flex-wrap:wrap;list-style:none;margin:0;padding:0;
+  font-size:13px;color:var(--muted)}
+.m-legend li{display:flex;align-items:center;gap:6px}
+.m-legend i{width:14px;height:4px;border-radius:2px;flex:none}
+
+/* The plan layer sits over the markers, in the same square, so a route
+   drawn to a camp lands on that camp's icon by construction. */
+.m-plan{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* A dark under-stroke makes a route readable over both the sand and the
+   rock; colour alone washed out over the lighter lanes. */
+.pl-line-under{fill:none;stroke:rgba(20,14,8,.55);stroke-width:11;
+  stroke-linecap:round;stroke-linejoin:round}
+.pl-line{fill:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.pl-ink{fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.75}
+
+.pl-pip circle{stroke:rgba(20,14,8,.7);stroke-width:2.5}
+.pl-pip text{font:700 17px var(--font-jade,Georgia,serif);fill:#1b1409;
+  text-anchor:middle;pointer-events:none;user-select:none}
+
+.pl-danger path{fill:#d8574a;stroke:rgba(20,14,8,.7);stroke-width:2.5}
+.pl-danger text{font:700 18px var(--font-jade,Georgia,serif);fill:#fff;
+  text-anchor:middle;pointer-events:none}
+/* Objective: a blue flag. The pole is stroked and the pennant filled, so it
+   keeps its shape against both the sand and the rock. */
+.pl-obj .pl-pole{stroke:#14365e;stroke-width:4;stroke-linecap:round;fill:none}
+.pl-obj .pl-flag{fill:#3f8fe0;stroke:#14365e;stroke-width:2.5;stroke-linejoin:round}
+.pl-note circle{fill:#e0a84a;stroke:rgba(20,14,8,.7);stroke-width:2.5}
+.pl-mark{filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+
+/* ---------- the game plan editor ----------
+   Deliberately few controls. The first version had four tools, five colour
+   swatches, five marker kinds, a kind select, a route list and an open rich
+   editor — about twenty things to look at before drawing a line. Colours are
+   assigned now, the kind select is gone, the route list appears only with a
+   second path, and the note hides behind a button. */
+.plan-bar{margin:0 0 12px}
+  border:1px solid var(--line-soft);border-radius:8px;padding:6px 11px;
+  font:inherit;font-size:13.5px;color:var(--text);cursor:pointer}
+.plan-tab.on{background:var(--bg-2);border-color:var(--line);color:var(--gold-hi);font-weight:600}
+.plan-tab i{font-style:normal;color:var(--muted-2);padding:0 2px;border-radius:4px}
+.plan-tab i:hover{background:var(--red);color:#fff}
+.plan-tab.add{color:var(--muted)}
+
+/* One column: the map, with its controls above and its labels below. Two
+   columns put the map in a 560px box beside a mostly-empty sidebar. */
+.plan-edit{max-width:620px}
+.plan-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.pt-group{display:flex;gap:4px;align-items:center}
+/* display:flex above beats the browser's own [hidden]{display:none}, so the
+   marker buttons stayed on screen under every tool however correctly the
+   script set .hidden. Any element given display: needs its own hidden rule. */
+.pt-group[hidden]{display:none}
+.pt-right{margin-left:auto}
+
+/* A tool button says what it does under its name, so the map needs no key. */
+.pt{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;
+  padding:6px 11px;font:inherit;font-size:13px;color:var(--text);cursor:pointer;
+  display:flex;flex-direction:column;align-items:flex-start;line-height:1.25}
+.pt b{font-weight:600;font-size:13.5px}
+.pt small{color:var(--muted-2);font-size:10.5px}
+.pt:hover{background:var(--bg-2)}
+.pt.on{background:var(--bg-2);border-color:var(--line);color:var(--gold-hi)}
+.pt.on small{color:var(--gold-hi);opacity:.75}
+.pt.ghost{flex-direction:row;align-items:center;padding:7px 11px;font-size:12.5px;
+  color:var(--muted);background:none}
+.pt.ghost:hover{background:var(--panel-2);color:var(--text)}
+.pt.ghost.danger:hover{background:var(--red);border-color:var(--red);color:#fff}
+.pt.mk{flex-direction:row;align-items:center;gap:5px;padding:6px 9px;font-size:12.5px}
+.pt.mk span{font-size:17px;line-height:1}
+
+.plan-say{margin:0 0 7px;font-size:13px;color:var(--muted);min-height:18px}
+.plan-canvas{cursor:crosshair;touch-action:none}
+/* An OUTLINE, not a border, and the browser self-check is why. The map's
+   layers are positioned inset:0, which resolves against the PADDING box, so
+   a 1px border pushed the art 1px in and shrank it 2px -- while the snap
+   preview, a sibling of .m-fig, stayed in the full-size box. Clicks were
+   measured in one space and drawn in the other. An outline is painted
+   outside the layout entirely, so every layer shares one coordinate space. */
+.plan-canvas .m-fig{outline:1px solid var(--line-soft);outline-offset:-1px}
+
+.plan-after{margin-top:12px;display:flex;flex-direction:column;gap:9px;align-items:flex-start}
+.plan-after>*{width:100%}
+#planTitle{padding:8px 10px;font:inherit;font-size:14px;color:var(--text);
+  background:var(--bg-2);border:1px solid var(--line);border-radius:8px}
+
+.pr-list{display:flex;flex-direction:column;gap:5px}
+.pr{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:7px;
+  border:1px solid transparent;cursor:pointer}
+.pr.on{border-color:var(--line);background:var(--panel-2)}
+/* The colour chip is the path's identity and its colour control at once:
+   click it to cycle. Bigger than a decorative dot because it is a target. */
+.pr-c{width:20px;height:20px;border-radius:6px;flex:none;cursor:pointer;
+  border:1px solid rgba(20,14,8,.35);padding:0}
+.pr-c:hover{box-shadow:0 0 0 2px var(--gold-hi)}
+.pr input{flex:1;min-width:0;padding:4px 6px;font-size:12.5px;color:var(--text);
+  background:var(--bg-2);border:1px solid var(--line-soft);border-radius:6px}
+.pr-n{font-size:11.5px;color:var(--muted-2);min-width:14px;text-align:right}
+.pr-x{background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:15px;
+  line-height:1;padding:0 3px}
+.pr-x:hover{color:var(--red)}
+.plan-note-wrap{margin:0}
+.plan-note-hd{margin:2px 0 6px;font-family:var(--font-head);font-size:13px;
+  letter-spacing:.02em;color:var(--muted)}
+.plan-name{display:block;font-size:15px;color:var(--gold-hi)}
+
+/* The snap preview: a ring on whatever a click would snap to, and its name.
+   Sits above the map and takes no pointer events, so it never interferes
+   with the drawing underneath. */
+.plan-canvas{position:relative}
+.plan-ghost{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.pg-ring{fill:none;stroke:#ffd87a;stroke-width:4;opacity:.95}
+.pg-dot{fill:#ffd87a;stroke:rgba(20,14,8,.7);stroke-width:2.5}
+.pg-name{font:700 26px var(--font-jade,Georgia,serif);fill:#fdf6e3;text-anchor:middle;
+  paint-order:stroke;stroke:rgba(18,12,6,.9);stroke-width:7px;stroke-linejoin:round}
+
+/* The plan's explanation box. The shared rich editor is 150px tall on white,
+   which is right for a guide section and far too much for one or two lines
+   about a route — it dominated the panel under the map. Scoped here rather
+   than changed globally: every other note on the page still wants the big
+   version. */
+.plan-note-wrap .rt{min-height:58px;background:var(--bg-2);font-size:14px;
+  line-height:1.55;padding:9px 11px}
+.plan-note-wrap .md-bar{padding-bottom:3px}
+.plan-note-wrap .md-bar button{width:24px;height:22px}
+.plan-note-wrap .md-note{font-size:11px}
+
+/* The heading row carries the section-level opt-out on the right. */
+.block-hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.block-hd #planScrap{margin-left:auto}
+
+
+/* A label the author typed onto the map. Haloed rather than boxed so it can
+   sit over terrain without hiding it, and large enough to read at the size
+   a guide actually draws the map. */
+.pl-text{font:400 30px var(--font-jade,Georgia,serif);fill:#fdf6e3;text-anchor:middle;
+  paint-order:stroke;stroke:rgba(18,12,6,.9);stroke-width:7px;stroke-linejoin:round;
+  pointer-events:none;user-select:none}
+/* over a label the Text tool picks it up rather than placing a new one */
+.plan-canvas.grabby{cursor:grab}
+
+/* The label is typed where it will appear, in the font it will wear, so the
+   box is the preview. Centred on the point and sized to the words, so it
+   grows the way the finished label does rather than sitting in a fixed slot. */
+/* SELECTOR HAS TO OUT-SPECIFY create.html's OWN input rule, which sets
+   background:#fff and width:100% on every input[type=text] on the page.
+   An attribute selector outranks a plain class, so ".plan-text-input" lost
+   every time regardless of file order -- the rule simply never applied, and
+   the box stayed white. The element and the ancestor class win it back.
+   The focus ring is reset for the same reason: the page draws one on every
+   focused input, and this box is focused the whole time it exists. */
+.plan-canvas input.plan-text-input{position:absolute;transform:translate(-50%, -50%);
+  width:auto;min-width:130px;max-width:70%;padding:1px 6px;text-align:center;
+  font:400 17px var(--font-jade,Georgia,serif);color:#fdf6e3;
+  background:transparent;border:none;border-bottom:2px solid var(--gold-hi);
+  border-radius:0;outline:none;box-shadow:none;z-index:3;
+  /* the same halo the finished label wears, so the box is a true preview:
+     with a panel behind it the words read against that instead of against
+     the terrain they will actually sit on */
+  text-shadow:0 0 4px rgba(18,12,6,.95), 0 0 4px rgba(18,12,6,.95),
+              0 1px 2px rgba(18,12,6,.95)}
+.plan-canvas input.plan-text-input:focus{background:transparent;box-shadow:none;
+  border-color:var(--gold-hi)}
+.plan-canvas input.plan-text-input::placeholder{color:rgba(253,246,227,.5);text-shadow:none}

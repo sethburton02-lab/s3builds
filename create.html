@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=129">
+<link rel="stylesheet" href="site.css?v=184">
 <style>
   /* No local palette here. This page used to redefine the whole token set,
      which quietly overrode site.css and kept the creator dark long after
@@ -1005,6 +1005,75 @@
       <div id="muRows"></div>
     </div>
 
+    <!-- game plan -->
+    <div class="block">
+      <!-- The opt-out sits in the heading, not down with Duplicate and
+           Delete. Those act on one plan; this one answers whether the
+           section belongs in the guide at all, which is a decision you make
+           about the whole block and want in reach without scrolling to it. -->
+      <div class="block-hd"><h2 class="page-title">Game plan</h2>
+        <button type="button" class="setup-act danger" id="planScrap" hidden
+          title="Take the game plan section out of this guide"
+          >Do not include gameplan</button></div>
+
+      <!-- Off by default and removable in one click. Most guides want no map
+           at all, and an editor sitting open for them is a page of chrome
+           asking to be filled in. -->
+      <div id="planNone">
+        <p class="hint">Optional. Draw a jungle route, a ward setup or a roam path
+          straight onto the rift — clicking near a camp or turret
+          <b>snaps to it and stores its name</b>.</p>
+        <button type="button" class="btn btn-sm note-add" id="planStart"
+          >+ Add a game plan</button>
+      </div>
+
+      <div id="planUI">
+        <p class="hint">Click near a camp, turret or pit and the stop
+          <b>snaps to it and stores its name</b>, so a plan keeps meaning the right
+          place even if the map is redrawn.</p>
+        <div class="plan-bar" id="planTabs"></div>
+
+      <div class="plan-edit">
+        <div class="plan-tools">
+          <div class="pt-group" role="group" aria-label="What to draw">
+            <button type="button" class="pt on" data-tool="route">
+              <b>Path</b><small>click each stop</small></button>
+            <button type="button" class="pt" data-tool="marker">
+              <b>Mark</b><small>wards, warnings</small></button>
+            <button type="button" class="pt" data-tool="pen">
+              <b>Draw</b><small>drag freehand</small></button>
+            <button type="button" class="pt" data-tool="text">
+              <b>Text</b><small>label a drawing</small></button>
+            <button type="button" class="pt" data-tool="erase">
+              <b>Erase</b><small>click to remove</small></button>
+          </div>
+          <div class="pt-group" id="planMarks" role="group" aria-label="Marker" hidden></div>
+          <!-- Undo and Clear sit with the tools, not under the map. Clear was
+               at the bottom of the panel below the note, which is the last
+               place anyone looks for it. Neither needs a confirm: both take a
+               snapshot first, so Undo brings the plan straight back. -->
+          <div class="pt-group pt-right">
+            <button type="button" class="pt ghost" id="planNewRoute"
+              title="Finish this path and start a separate one">+ New path</button>
+            <button type="button" class="pt ghost" id="planUndo"
+              title="Step back through what you have drawn">Undo</button>
+            <button type="button" class="pt ghost danger" id="planClear"
+              title="Remove every path, marker and line on this plan — Undo brings it back"
+              >Clear plan</button>
+          </div>
+        </div>
+
+        <p class="plan-say" id="planHint"></p>
+        <div class="plan-canvas" id="planCanvas"></div>
+
+        <div class="plan-after">
+          <div id="planRoutes"></div>
+          <div class="plan-note-wrap" id="planNote"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+
   </form>
 
   <!-- ============ PREVIEW RAIL ============ -->
@@ -1191,16 +1260,17 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="site.js?v=129"></script>
-<script src="data-rune-icons.js?v=129"></script>
-<script src="data-runes.js?v=129"></script>
-<script src="data-champ-focus.js?v=129"></script>
-<script src="data-mastery-tree.js?v=129"></script>
-<script src="data-masteries.js?v=129"></script>
-<script src="guide-sanitise.js?v=129"></script>
-<script src="config.js?v=129"></script>
-<script src="guide-store.js?v=129"></script>
-<script src="guide-load.js?v=129"></script>
+<script src="site.js?v=184"></script>
+<script src="data-rune-icons.js?v=184"></script>
+<script src="data-runes.js?v=184"></script>
+<script src="data-champ-focus.js?v=184"></script>
+<script src="data-mastery-tree.js?v=184"></script>
+<script src="data-masteries.js?v=184"></script>
+<script src="data-map.js?v=184"></script>
+<script src="guide-sanitise.js?v=184"></script>
+<script src="config.js?v=184"></script>
+<script src="guide-store.js?v=184"></script>
+<script src="guide-load.js?v=184"></script>
 <script>
 /* Wrapped so this page's short helpers ($, esc, paint…) stay local and
    don't collide with the shared ones in site.js. */
@@ -1379,6 +1449,9 @@ const BLANK={
      a draft that doesn't start with the key loads as undefined, and the
      first thing that touches it has to guard. An empty array doesn't. */
   matchups:[],
+  /* Map plans. Same reasoning as matchups: named here so a draft saved
+     before plans existed loads as an array rather than undefined. */
+  plans:[], planActive:0,
   /* A short note attached to each builder, which is how people
      actually explain a build — the reasoning next to the thing it is
      about, rather than all of it in one block at the end. */
@@ -1506,6 +1579,35 @@ function load(){
       .map(m => ({champ: String(m.champ).trim(),
                   diff: ["easy","even","hard"].includes(m.diff) ? m.diff : "even",
                   note: String(m.note == null ? "" : m.note).slice(0, MU_NOTE_MAX)}));
+    /* Plans, rebuilt to the shape normaliseGuide enforces. The editor draws
+       straight from this, so a hand-edited draft must not be able to hand it
+       a route whose steps are not steps. */
+    const okStep = st => st && typeof st === "object" &&
+      ((typeof st.place === "string" && /^[a-z0-9-]{2,24}$/.test(st.place)) ||
+       (Number.isFinite(st.x) && Number.isFinite(st.y)));
+    S.plans = (Array.isArray(d.plans) ? d.plans : []).slice(0, PLAN_MAX).map((p, i) => ({
+      id: String(p && p.id || "m" + i),
+      title: String(p && p.title || "Plan " + (i + 1)).slice(0, 48),
+      kind: PLAN_KINDS.includes(p && p.kind) ? p.kind : "jungle",
+      note: "",
+      routes: (Array.isArray(p && p.routes) ? p.routes : []).slice(0, 6).map((r, j) => ({
+        id: String(r && r.id || "r" + j),
+        label: String(r && r.label || "").slice(0, 60),
+        colour: PLAN_COLOURS.includes(r && r.colour) ? r.colour : "gold",
+        steps: (Array.isArray(r && r.steps) ? r.steps : []).slice(0, PLAN_STEPS_MAX).filter(okStep)
+      })),
+      markers: (Array.isArray(p && p.markers) ? p.markers : []).slice(0, PLAN_MARKS_MAX)
+        .filter(okStep).map(m => ({...m,
+          kind: PLAN_MARKS.includes(m.kind) ? m.kind : "note",
+          label: String(m.label == null ? "" : m.label).slice(0, 60)})),
+      ink: (Array.isArray(p && p.ink) ? p.ink : []).slice(0, PLAN_INK_MAX).map(k => ({
+        colour: PLAN_COLOURS.includes(k && k.colour) ? k.colour : "gold",
+        w: Math.max(2, Math.min(40, Number(k && k.w) || 8)),
+        pts: (Array.isArray(k && k.pts) ? k.pts : []).slice(0, PLAN_PTS_MAX)
+               .filter(q => Array.isArray(q) && Number.isFinite(q[0]) && Number.isFinite(q[1]))
+      })).filter(k => k.pts.length > 1)
+    }));
+    S.planActive = 0;
     return true;
   }catch(e){ return false; }
 }
@@ -2045,6 +2147,611 @@ $("spellPills").addEventListener("focusin",  e => {
 });
 $("spellPills").addEventListener("focusout", hideSpellTip);
 addEventListener("scroll", hideSpellTip, {passive:true});
+
+
+/* ---------- the game plan editor ----------
+
+   Drawing on a map, with one rule that shapes everything else: A CLICK NEAR A
+   NAMED PLACE STORES THE NAME, not the pixel. mapNearest does the snapping,
+   and only a click in open ground falls back to coordinates. That is what
+   lets the map be remeasured, reskinned or redrawn without silently moving
+   every route ever written on it — which is not hypothetical, since the map
+   underneath this was remeasured several times while it was being built.
+
+   The editor draws by calling the SAME mapFigure and mapPlanSvg the guide
+   page uses, so there is no second renderer to drift out of step. What you
+   draw here is literally what a reader sees.
+
+   Undo is a stack of whole-plan snapshots rather than inverse operations.
+   A plan is small — a few dozen points — and "undo the last thing" is
+   ambiguous once routes, markers and ink are interleaved, whereas restoring
+   the previous state never is. */
+const PLAN_TOOL = {tool: "route", mark: "ward", route: null};
+/* Ids have to be unique, and a timestamp alone is not: two plans added in
+   the same millisecond came out with the same id, and the explanation box
+   keys its rebuild on that id -- so switching between them kept showing the
+   first one's text. A counter makes collisions impossible however fast the
+   clicks come. */
+let PLAN_SEQ = 0;
+const planUid = prefix => prefix + Date.now().toString(36) + (++PLAN_SEQ).toString(36);
+/* The four markers worth offering, with the glyph shown on the button. */
+/* Each button wears the colour its marker draws in, so the toolbar reads as
+   a key rather than four identical glyphs. Green and pink are Riot's own
+   ward colours; the objective flag is blue. */
+const MARK_UI = [{k: "ward",      t: "Ward",      i: "\u25C9", c: "#5fb87a"},
+                 {k: "pink",      t: "Pink",      i: "\u25C9", c: "#e06aa8"},
+                 {k: "danger",    t: "Danger",    i: "\u26A0", c: "#d8574a"},
+                 {k: "objective", t: "Objective", i: "\u2691", c: "#3f8fe0"}];
+let planUndo = [];
+/* Which label is being typed into, or null. paintPlan refuses to rebuild the
+   canvas while this is set -- the input lives inside it, and replacing the
+   markup under someone's caret loses what they were typing. */
+let planEditing = null;
+
+function curPlan(){
+  if(!S.plans.length) return null;
+  S.planActive = Math.max(0, Math.min(S.planActive, S.plans.length - 1));
+  return S.plans[S.planActive];
+}
+function planSnapshot(){
+  const p = curPlan(); if(!p) return;
+  planUndo.push(JSON.stringify(p));
+  if(planUndo.length > 40) planUndo.shift();
+}
+/* Adding and removing go through the shared page machinery, so a plan gets
+   the same tab strip, the same undo offer and the same toast as a rune page.
+   Kept as named wrappers because the checks drive them directly. */
+/* Emptying a plan without deleting it. A named function rather than code
+   inside the click handler, so a check can exercise the real thing: the
+   harness's DOM stub has a no-op addEventListener, so a test cannot reach a
+   handler, and re-implementing the body in a test means testing a copy --
+   which passed happily with the snapshot removed from the button itself. */
+function planClearAll(){
+  const p = curPlan(); if(!p) return;
+  planSnapshot();                 /* first, so Undo brings the whole plan back */
+  p.routes = []; p.markers = []; p.ink = [];
+  PLAN_TOOL.route = null;
+  paintPlan(); save();
+}
+
+function planAdd(){ addPage("plan"); }
+function planRemove(i){ S.planActive = i; delPage("plan"); }
+
+/* Where a click landed, as a step. Snapping radius is in map units and
+   deliberately generous: the point of a plan is "go to red buff", and a
+   click 30 units off is still that intention. */
+function planStepFrom(x, y){
+  if(x < 0 || x > 1 || y < 0 || y > 1) return null;
+  const near = (typeof mapNearest === "function")
+    ? mapNearest(x * MAP_SIZE, y * MAP_SIZE, 38) : null;
+  return near ? {place: near.key}
+              : {x: +x.toFixed(4), y: +y.toFixed(4)};
+}
+function planStepAt(ev){
+  const box = $("planCanvas").getBoundingClientRect();
+  return planStepFrom((ev.clientX - box.left) / box.width,
+                      (ev.clientY - box.top) / box.height);
+}
+
+/* ---- picking things up ----
+
+   Everything drawn can be moved, not just the labels. A route stop is the
+   most-placed object in the editor and used to be the least editable: with
+   no way to nudge one, a wrong second stop in a six-stop clear meant erasing
+   back to it and redrawing the rest.
+
+   The rule is the same everywhere: press and move = drag that thing, press
+   and release = whatever the current tool does. No modifier to remember, and
+   no sixth tool. A stop or a marker RE-SNAPS as it moves, because those
+   refer to places; a label does not, because it was put where it was put. */
+function planGrabAt(fx, fy){
+  const p = curPlan(); if(!p) return null;
+  const x = fx * MAP_SIZE, y = fy * MAP_SIZE;
+  const ti = planTextHit(fx, fy);
+  if(ti >= 0) return {kind: "text", i: ti};
+  for(let i = p.markers.length - 1; i >= 0; i--){
+    const m = p.markers[i];
+    if(m.kind === "text") continue;
+    const q = mapPoint(m);
+    if(q && Math.hypot(q.x - x, q.y - y) <= 26) return {kind: "marker", i};
+  }
+  /* routes last: a stop under a marker should let you move the marker, which
+     is the thing drawn on top */
+  for(let ri = p.routes.length - 1; ri >= 0; ri--){
+    const r = p.routes[ri];
+    for(let si = r.steps.length - 1; si >= 0; si--){
+      const q = mapPoint(r.steps[si]);
+      if(q && Math.hypot(q.x - x, q.y - y) <= 22) return {kind: "stop", ri, si};
+    }
+  }
+  return null;
+}
+
+function planMoveGrab(g, fx, fy){
+  const p = curPlan(); if(!p || !g) return false;
+  if(g.kind === "text") return planMoveText(g.i, fx, fy);
+  const st = planStepFrom(Math.max(0, Math.min(1, fx)), Math.max(0, Math.min(1, fy)));
+  if(!st) return false;
+  if(g.kind === "marker"){
+    const m = p.markers[g.i];
+    if(!m) return false;
+    delete m.place; delete m.x; delete m.y;
+    Object.assign(m, st);
+    return true;
+  }
+  const r = p.routes[g.ri];
+  if(!r || !r.steps[g.si]) return false;
+  r.steps[g.si] = st;
+  return true;
+}
+
+function paintPlan(){
+  /* While a name is being edited the strip must not be rebuilt -- it would
+     replace the input the caret is in. Same guard the other strips use. */
+  if(typeof renaming !== "undefined" && renaming !== null) return;
+  /* Same reason as renaming: the label input lives inside the canvas, so a
+     rebuild while it is open throws away what is being typed. */
+  if(planEditing !== null) return;
+  const wrap = $("planCanvas"); if(!wrap) return;
+  const bar = $("planTabs");
+
+  /* The client's page-selector, exactly as the rune and skill strips use it:
+     numbered tabs, a + to add, then a name with a pencil and the Duplicate
+     and Delete actions. This had its own bar and its own text input, which
+     put two different ways to rename something on one screen. */
+  bar.dataset.kind = "plan";
+  const K = PAGE_KINDS.plan;
+  const tabs = S.plans.map((pl, i) =>
+    `<button type="button" class="page-tab ${i === S.planActive ? "active" : ""}"
+       data-setup="${i}" title="${esc(pl.title)}"
+       ><span class="tab-label">${esc(pl.title)}</span>${
+       K.filled(pl) ? "" : `<i class="incomplete-dot"></i>`}</button>`).join("");
+  const add = S.plans.length < PLAN_MAX
+    ? `<button type="button" class="page-tab page-add-button" data-act="add"
+         title="Add a plan"></button>` : "";
+  const cur = curPlan();
+  bar.innerHTML = `<div class="page-selector">${tabs}${add}</div>` + (cur ? `
+    <div class="setup-tools">
+      <div class="page-name-box">
+        <span class="page-name-text" data-name>${esc(cur.title)}</span>
+        <button type="button" class="page-name-edit" data-act="rename"
+          title="Rename this plan">${EDIT_ICON}</button>
+      </div>
+      <button type="button" class="setup-act" data-act="dupe"
+        ${S.plans.length >= PLAN_MAX ? "disabled" : ""} title="Copy this plan">Duplicate</button>
+      <button type="button" class="setup-act danger" data-act="del"
+        title="Delete this plan">Delete</button>
+    </div>` : "");
+
+  const p = curPlan();
+  const edit = wrap.closest(".plan-edit");
+  if(edit) edit.hidden = !p;
+  /* Two states, not a disabled one: either the section is here or it is
+     not. With no plans the whole editor comes off the page and a single
+     button offers it back. */
+  const none = $("planNone"), ui = $("planUI"), scrap = $("planScrap");
+  if(none) none.hidden = !!p;
+  if(ui) ui.hidden = !p;
+  /* Nothing to opt out of when the section is already off. */
+  if(scrap) scrap.hidden = !p;
+  if(!p){ wrap.innerHTML = ""; $("planRoutes").innerHTML = ""; return; }
+
+  /* Markers are the only thing left with a choice attached, and it only
+     appears while the Mark tool is selected. "note" is kept in the data
+     model but not offered: danger and objective already cover why anyone
+     drops a dot, and a fifth option earned nothing. */
+  $("planMarks").hidden = PLAN_TOOL.tool !== "marker";
+  $("planMarks").innerHTML = MARK_UI.map(m =>
+    `<button type="button" class="pt mk ${m.k === PLAN_TOOL.mark ? "on" : ""}"
+       data-mark="${m.k}" title="${m.t}"><span style="color:${m.c}">${m.i}</span>${m.t}</button>`).join("");
+
+  /* The map, plus a thin layer on top for the snap preview. The preview is
+     a separate svg so a mouse move can redraw it alone -- repainting the
+     figure would rebuild forty-four icons on every pixel of movement. */
+  wrap.innerHTML = mapFigure("photo", mapPlanSvg(p)) +
+    '<svg class="plan-ghost" viewBox="0 0 ' + MAP_SIZE + ' ' + MAP_SIZE + '" aria-hidden="true"></svg>';
+
+  /* While a path is being drawn, the others step back. With three routes on
+     one plan it was not possible to tell which one the next click extends. */
+  if(PLAN_TOOL.route != null)
+    wrap.querySelectorAll(".pl-route").forEach(g => {
+      g.style.opacity = (+g.dataset.route === PLAN_TOOL.route) ? "1" : ".35";
+    });
+
+  /* one row per route, so a label can be typed and a colour seen */
+  /* Every path gets a row, including the first. Hiding the row until there
+     were two was an over-simplification: a label is not for telling paths
+     apart, it is for saying what the path is FOR -- "levels 1-4", "if they
+     show bot" -- and the guide prints it in the legend. A single path wants
+     that as much as two do.
+
+     The colour chip is a button: clicking it cycles the path's colour. That
+     puts the choice on the thing it colours, instead of the global swatch
+     row this replaced. */
+  $("planRoutes").innerHTML = p.routes.length
+    ? `<div class="pr-list">${p.routes.map((r, i) =>
+        `<div class="pr ${PLAN_TOOL.route === i ? "on" : ""}" data-route="${i}">
+           <button type="button" class="pr-c" data-rcolour="${i}"
+             title="Change this path's colour"
+             style="background:${PLAN_COLOUR_HEX[r.colour] || PLAN_COLOUR_HEX.gold}"></button>
+           <input type="text" data-rlabel="${i}" maxlength="60"
+                  placeholder="Label this path (optional)" value="${esc(r.label || "")}">
+           <span class="pr-n">${r.steps.length}</span>
+           <button type="button" class="pr-x" data-routex="${i}" title="Remove path">×</button>
+         </div>`).join("")}</div>`
+    : "";
+
+  /* Rebuilt only when the plan CHANGES, not on every redraw: this is a
+     contenteditable, and replacing its markup while someone is typing in it
+     moves the caret to the start. */
+  /* ALWAYS SHOWN, one per plan. It was behind an "+ Add a note" button for
+     a while, which was the wrong thing to tuck away: a route drawn on a map
+     shows WHERE but never WHY, and the why is the part a reader cannot work
+     out for themselves. Every other note on this page is optional chrome on
+     something already complete; this one finishes the plan.
+
+     Rebuilt only when the plan CHANGES: replacing a contenteditable's markup
+     while someone is typing in it throws the caret back to the start. */
+  const noteHost = $("planNote");
+  if(noteHost.dataset.for !== p.id){
+    noteHost.dataset.for = p.id;
+    noteHost.innerHTML = '<h3 class="plan-note-hd">Explain this plan</h3>' +
+      richEditor('data-plannote="1"', p.note || "",
+                 "What it is for, when to use it, and when not to");
+  }
+
+  const n = p.routes.reduce((a, r) => a + r.steps.length, 0);
+  $("planHint").textContent = PLAN_TOOL.tool === "route"
+    ? (n === 0 ? "Click a camp to start. Hover to see what a click will snap to, drag a stop to move it."
+       : PLAN_TOOL.route != null && p.routes[PLAN_TOOL.route]
+         ? "Adding to " + (p.routes[PLAN_TOOL.route].label || "this path") + " — "
+           + p.routes[PLAN_TOOL.route].steps.length + " stops. “+ New path” starts a separate one."
+         : n + " stops so far.")
+    : PLAN_TOOL.tool === "text"
+      ? "Click to add a label and type it there. Click one to edit, drag to move."
+    : PLAN_TOOL.tool === "marker" ? "Click where the " + PLAN_TOOL.mark
+        + " goes. Drag anything already drawn to move it."
+    : PLAN_TOOL.tool === "pen" ? "Drag on the map to draw a line."
+    : "Click anything you drew to remove it.";
+}
+
+/* Type the label where you put it.
+
+   The input sits on the map at the point itself, wearing the font the label
+   will have, so what you are typing is in the place it will appear. It used
+   to be a row in the panel underneath, which meant looking away from the
+   drawing to write a caption about it and guessing which row went with which
+   spot once there were three.
+
+   An unnamed label is nothing, so one left empty is removed rather than kept
+   as an invisible marker that only publish would quietly drop. */
+function planEditText(i){
+  const p = curPlan(); if(!p) return;
+  const m = p.markers[i]; if(!m || m.kind !== "text") return;
+  const wrap = $("planCanvas"); if(!wrap) return;
+  const q = mapPoint(m); if(!q) return;
+
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.className = "plan-text-input";
+  inp.maxLength = PLAN_TEXT_MAX;
+  inp.value = m.text || "";
+  inp.placeholder = "what is this?";
+  inp.setAttribute("aria-label", "Label text");
+  inp.style.left = (q.x / MAP_SIZE * 100) + "%";
+  inp.style.top  = (q.y / MAP_SIZE * 100) + "%";
+  wrap.appendChild(inp);
+  planEditing = i;
+  inp.focus(); inp.select();
+
+  let settled = false;
+  const done = keep => {
+    if(settled) return;
+    settled = true;
+    planEditing = null;
+    if(keep) m.text = inp.value.trim().slice(0, PLAN_TEXT_MAX);
+    if(!m.text) p.markers.splice(i, 1);
+    inp.remove();
+    paintPlan(); save();
+  };
+  inp.addEventListener("keydown", e => {
+    if(e.key === "Enter"){ e.preventDefault(); done(true); }
+    else if(e.key === "Escape"){ e.preventDefault(); done(false); }
+    e.stopPropagation();          /* the page's own shortcuts stay out of it */
+  });
+  inp.addEventListener("blur", () => done(true));
+  inp.addEventListener("pointerdown", e => e.stopPropagation());
+}
+
+/* Which text label is under a point, or -1.
+
+   Hit-tested as a BOX, not a radius: a label is as wide as its words and
+   only about forty units tall, so a circle either misses the ends of a long
+   one or swallows everything near a short one. The width is estimated from
+   the character count, which is close enough at this font size and costs
+   nothing -- measuring real text would mean reaching into the rendered SVG
+   on every pointer move. */
+function planTextHit(fx, fy){
+  const p = curPlan(); if(!p) return -1;
+  const x = fx * MAP_SIZE, y = fy * MAP_SIZE;
+  for(let i = p.markers.length - 1; i >= 0; i--){
+    const m = p.markers[i];
+    if(m.kind !== "text") continue;
+    const q = mapPoint(m); if(!q) continue;
+    const halfW = Math.max(26, String(m.text || "").length * 8.2);
+    if(Math.abs(x - q.x) <= halfW && Math.abs(y - q.y) <= 24) return i;
+  }
+  return -1;
+}
+
+/* Move a label. A dragged label becomes a plain point: it was put somewhere
+   deliberate, and snapping it back to the camp it started near would undo
+   the drag. */
+function planMoveText(i, fx, fy){
+  const p = curPlan(); if(!p) return false;
+  const m = p.markers[i];
+  if(!m || m.kind !== "text") return false;
+  delete m.place;
+  m.x = Math.max(0, Math.min(1, +fx.toFixed(4)));
+  m.y = Math.max(0, Math.min(1, +fy.toFixed(4)));
+  return true;
+}
+
+/* ---- the snap preview ----
+
+   THE ONE THING THE EDITOR COULD NOT TELL YOU. Clicking near a camp stores
+   that camp's name, which is the whole design -- but until the click landed
+   there was no way to know whether it would snap, or to what. This shows the
+   target under the cursor and names it, so the important behaviour is
+   visible instead of inferred from the result. */
+function planGhost(ev){
+  const wrap = $("planCanvas");
+  const g = wrap && wrap.querySelector(".plan-ghost");
+  if(!g) return;
+  if(PLAN_TOOL.tool === "pen"){ g.innerHTML = ""; return; }
+  /* Over something movable the cursor means "pick this up", so the snap ring
+     would be claiming something that is not about to happen. */
+  if(PLAN_TOOL.tool !== "erase"){
+    const b = wrap.getBoundingClientRect();
+    const over = planGrabAt((ev.clientX - b.left) / b.width, (ev.clientY - b.top) / b.height);
+    if(over){
+      wrap.classList.add("grabby");
+      if(over.kind === "text"){ g.innerHTML = ""; return; }
+    } else wrap.classList.remove("grabby");
+  }
+  const box = wrap.getBoundingClientRect();
+  const x = (ev.clientX - box.left) / box.width, y = (ev.clientY - box.top) / box.height;
+  if(x < 0 || x > 1 || y < 0 || y > 1){ g.innerHTML = ""; return; }
+  const near = (typeof mapNearest === "function")
+    ? mapNearest(x * MAP_SIZE, y * MAP_SIZE, 38) : null;
+  if(near){
+    /* keep the name on the map: it would otherwise run off the edge at the
+       corner camps, which is where half of a jungle route lives */
+    const lx = Math.max(90, Math.min(MAP_SIZE - 90, near.x));
+    const above = near.y > 90;
+    g.innerHTML = '<circle class="pg-ring" cx="' + near.x + '" cy="' + near.y + '" r="30"/>' +
+      '<text class="pg-name" x="' + lx + '" y="' + (near.y + (above ? -44 : 58)) + '">' +
+      esc(near.name) + '</text>';
+  }else{
+    g.innerHTML = '<circle class="pg-dot" cx="' + (x * MAP_SIZE).toFixed(1) +
+      '" cy="' + (y * MAP_SIZE).toFixed(1) + '" r="7"/>';
+  }
+}
+document.addEventListener("pointermove", e => {
+  if(e.target.closest("#planCanvas")) planGhost(e);
+});
+document.addEventListener("pointerleave", e => {
+  const wrap = e.target && e.target.closest && e.target.closest("#planCanvas");
+  const g = wrap && wrap.querySelector(".plan-ghost");
+  if(g) g.innerHTML = "";
+}, true);
+
+/* ---- the drawing surface ---- */
+function planPointerDown(ev){
+  const p = curPlan(); if(!p) return;
+  const st = planStepAt(ev); if(!st) return;
+  ev.preventDefault();
+
+  /* Pen draws rather than grabs -- a stroke that began on a stop is still a
+     stroke -- and Erase removes what it lands on. Everything else offers the
+     drag first and falls through to the tool on a plain click. */
+  if(PLAN_TOOL.tool !== "pen" && PLAN_TOOL.tool !== "erase"){
+    const rect = $("planCanvas").getBoundingClientRect();
+    const grab = planGrabAt((ev.clientX - rect.left) / rect.width,
+                            (ev.clientY - rect.top) / rect.height);
+    /* text keeps its own handler: a click on a label opens it for typing,
+       which is not something the other kinds do */
+    if(grab && grab.kind !== "text"){
+      planSnapshot();
+      const x0 = ev.clientX, y0 = ev.clientY;
+      let moved = false;
+      const move = e => {
+        if(!moved && Math.hypot(e.clientX - x0, e.clientY - y0) < 5) return;
+        moved = true;
+        const b = $("planCanvas").getBoundingClientRect();
+        planMoveGrab(grab, (e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
+        paintPlan();
+      };
+      const up = e => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        if(moved){ paintPlan(); save(); }
+        else { planUndo.pop(); planToolClick(ev, st); }
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      return;
+    }
+  }
+  planToolClick(ev, st);
+}
+
+/* What a plain click does, once it is known not to be a drag. */
+function planToolClick(ev, st){
+  const p = curPlan(); if(!p) return;
+
+  if(PLAN_TOOL.tool === "route"){
+    planSnapshot();
+    if(PLAN_TOOL.route == null || !p.routes[PLAN_TOOL.route]){
+      if(p.routes.length >= 6) return;
+      /* The colour is assigned, not chosen. Five swatches made the author
+         pick something that carries no meaning -- paths only need to be
+         TELLABLE APART, and cycling the palette does that without asking. */
+      p.routes.push({id: planUid("r"), label: "",
+                     colour: PLAN_COLOURS[p.routes.length % PLAN_COLOURS.length], steps: []});
+      PLAN_TOOL.route = p.routes.length - 1;
+    }
+    const r = p.routes[PLAN_TOOL.route];
+    if(r.steps.length >= PLAN_STEPS_MAX) return;
+    r.steps.push(st);
+    paintPlan(); save(); return;
+  }
+  if(PLAN_TOOL.tool === "text"){
+    /* An existing label is picked up rather than stacked on: clicking words
+       that are already there almost always means "move these". */
+    const rect = $("planCanvas").getBoundingClientRect();
+    const hit = planTextHit((ev.clientX - rect.left) / rect.width,
+                            (ev.clientY - rect.top) / rect.height);
+    if(hit >= 0){
+      /* Drag or click, decided by whether the pointer actually travels. A
+         label has to be both movable and editable, and a modifier key for
+         one of them would be a thing to remember. */
+      planSnapshot();
+      const x0 = ev.clientX, y0 = ev.clientY;
+      let moved = false;
+      const move = e => {
+        if(!moved && Math.hypot(e.clientX - x0, e.clientY - y0) < 5) return;
+        moved = true;
+        const b = $("planCanvas").getBoundingClientRect();
+        planMoveText(hit, (e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
+        paintPlan();
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        if(moved){ paintPlan(); save(); }
+        else { planUndo.pop(); planEditText(hit); }   /* a click, not a drag */
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      return;
+    }
+    if(p.markers.length >= PLAN_MARKS_MAX) return;
+    planSnapshot();
+    p.markers.push({...st, kind: "text", text: ""});
+    paintPlan();
+    planEditText(p.markers.length - 1);
+    return;
+  }
+  if(PLAN_TOOL.tool === "marker"){
+    if(p.markers.length >= PLAN_MARKS_MAX) return;
+    planSnapshot();
+    p.markers.push({...st, kind: PLAN_TOOL.mark});
+    paintPlan(); save(); return;
+  }
+  if(PLAN_TOOL.tool === "erase"){ planEraseAt(ev); return; }
+  if(PLAN_TOOL.tool === "pen"){
+    if(p.ink.length >= PLAN_INK_MAX) return;
+    planSnapshot();
+    const box = $("planCanvas").getBoundingClientRect();
+    const at = e => [+((e.clientX - box.left) / box.width).toFixed(4),
+                     +((e.clientY - box.top) / box.height).toFixed(4)];
+    /* Freehand is always red. Cycling the palette the way paths do made a
+       scribble come out gold on sand, which is close to invisible — and
+       unlike paths, ink is one annotation layer rather than several things
+       that need telling apart, so it has no reason to vary. */
+    const stroke = {colour: "red", w: 8, pts: [at(ev)]};
+    p.ink.push(stroke);
+    const move = e => {
+      const q = at(e), last = stroke.pts[stroke.pts.length - 1];
+      if(stroke.pts.length < PLAN_PTS_MAX &&
+         Math.hypot(q[0] - last[0], q[1] - last[1]) > 0.006){
+        stroke.pts.push(q); paintPlan();
+      }
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      /* a tap with no drag leaves a one-point stroke, which renders as
+         nothing and would just accumulate as invisible junk */
+      if(stroke.pts.length < 2) p.ink.pop();
+      paintPlan(); save();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+}
+
+/* Erase hits whatever is nearest within reach, routes last: a route stop
+   under a marker should let you remove the marker first, since that is the
+   thing you can see on top. */
+function planEraseAt(ev){
+  const p = curPlan(); if(!p) return;
+  const box = $("planCanvas").getBoundingClientRect();
+  const x = (ev.clientX - box.left) / box.width * MAP_SIZE;
+  const y = (ev.clientY - box.top) / box.height * MAP_SIZE;
+  const near = (st, lim) => {
+    const q = mapPoint(st);
+    return q && Math.hypot(q.x - x, q.y - y) <= lim;
+  };
+  for(let i = p.markers.length - 1; i >= 0; i--)
+    if(near(p.markers[i], 26)){ planSnapshot(); p.markers.splice(i, 1); paintPlan(); save(); return; }
+  for(let i = p.ink.length - 1; i >= 0; i--)
+    if(p.ink[i].pts.some(q => Math.hypot(q[0] * MAP_SIZE - x, q[1] * MAP_SIZE - y) <= 22)){
+      planSnapshot(); p.ink.splice(i, 1); paintPlan(); save(); return; }
+  for(let i = p.routes.length - 1; i >= 0; i--){
+    const r = p.routes[i];
+    for(let j = r.steps.length - 1; j >= 0; j--)
+      if(near(r.steps[j], 24)){
+        planSnapshot(); r.steps.splice(j, 1);
+        if(!r.steps.length){ p.routes.splice(i, 1); if(PLAN_TOOL.route === i) PLAN_TOOL.route = null; }
+        paintPlan(); save(); return;
+      }
+  }
+}
+
+/* ---- wiring ---- */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-tool]");
+  if(t){ PLAN_TOOL.tool = t.dataset.tool;
+    document.querySelectorAll("[data-tool]").forEach(b => b.classList.toggle("on", b === t));
+    paintPlan(); return; }
+  const m = e.target.closest("[data-mark]");
+  if(m){ PLAN_TOOL.mark = m.dataset.mark; paintPlan(); return; }
+
+  const rc = e.target.closest("[data-rcolour]");
+  if(rc){ const p = curPlan(); const r = p && p.routes[+rc.dataset.rcolour];
+    if(r){ planSnapshot();
+      r.colour = PLAN_COLOURS[(PLAN_COLOURS.indexOf(r.colour) + 1) % PLAN_COLOURS.length];
+      paintPlan(); save(); }
+    return; }
+  const rx = e.target.closest("[data-routex]");
+  if(rx){ const p = curPlan(); if(p){ planSnapshot(); p.routes.splice(+rx.dataset.routex, 1);
+          PLAN_TOOL.route = null; paintPlan(); save(); } return; }
+  const rr = e.target.closest(".pr");
+  if(rr && !e.target.matches("input")){ PLAN_TOOL.route = +rr.dataset.route; paintPlan(); return; }
+
+  if(e.target.closest("#planStart")){ planAdd(); return; }
+  if(e.target.closest("#planScrap")){ scrapPlans("plan"); return; }
+  if(e.target.closest("#planNewRoute")){ PLAN_TOOL.route = null; PLAN_TOOL.tool = "route";
+    document.querySelectorAll("[data-tool]").forEach(b => b.classList.toggle("on", b.dataset.tool === "route"));
+    paintPlan(); return; }
+  if(e.target.closest("#planUndo")){
+    const p = curPlan();
+    if(p && planUndo.length){ S.plans[S.planActive] = JSON.parse(planUndo.pop());
+      PLAN_TOOL.route = null; paintPlan(); save(); }
+    return; }
+  if(e.target.closest("#planClear")){ planClearAll(); return; }
+});
+document.addEventListener("input", e => {
+  const rl = e.target.closest("[data-rlabel]");
+  if(rl){ const p = curPlan();
+    if(p && p.routes[+rl.dataset.rlabel]){ p.routes[+rl.dataset.rlabel].label = rl.value.slice(0, 60); save(); }
+    return; }
+});
+document.addEventListener("pointerdown", e => {
+  if(e.target.closest("#planCanvas")) planPointerDown(e);
+});
 
 /* ---------- matchups ----------
    Capped at the same 40 normaliseGuide enforces. Capping only there would
@@ -2911,6 +3618,29 @@ const PAGE_KINDS = {
     label:   "Setup",
     repaint: () => { renderSetups(); renderMast(); renderRunes(); }
   },
+  /* A plan is a page like the others: same tab strip, same pencil, same
+     Duplicate and Delete. It had its own bar and its own text box, which
+     meant two ways to rename something on one screen. The only differences
+     it actually needs are the field its name lives in and being allowed to
+     reach zero -- plans are optional, where every build has a rune page. */
+  plan: {
+    list:    () => S.plans,
+    index:   () => S.planActive,
+    select:  i  => { S.planActive = i; PLAN_TOOL.route = null; planUndo = []; },
+    max:     PLAN_MAX,
+    min:     0,
+    nameKey: "title",
+    make:    n  => ({id: planUid("m"), title: n, kind: "jungle", note: "",
+                     routes: [], markers: [], ink: []}),
+    copy:    src => ({id: planUid("m"), title: `${src.title} copy`.slice(0, 24),
+                      kind: src.kind, note: src.note,
+                      routes: structuredClone(src.routes),
+                      markers: structuredClone(src.markers),
+                      ink: structuredClone(src.ink)}),
+    filled:  pg => pg.routes.length || pg.markers.length || pg.ink.length,
+    label:   "Plan",
+    repaint: () => { planUndo = []; paintPlan(); }
+  },
   skill: {
     list:    () => S.skillPages,
     index:   () => S.skillActive,
@@ -2926,6 +3656,13 @@ const PAGE_KINDS = {
 };
 /* Which system a click landed in. The mastery pencil lives outside any
    strip, in the info panel, so it falls back to setups. */
+/* Plans keep their field called `title`, because that is what the published
+   guide shape calls it and renaming it there would churn the data for the
+   sake of the editor. So a kind may say which field holds its name, and the
+   shared rename machinery reads that rather than assuming `.name`. */
+const pageNameKey = K => K.nameKey || "name";
+const pageNameOf  = (K, pg) => pg ? (pg[pageNameKey(K)] || "") : "";
+
 const kindOf = el => el?.closest("[data-kind]")?.dataset.kind || "setup";
 const pageActive = kind => { const K = PAGE_KINDS[kind]; return K.list()[K.index()] || K.list()[0]; };
 
@@ -3027,13 +3764,27 @@ const EDIT_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"
 document.addEventListener("click", e => {
   const edit = e.target.closest(".page-name-edit");
   if(edit){ startRename(edit.closest(".page-name-box")); return; }
-  const holder = e.target.closest("[data-setups],#skillPages"); if(!holder) return;
+  const holder = e.target.closest("[data-setups],#skillPages,#planTabs"); if(!holder) return;
   const kind = kindOf(holder);
   const tab = e.target.closest("[data-setup]");
   if(tab){ switchPage(kind, +tab.dataset.setup); return; }
   const act = e.target.closest("[data-act]"); if(!act || act.disabled) return;
   ({add:addPage, dupe:dupePage, del:delPage})[act.dataset.act]?.(kind);
 });
+
+/* Drop the whole section. A per-plan "show this one" switch was the first
+   attempt and answered the wrong question: the common case is not "hide one
+   of my three plans", it is "this guide has no map in it", and for that the
+   editor should not be on the page at all. Undoable, because it throws away
+   everything drawn. */
+function scrapPlans(kind){
+  if(kind !== "plan") return;
+  const before = snapshot(), had = S.plans.some(p => PAGE_KINDS.plan.filled(p));
+  S.plans = []; S.planActive = 0;
+  PLAN_TOOL.route = null; planUndo = [];
+  paintPlan(); autosave(); paint_preview();
+  if(had) offerUndo("Game plan removed.", before);
+}
 
 function switchPage(kind, i){
   const K = PAGE_KINDS[kind];
@@ -3057,13 +3808,15 @@ function dupePage(kind){
 }
 function delPage(kind){
   const K = PAGE_KINDS[kind];
-  if(K.list().length <= 1) return;
+  /* Most kinds must keep one page; plans may go down to none, because a
+     guide with no plan is a normal guide. */
+  if(K.list().length <= (K.min == null ? 1 : K.min)) return;
   const pg = pageActive(kind);
   const before = snapshot(), had = K.filled(pg);
   K.list().splice(K.index(), 1);
   K.select(Math.max(0, K.index() - 1));
   K.repaint(); autosave();
-  if(had) offerUndo(`Deleted "${pg.name}".`, before);
+  if(had) offerUndo(`Deleted "${pageNameOf(K, pg)}".`, before);
 }
 /* Every name box on the page shows the active page's name. */
 function paintNames(){
@@ -3072,7 +3825,10 @@ function paintNames(){
   /* A name box shows the active page of whichever list it sits in — the
      skill strip must not start echoing the rune page's name. */
   for(const el of document.querySelectorAll("[data-name]"))
-    if(el.tagName !== "INPUT") el.textContent = pageActive(kindOf(el)).name;
+    if(el.tagName !== "INPUT"){
+      const k = kindOf(el);
+      el.textContent = pageNameOf(PAGE_KINDS[k], pageActive(k));
+    }
   for(const b of document.querySelectorAll(".page-name-edit"))
     if(!b.querySelector("svg")) b.innerHTML = EDIT_ICON;
 }
@@ -3081,6 +3837,20 @@ function paintNames(){
    The pencil turns the name into a text box, as the client's edit button
    does; double-clicking the name itself does the same. Enter or clicking
    away keeps the change, Escape abandons it. */
+/* Committing a new name. Split out of startRename's blur handler so a check
+   can exercise the real thing: the harness's DOM stub has a no-op
+   addEventListener, so a test cannot press Enter in the input, and asserting
+   on the field directly tests nothing about the code that writes it. */
+function renamePage(kind, idx, next){
+  const K = PAGE_KINDS[kind];
+  const pg = K.list()[idx];
+  next = String(next == null ? "" : next).trim().slice(0, 24);
+  if(!pg || !next || next === pageNameOf(K, pg)) return false;
+  pg[pageNameKey(K)] = next;
+  autosave(); paint_preview();
+  return true;
+}
+
 function startRename(box){
   box = box || document.querySelector(".page-name-box");
   if(!box) return;
@@ -3095,7 +3865,7 @@ function startRename(box){
   const input = document.createElement("input");
   input.type = "text";
   input.className = "page-name-input";
-  input.value = K.list()[idx].name;
+  input.value = pageNameOf(K, K.list()[idx]);
   input.maxLength = 24;
   input.setAttribute("data-name", "");
   input.setAttribute("aria-label", "Page name");
@@ -3106,16 +3876,13 @@ function startRename(box){
   const finish = keep => {
     if(settled) return;
     settled = true;
-    const next = input.value.trim().slice(0, 24);
+    const next = input.value;
     renaming = null;
-    if(keep && next && next !== K.list()[idx].name){
-      K.list()[idx].name = next;
-      autosave(); paint_preview();
-    }
+    if(keep) renamePage(kind, idx, next);
     /* Deferred: when the blur came from clicking another tab, redrawing
        now would swap the DOM out from under that click and swallow it.
        Both strips redraw — the mastery pencil sits outside either one. */
-    setTimeout(() => { renderSetups(); renderSkillPages(); paintNames(); }, 0);
+    setTimeout(() => { renderSetups(); renderSkillPages(); paintPlan(); paintNames(); }, 0);
   };
   input.addEventListener("keydown", e => {
     if(e.key === "Enter"){ e.preventDefault(); finish(true); }
@@ -3900,11 +4667,16 @@ const richWords = html => {
    else about them is identical, so they share the component, the toolbar
    and the handlers. */
 const rtRead = el =>
-  el.dataset.note !== undefined ? (S.notes[el.dataset.note] || "")
+  el.dataset.plannote !== undefined ? ((curPlan() || {}).note || "")
+: el.dataset.note !== undefined ? (S.notes[el.dataset.note] || "")
 : el.dataset.linenote !== undefined ? ((rowById(el.dataset.linenote) || {}).note || "")
 : (S.sections[+el.dataset.b] || {}).b || "";
 
 const rtWrite = (el, html) => {
+  /* A plan note rides the same component as every other note on the page --
+     same toolbar, same sanitising, same word count. Giving it its own box
+     would have meant a second rich editor to keep in step. */
+  if(el.dataset.plannote !== undefined){ const p = curPlan(); if(p) p.note = html; return; }
   if(el.dataset.note !== undefined){ S.notes[el.dataset.note] = html; return; }
   if(el.dataset.linenote !== undefined){
     const r = rowById(el.dataset.linenote);
@@ -4845,7 +5617,7 @@ function hydrate(){
   renderChampPicked(); renderChampGrid(); renderRoles(); renderTags();
   renderSpells(); renderPool(); renderRows(); renderSkills(); renderSkillPages();
   renderSetups(); renderMast(); renderRunes(); renderSections(); renderNotes();
-  renderMu();
+  renderMu(); paintPlan();
   /* Every editor on the page has just been rebuilt — section bodies, the
      builder notes and the per-line notes — so this covers all of them at
      once rather than each render remembering to. */

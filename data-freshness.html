@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data freshness — S3 Builds</title>
+<!-- A DEVELOPMENT PAGE. Nothing links to it.
+
+     Champions, items, stats and item tiers are all read from the mode's own
+     catalogue at runtime, so a patch reaches the site without an edit here.
+     What CANNOT keep itself current is the handful of hand-kept lists: the
+     offline roster fallback, the splash face offsets, the excluded-item
+     patterns, the PBE art list. This page fetches the live catalogue and
+     diffs it against them, so "are we current?" has an answer rather than
+     an opinion.
+
+     It calls the site's own loaders rather than rebuilding the URLs, for
+     the same reason face-offsets.html does: a second idea of where the data
+     lives is a second thing to get wrong.
+
+     In the root, not tools/, because the scripts are addressed relatively. -->
+<link rel="stylesheet" href="site.css?v=184">
+<style>
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:var(--font-jade-body,Georgia,serif);padding:22px;line-height:1.5}
+  h1{font-family:var(--font-jade,Georgia,serif);color:var(--title);margin:0 0 4px;font-size:22px}
+  h2{font-family:var(--font-jade,Georgia,serif);color:var(--title);font-size:16px;
+     margin:22px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+  p.lede{color:var(--muted);max-width:760px;margin:0 0 10px}
+  .card{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;
+        padding:12px 14px;margin:8px 0;max-width:900px}
+  .ok{color:#5fb87a}.warn{color:#e0a84a}.bad{color:#d8574a}
+  .k{color:var(--muted-2);font-size:12.5px}
+  code{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--gold-hi)}
+  ul{margin:6px 0 0;padding-left:20px}li{margin:1px 0}
+  .snip{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);
+        border-radius:8px;padding:9px 11px;font-family:ui-monospace,monospace;
+        font-size:12px;color:var(--text);max-width:900px;overflow-x:auto}
+</style>
+</head>
+<body>
+<h1>Data freshness</h1>
+<p class="lede">Everything the site shows about champions, items and stats comes
+from the mode's own catalogue at runtime. This checks the few lists that are
+kept by hand and cannot follow a patch on their own.</p>
+<div id="out"><div class="card">Loading the live catalogue…</div></div>
+
+<script src="site.js?v=184"></script>
+<script src="data-champ-focus.js?v=184"></script>
+<script src="config.js?v=184"></script>
+<script src="guide-store.js?v=184"></script>
+<script>
+renderChrome("Champions");
+if(typeof loadStore === "function") loadStore();
+
+/* esc() comes from site.js. Declaring one here threw
+   "Identifier 'esc' has already been declared" and blanked the whole page --
+   caught by stub-check, which boots every page the way a browser does. */
+const out = document.getElementById("out");
+const card = (title, cls, body) =>
+  `<div class="card"><b class="${cls}">${esc(title)}</b>${body || ""}</div>`;
+const list = xs => xs.length ? "<ul>" + xs.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul>" : "";
+
+(async () => {
+  const parts = [];
+  const add = h => { parts.push(h); out.innerHTML = parts.join(""); };
+
+  /* ---- patch ---- */
+  try{
+    await loadLivePatch();
+    const v = livePatch();
+    if(!v) throw new Error("versions.json unreachable");
+    add(card("Patch " + classicPatch(v) + " (internal " + v + ")", "ok",
+      `<div class="k">The mode and its patch notes show the displayed number;
+       Data Dragon reports the internal one. Displayed = internal + 10.</div>`));
+  }catch(e){
+    add(card("Could not read the live patch — " + e.message, "bad"));
+  }
+
+  /* ---- champions ---- */
+  let idx = null;
+  try{
+    idx = await CLASSIC.rosterIndex();
+    /* The loader falls back to the built-in list rather than throwing, so a
+       successful call is not the same as having reached the catalogue. If
+       every live name is one the fallback already had, say so plainly
+       instead of reporting a clean diff that proves nothing. */
+    if(!idx || !idx.keys || !idx.keys.size) throw new Error("empty roster index");
+  }catch(e){
+    idx = null;
+    add(card("Could not reach the champion catalogue — " + e.message, "bad",
+      `<div class="k">Everything below about champions is unknown, not fine.</div>`));
+  }
+  if(idx){
+    const liveNames = [...idx.display.values()];
+    const offline = !idx.display.size;
+    const baked = new Set(CLASSIC_ROSTER.map(normKey));
+    const missing = liveNames.filter(n => !baked.has(normKey(n)));
+    const extra   = CLASSIC_ROSTER.filter(n => !liveNames.some(l => normKey(l) === normKey(n)));
+    if(offline)
+      add(card("The roster came from the built-in list, not the catalogue", "bad",
+        `<div class="k">Nothing below can tell you about new champions.</div>`));
+    if(!offline) add(card(`${liveNames.length} champions live, ${CLASSIC_ROSTER.length} in the offline fallback`,
+      missing.length || extra.length ? "warn" : "ok",
+      `<div class="k">The fallback is only used when the catalogue is unreachable,
+        so a difference is cosmetic — but it is also the only place a new
+        champion needs a hand edit.</div>` +
+      (missing.length ? "<div class='warn'>Live but not in the fallback:</div>" + list(missing) : "") +
+      (extra.length   ? "<div class='warn'>In the fallback but not live:</div>"  + list(extra)   : "") +
+      (missing.length ? `<div class="snip">${esc(missing.map(n => '"' + n + '"').join(","))}</div>` : "")));
+
+    /* face offsets: the one champion number nothing can derive */
+    const unmeasured = [...idx.display.entries()]
+      .filter(([k]) => !(typeof CHAMP_FACE_Y === "object" && CHAMP_FACE_Y
+                         && CHAMP_FACE_Y[CLASSIC.champId(k)] != null))
+      .map(([k, name]) => ({key: k, name}));
+    if(!offline) add(card(unmeasured.length
+        ? unmeasured.length + " champion(s) have no splash face offset"
+        : "Every live champion has a splash face offset", unmeasured.length ? "warn" : "ok",
+      `<div class="k">Unmeasured champions fall back to a default crop, which
+        can cut off a face. Measure them in <code>face-offsets.html</code>.</div>` +
+      list(unmeasured.map(c => c.name + "  (id " + CLASSIC.champId(c.key) + ")"))));
+  }
+
+  /* ---- items ---- */
+  try{
+    const {byId, source} = await loadItems();
+    const items = [...byId.values()];
+    if(source !== "classic"){
+      add(card("Item data came from the Season 3 archive, not the mode", "bad",
+        `<div class="k">The mode's own item table was unreachable, so this run
+          cannot tell you anything about new items.</div>`));
+    }else{
+      /* highest ids are the most recently added */
+      const newest = items.slice().sort((a,b) => Number(b.id) - Number(a.id)).slice(0, 12);
+      add(card(items.length + " items live in the mode's shop", "ok",
+        `<div class="k">Items, their recipes, prices and tiers are all read
+          live and tier is derived from the recipe — a new item needs no edit.
+          Highest ids, which are the most recently added:</div>` +
+        list(newest.map(i => i.id + "  " + i.name + "  " + (i.total || 0) + "g"))));
+
+      const noIcon = items.filter(i => !i.icon);
+      const noPrice = items.filter(i => !i.total && i.inStore);
+      const orphan = items.filter(i =>
+        (i.from || []).some(f => !byId.has(f)) || (i.to || []).some(t => !byId.has(t)));
+      const trouble = [];
+      if(noIcon.length)  trouble.push(noIcon.length + " with no icon: " + noIcon.slice(0,6).map(i=>i.name).join(", "));
+      if(noPrice.length) trouble.push(noPrice.length + " in the shop with no price: " + noPrice.slice(0,6).map(i=>i.name).join(", "));
+      if(orphan.length)  trouble.push(orphan.length + " whose recipe points at an item not in the table: " + orphan.slice(0,6).map(i=>i.name).join(", "));
+      add(card(trouble.length ? "Items worth a look" : "No broken items",
+        trouble.length ? "warn" : "ok",
+        trouble.length ? list(trouble)
+          : `<div class="k">Every item has an icon, a price and a recipe that
+             resolves inside the table.</div>`));
+
+      /* ---- the mode's OWN shop list ----
+         jade-items.json is the mode stating which items are in Classic's
+         shop. The site does not read it: it approximates with
+         id >= 770000 plus three hand-kept name patterns. An extract from
+         August showed the approximation letting a second Health Potion
+         through. Fetched here rather than inferred, so the question is
+         answered by the game rather than by a guess. */
+      try{
+        const r = await fetch(`${CLASSIC.base}/v1/jade-items.json`, {mode:"cors"});
+        if(!r.ok) throw new Error("jade-items.json " + r.status);
+        const rows = await r.json();
+        const mode = new Set((rows[0] && rows[0].items || [])
+          .map(x => Number(x.value && x.value.itemId)).filter(Boolean));
+        if(!mode.size) throw new Error("no item ids in jade-items.json");
+        /* byId is keyed by the SHORT id, so add the offset back to compare */
+        const shown = items.filter(i => i.inStore && (i.total || 0) > 0);
+        const strays = shown.filter(i => !mode.has(Number(i.id) + CLASSIC.itemOffset));
+
+        /* THE OTHER DIRECTION, which is the one that hid Zz'Rot Portal for
+           weeks: an item the mode sells that never reaches the page. Since
+           loadItems walks items.json and keeps what the shop list names, an
+           id present in the list but absent from items.json simply does not
+           appear -- no error, no gap, nothing to notice. */
+        const raw = await CLASSIC.itemData();
+        const noRecord = [...mode].filter(id => !raw.has(id));
+        const notShown = [...mode].filter(id => raw.has(id) &&
+          !shown.some(i => Number(i.id) + CLASSIC.itemOffset === id));
+        add(card(noRecord.length
+            ? noRecord.length + " item(s) the mode sells have no record at all"
+            : "Every item the mode sells has a record",
+          noRecord.length ? "bad" : "ok",
+          (noRecord.length
+            ? `<div class="k">These are in jade-items.json but not in
+                items.json, so they are missing from the shop silently.</div>`
+              + list(noRecord)
+            : "") +
+          (notShown.length
+            ? `<div class="k">${notShown.length} more have a record but are not
+                displayed, having no price or being out of store:</div>` +
+              list(notShown.map(id => id + "  " + ((raw.get(id) || {}).name || "?")))
+            : "")));
+        add(card(strays.length
+            ? strays.length + " item(s) on the shop page are not in the mode's own list"
+            : "The shop page matches the mode's own item list",
+          strays.length ? "warn" : "ok",
+          `<div class="k">Mode's list: ${mode.size} items. Shop page shows:
+            ${shown.length}.</div>` +
+          list(strays.map(i => (Number(i.id) + CLASSIC.itemOffset) + "  " + i.name +
+                               "  " + (i.total || 0) + "g"))));
+      }catch(e){
+        add(card("Could not check against the mode's own item list — " + e.message, "warn",
+          `<div class="k">The shop is still built from the id range and the
+            hand-kept patterns; this only means the cross-check didn't run.</div>`));
+      }
+
+      /* what the hand-kept exclusion list threw away */
+      const raw = await CLASSIC.itemData();
+      const dropped = [...raw.values()].filter(r => isExcludedItem(r.name, r.requiredChampion));
+      add(card(dropped.length + " item(s) excluded by hand-kept rules", dropped.length ? "warn" : "ok",
+        `<div class="k">These are the only item decisions not derived from the
+          data. Check nothing real is being thrown away.</div>` +
+        list(dropped.map(r => r.name + (r.requiredChampion ? "  (locked to " + r.requiredChampion + ")" : "  (pattern)")))));
+    }
+  }catch(e){
+    add(card("Could not read the item catalogue — " + e.message, "bad"));
+  }
+
+  /* ---- PBE art ---- */
+  add(card(CLASSIC.pbeOnly.size
+      ? CLASSIC.pbeOnly.size + " champion(s) still taking art from PBE"
+      : "No champions pinned to PBE art", "ok",
+    `<div class="k">A champion lands on PBE before live; art has to come from
+      /pbe until their files appear under /latest. Pinning one that has since
+      shipped means serving older art than exists.</div>` +
+    list([...CLASSIC.pbeOnly])));
+
+  add(`<div class="card k">Checked ${new Date().toLocaleString()}. Reload to re-run;
+       item and champion data are cached per session.</div>`);
+})().catch(e => { out.innerHTML += card("This page itself failed — " + e.message, "bad"); });
+</script>
+</body>
+</html>

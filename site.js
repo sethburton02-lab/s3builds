@@ -86,6 +86,42 @@ const CLASSIC = {
       return (CLASSIC._items = new Map());
     }
   },
+  /* ---- the mode's OWN shop list ----
+     jade-items.json is League Classic stating which items are in its shop.
+     Everything else here infers that: id >= 770000 catches the mode's id
+     range, and EXCLUDED_ITEM_PATTERNS below hand-removes the leftovers.
+     Checked against an extract on 10 Oct 2026, the inference was wrong in
+     both directions -- it hid Zz'Rot Portal, which the mode had added to
+     its shop, and showed a second Health Potion (773521) that the mode
+     does not list. A hand-kept list cannot follow a patch; this file can.
+     Returns an EMPTY set when unreachable, which means "unknown" and sends
+     loadItems back to the inference rather than emptying the shop. */
+  _shop: null,
+  async shopList(){
+    if(CLASSIC._shop) return CLASSIC._shop;
+    const key = "cd:classic-shop:v1";
+    try{
+      const hit = sessionStorage.getItem(key);
+      if(hit) return (CLASSIC._shop = new Set(JSON.parse(hit)));
+    }catch(_){}
+    try{
+      const res = await fetch(`${CLASSIC.base}/v1/jade-items.json`, {mode:"cors"});
+      if(!res.ok) throw new Error(`jade-items.json ${res.status}`);
+      const rows = await res.json();
+      const ids = ((rows && rows[0] && rows[0].items) || [])
+        .map(x => Number(x && x.value && x.value.itemId))
+        .filter(n => Number.isFinite(n) && n > 0);
+      /* An empty answer is a broken answer, not a mode with no shop -- the
+         same guard the roster has, for the same reason. */
+      if(!ids.length) throw new Error("no item ids in jade-items.json");
+      try{ sessionStorage.setItem(key, JSON.stringify(ids)); }catch(_){}
+      return (CLASSIC._shop = new Set(ids));
+    }catch(err){
+      console.warn("Classic shop list unavailable, inferring from the id range:", err.message);
+      return (CLASSIC._shop = new Set());
+    }
+  },
+
   itemIcon(id){
     const rec = CLASSIC._items && CLASSIC._items.get(CLASSIC.itemId(id));
     return rec ? rec.icon : null;
@@ -183,7 +219,33 @@ async function loadLivePatch(){
 }
 
 /* What every page prints. Never DD.patch — that is the art archive. */
-const patchLabel = () => livePatch() ? "Patch " + livePatch() : "Live patch";
+/* WHAT RIOT CALLS A PATCH AND WHAT THE MODE SHOWS ARE TEN APART.
+
+   Data Dragon's versions.json returns Riot's internal numbering -- 16.20.1
+   today -- while the client, the patch notes and every Classic player say
+   26.20. The site was printing "Patch 16.20" on every page and stamping
+   guides with it: a number that appears nowhere the reader can check.
+
+   Stored stamps stay INTERNAL and are mapped here, at display. Mapping on
+   the way in would have left every guide published before today reading
+   ten patches out of date, with nothing to say which convention it used.
+
+   The guard is on the major rather than a flag date: anything already at
+   20 or above is a displayed number and is left alone, so this cannot
+   double-count if Data Dragon ever switches convention. */
+const classicPatch = v => {
+  const s = String(v == null ? "" : v);
+  /* Matched, not split-and-parsed. Number("") is 0 -- finite, and under the
+     threshold -- so an empty patch came back as "10": a patch number
+     invented out of nothing. The pattern makes "is this a version?" the
+     first question rather than an assumption. */
+  const m = /^(\d+)(\..*)?$/.exec(s);
+  if(!m) return s;
+  const major = Number(m[1]);
+  return major >= 20 ? s : String(major + 10) + (m[2] || "");
+};
+
+const patchLabel = () => livePatch() ? "Patch " + classicPatch(livePatch()) : "Live patch";
 
 const DD = {
   /* 3.13.24 is the last Season 3 patch on Data Dragon — before the
@@ -356,11 +418,19 @@ CLASSIC.rosterIndex = async function(){
   const key = "cd:classic-roster:v1";
   const build = rows => {
     const keys = [], names = [], aliases = new Map();
+    /* The catalogue's own spelling, kept alongside the normalised set.
+       normKey folds away the apostrophes and spaces that make "Cho'Gath"
+       different from "chogath", which is right for matching and useless
+       for anything that has to show or write out a name -- the offline
+       fallback list, for one. Keeping both costs a map and means nothing
+       downstream has to reconstruct a name it already had. */
+    const display = new Map();
     for(const c of rows || []){
       if(!/^Jade_/i.test(c.alias || "")) continue;
       const k = Number(c.id) - CLASSIC.champOffset;
       if(Number.isInteger(k) && k > 0){
         keys.push(k);
+        if(c.name) display.set(k, c.name);
         /* The alias is kept because the stat files are addressed by it and
            nothing else. Guessing the slug from the archive's id works for
            most champions and quietly fails for the ones whose names the two
@@ -370,7 +440,7 @@ CLASSIC.rosterIndex = async function(){
       }
       if(c.name) names.push(normKey(c.name));
     }
-    return {keys: new Set(keys), names: new Set(names), aliases};
+    return {keys: new Set(keys), names: new Set(names), aliases, display};
   };
   try{
     const hit = sessionStorage.getItem(key);
@@ -1296,7 +1366,19 @@ const CLASSIC_ROSTER = [
   "Soraka","Taric","Teemo","Tristana","Tryndamere","Twisted Fate","Twitch","Vayne","Veigar",
   "Warwick","Wukong","Zilean",
   /* Shipped to live 12 Aug 2026. */
-  "Akali","Kennen","Shen"
+  "Akali","Kennen","Shen",
+  /* Patch 26.20, 7 Oct 2026. */
+  "Aatrox","Caitlyn","Irelia","Karma","Quinn",
+  /* Added 10 Oct 2026 from a game-file extract. These nine were ALREADY
+     live and had been missing from this list for some time: the mode has
+     77 champions against the 68 that were here. Nothing broke, because the
+     roster is read from the catalogue at runtime and this list is only the
+     offline fallback -- which is exactly why the gap went unnoticed. Two
+     of them, Graves and Shyvana, already had guides on the site.
+     Nunu is "Nunu" here and "Nunu & Willump" in the catalogue; that
+     difference is deliberate, see CLASSIC.rosterIndex -- the key is the
+     join, not the name. */
+  "Fiora","Fizz","Galio","Graves","Nami","Nautilus","Poppy","Shyvana","Xin Zhao"
 ];
 const normKey = s => String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const ROSTER_SET = new Set(CLASSIC_ROSTER.map(normKey).concat(["monkeyking"]));
@@ -1441,8 +1523,14 @@ function cdText(html){
    ------------------------------------------------------------ */
 const EXCLUDED_ITEM_PATTERNS = [
   /golden\s*spatula/i,    /* developer item, never in a real shop */
-  /hex\s*core/i,          /* Viktor — "Prototype Hex Core", "The Hex Core mk-1", etc. */
-  /zz.?rot\s*portal/i     /* Season 5 item; not in the mode's shop */
+  /hex\s*core/i           /* Viktor — "Prototype Hex Core", "The Hex Core mk-1", etc. */
+  /* Zz'Rot Portal was here, described as "Season 5; not in the mode's
+     shop". The mode has since PUT IT IN the shop, and this line went on
+     hiding it — a hand-kept exclusion is a claim about the game that stops
+     being true without anything failing. Both remaining entries were
+     re-checked against the mode's own jade-items.json on 10 Oct 2026 and
+     really are absent from it. They now only apply when that file cannot
+     be reached; see CLASSIC.shopList. */
 ];
 function isExcludedItem(name, requiredChampion){
   if(EXCLUDED_ITEM_PATTERNS.some(re => re.test(name || ""))) return true;
@@ -1454,9 +1542,12 @@ function isExcludedItem(name, requiredChampion){
 async function loadItems(){
   const classic = await CLASSIC.itemData();
   if(classic.size){
+    /* The mode's own list when it can be had, the inference when it can't. */
+    const shop = await CLASSIC.shopList();
     const byId = new Map();
     for(const rec of classic.values()){
-      if(isExcludedItem(rec.name, rec.requiredChampion)) continue;
+      if(shop.size ? !shop.has(rec.id)
+                   : isExcludedItem(rec.name, rec.requiredChampion)) continue;
       const liveId = String(rec.id - CLASSIC.itemOffset);
       byId.set(liveId, {
         id: liveId, name: rec.name, blurb: "",

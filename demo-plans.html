@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo game plans — S3 Builds</title>
+<!-- A DEVELOPMENT PAGE. Nothing links to it; it exists to put real plans in
+     front of the editor without drawing four by hand every time something
+     changes. Do not deploy it: it writes directly to the draft key.
+
+     IT LIVES IN THE ROOT, not in tools/, and has to. data-map.js addresses
+     its art relatively -- "art/rift-season3-clean.jpg" -- so from a
+     subdirectory the browser asks for tools/art/... and the map comes back
+     empty. Every other page sits here for the same reason. -->
+<link rel="stylesheet" href="site.css?v=184">
+<style>
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:var(--font-jade-body,Georgia,serif);padding:20px}
+  h1{font-family:var(--font-jade,Georgia,serif);color:var(--title);margin:0 0 4px;font-size:22px}
+  p.lede{color:var(--muted);max-width:760px;line-height:1.55;margin:0 0 16px}
+  .warn{background:#f3e3c4;border:1px solid var(--line);border-radius:10px;
+        padding:11px 13px;max-width:760px;margin:0 0 18px;font-size:13.5px;line-height:1.5}
+  .grid{display:flex;flex-wrap:wrap;gap:26px}
+  section{width:430px}
+  h3{font-family:var(--font-jade,Georgia,serif);color:var(--title);margin:0 0 6px;font-size:16px}
+  .note{margin-top:10px;font-size:13.5px;line-height:1.6}
+  .note p{margin:0}
+  .bar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+  button{font-family:inherit}
+  #said{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<h1>Demo game plans</h1>
+<p class="lede">One plan per role, drawn with the real place names &mdash; every stop stores a
+  camp or a turret rather than a pixel. This is what a reader sees on a guide, and the same
+  data the editor loads.</p>
+
+<div class="warn"><b>Loading these replaces whatever draft you have open.</b>
+  The creator keeps one draft at a time, so anything unsaved in it is lost. Publish or copy
+  a link first if you want to keep it.</div>
+
+<div class="bar">
+  <button type="button" class="btn btn-gold" id="load">Load these into the creator</button>
+  <a class="btn btn-ghost btn-sm" href="create.html">Open the creator</a>
+  <span id="said"></span>
+</div>
+<p id="diag" class="warn" hidden></p>
+
+<div class="grid" id="grid"></div>
+
+<script src="site.js?v=184"></script>
+<script src="guide-sanitise.js?v=184"></script>
+<script src="config.js?v=184"></script>
+<script src="guide-store.js?v=184"></script>
+<script src="guide-load.js?v=184"></script>
+<script src="data-map.js?v=184"></script>
+<script>
+/* The page wears the site's own chrome. It is a development page, but the
+   conventions every other page follows are checked, and an exclusion list is
+   a worse thing to carry than two lines. */
+renderChrome("Create");
+if(typeof loadStore === "function") loadStore();
+
+const DEMO = [
+ {
+  "id": "d1",
+  "title": "Jungle: full clear",
+  "kind": "jungle",
+  "note": "<p>Blue first with a leash from top or mid, then down the line to red. Golems last so smite is back up for the first dragon. If the enemy jungler starts bot side, this crosses them at wraiths &mdash; take the trade, you are level 3 with blue.</p>",
+  "routes": [
+   {
+    "id": "r1",
+    "colour": "gold",
+    "label": "Levels 1-4, leash at blue",
+    "steps": [
+     {
+      "place": "blue-buff"
+     },
+     {
+      "place": "blue-wolves"
+     },
+     {
+      "place": "blue-wraiths"
+     },
+     {
+      "place": "blue-red"
+     },
+     {
+      "place": "blue-golems"
+     }
+    ]
+   },
+   {
+    "id": "r2",
+    "colour": "blue",
+    "label": "Then gank bot or take dragon",
+    "steps": [
+     {
+      "place": "blue-golems"
+     },
+     {
+      "place": "dragon"
+     }
+    ]
+   }
+  ],
+  "markers": [
+   {
+    "place": "blue-wraiths",
+    "kind": "danger"
+   },
+   {
+    "place": "dragon",
+    "kind": "objective"
+   }
+  ],
+  "ink": []
+ },
+ {
+  "id": "d2",
+  "title": "Support: first ward set",
+  "kind": "wards",
+  "note": "<p>Trinket on the river bush before 2:30, pink in the tribush once you have 75 gold. The second trinket goes deep only if your jungler has shown bot &mdash; otherwise it is a free kill for theirs.</p>",
+  "routes": [],
+  "markers": [
+   {
+    "x": 0.615,
+    "y": 0.605,
+    "kind": "ward"
+   },
+   {
+    "x": 0.705,
+    "y": 0.74,
+    "kind": "pink"
+   },
+   {
+    "place": "dragon",
+    "kind": "objective"
+   },
+   {
+    "place": "blue-red",
+    "kind": "ward"
+   },
+   {
+    "x": 0.82,
+    "y": 0.83,
+    "kind": "danger"
+   }
+  ],
+  "ink": []
+ },
+ {
+  "id": "d3",
+  "title": "Mid: push and roam",
+  "kind": "roam",
+  "note": "<p>Shove the wave at 6, then take the river. Bot first &mdash; it is the longer lane and the one that gives you dragon afterwards. If the wave is not shoving, do not leave: a mid tower in Season 3 is worth more than a bot kill.</p>",
+  "routes": [
+   {
+    "id": "r1",
+    "colour": "gold",
+    "label": "Shove, then roam bot",
+    "steps": [
+     {
+      "place": "blue-mid-t1"
+     },
+     {
+      "x": 0.58,
+      "y": 0.56
+     },
+     {
+      "place": "dragon"
+     },
+     {
+      "x": 0.76,
+      "y": 0.8
+     }
+    ]
+   },
+   {
+    "id": "r2",
+    "colour": "purple",
+    "label": "Or top, if they overextend",
+    "steps": [
+     {
+      "place": "blue-mid-t1"
+     },
+     {
+      "x": 0.42,
+      "y": 0.39
+     },
+     {
+      "x": 0.3,
+      "y": 0.23
+     }
+    ]
+   }
+  ],
+  "markers": [
+   {
+    "place": "blue-mid-t1",
+    "kind": "objective"
+   },
+   {
+    "x": 0.58,
+    "y": 0.56,
+    "kind": "ward"
+   }
+  ],
+  "ink": []
+ },
+ {
+  "id": "d4",
+  "title": "Top: freeze, then dive",
+  "kind": "waves",
+  "note": "<p>Hold the wave outside your own tower &mdash; last-hit only, let it build. When your jungler is top side, shove it in and dive together. The freeze is the whole plan: it keeps them pushed up and away from their tower, which is what makes the dive work at all.</p>",
+  "routes": [
+   {
+    "id": "r1",
+    "colour": "red",
+    "label": "Dive once the wave crashes",
+    "steps": [
+     {
+      "place": "blue-top-t1"
+     },
+     {
+      "place": "red-top-t3"
+     },
+     {
+      "place": "red-top-inhib"
+     }
+    ]
+   }
+  ],
+  "markers": [
+   {
+    "x": 0.11,
+    "y": 0.52,
+    "kind": "text",
+    "text": "freeze here"
+   },
+   {
+    "x": 0.3,
+    "y": 0.12,
+    "kind": "text",
+    "text": "they walk in from here"
+   },
+   {
+    "x": 0.175,
+    "y": 0.3,
+    "kind": "ward"
+   },
+   {
+    "x": 0.235,
+    "y": 0.195,
+    "kind": "danger"
+   }
+  ],
+  "ink": [
+   {
+    "colour": "red",
+    "w": 10,
+    "pts": [
+     [
+      0.112,
+      0.47
+     ],
+     [
+      0.113,
+      0.5
+     ],
+     [
+      0.112,
+      0.53
+     ],
+     [
+      0.113,
+      0.56
+     ]
+    ]
+   },
+   {
+    "colour": "red",
+    "w": 9,
+    "pts": [
+     [
+      0.255,
+      0.155
+     ],
+     [
+      0.232,
+      0.183
+     ],
+     [
+      0.21,
+      0.212
+     ],
+     [
+      0.19,
+      0.243
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "id": "d5",
+  "title": "Mid: wave control",
+  "kind": "waves",
+  "note": "<p>Freeze mid when you are behind &mdash; it is the shortest lane, so a held wave there is the safest farm on the map. Shove instead when you want dragon: the wave has to be gone before you walk down, or you lose the tower while you take it.</p>",
+  "routes": [],
+  "markers": [
+   {
+    "x": 0.345,
+    "y": 0.65,
+    "kind": "text",
+    "text": "hold it here"
+   },
+   {
+    "x": 0.6,
+    "y": 0.43,
+    "kind": "text",
+    "text": "or shove, then drag"
+   },
+   {
+    "place": "dragon",
+    "kind": "objective"
+   }
+  ],
+  "ink": [
+   {
+    "colour": "red",
+    "w": 11,
+    "pts": [
+     [
+      0.33,
+      0.7
+     ],
+     [
+      0.348,
+      0.682
+     ],
+     [
+      0.366,
+      0.664
+     ],
+     [
+      0.384,
+      0.646
+     ]
+    ]
+   },
+   {
+    "colour": "gold",
+    "w": 13,
+    "pts": [
+     [
+      0.47,
+      0.52
+     ],
+     [
+      0.52,
+      0.472
+     ],
+     [
+      0.57,
+      0.424
+     ],
+     [
+      0.62,
+      0.378
+     ],
+     [
+      0.66,
+      0.34
+     ]
+    ]
+   }
+  ]
+ }
+];
+
+/* Rendered through the guide's own functions, so what is shown here cannot
+   drift from what a reader gets. */
+document.getElementById("grid").innerHTML = DEMO.map(p => `
+  <section>
+    <h3>${esc(p.title)}</h3>
+    ${mapPlanLegend(p)}
+    <div>${mapFigure("photo", mapPlanSvg(p))}</div>
+    <div class="note">${p.note}</div>
+  </section>`).join("");
+
+/* Say plainly when an asset fails. The first version of this page sat in
+   tools/ and every image 404'd, which showed up as an empty map and no
+   error at all -- the worst way for something to be broken. */
+(function(){
+  const want = [MAP_IMAGE, MAP_WARD_ICON.ward,
+                MAP_ICON_MINIMAP + "/junglecampbasic.png"];
+  let left = want.length, bad = [];
+  want.forEach(u => {
+    const im = new Image();
+    im.onload  = () => { if(!--left) report(); };
+    im.onerror = () => { bad.push(u); if(!--left) report(); };
+    im.src = u;
+  });
+  function report(){
+    if(!bad.length) return;
+    const el = document.getElementById("diag");
+    el.hidden = false;
+    el.innerHTML = "<b>These images did not load:</b><br>" +
+      bad.map(u => "<code>" + esc(u) + "</code>").join("<br>") +
+      "<br>If they start with <code>art/</code>, this page is being served from " +
+      "the wrong folder &mdash; it has to sit beside create.html.";
+  }
+})();
+
+/* The draft shape the creator expects. Only the plan fields matter here; the
+   rest is enough for the page to load without complaining. */
+/* .assetsignore keeps this page off the live site, but a deploy config is a
+   thing that can be edited by mistake and this button is destructive. The
+   guard is here too, where it cannot be separated from the thing it guards. */
+const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+           || location.protocol === "file:";
+if(!LOCAL){
+  document.getElementById("load").disabled = true;
+  document.getElementById("said").textContent =
+    "This is a development page. Loading a draft only works locally.";
+}
+
+document.getElementById("load").onclick = () => {
+  if(!LOCAL) return;
+  const draft = {
+    title: "Demo — game plans", blurb: "Four plans, one per role.",
+    champ: null, role: "Jungle", tag: "", spellSets: [[]], spellSet: 0,
+    items: [], cardRow: null, setups: [], active: 0,
+    skillPages: [], skillActive: 0,
+    sections: [{h: "Why this build works", b: ""}],
+    matchups: [], notes: {},
+    plans: JSON.parse(JSON.stringify(DEMO)), planActive: 0
+  };
+  try{
+    localStorage.setItem("riftvault.draft.v2", JSON.stringify(draft));
+    document.getElementById("said").textContent =
+      "Loaded. Open the creator and scroll to Game plan.";
+  }catch(e){
+    document.getElementById("said").textContent = "Could not write the draft: " + e.message;
+  }
+};
+</script>
+</body>
+</html>

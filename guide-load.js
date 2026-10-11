@@ -31,6 +31,45 @@ const GUIDE_STORE_KEY = "riftvault.published.v1";
    Normalising here rather than in the renderer means a guide from a file
    written months ago, a link made by an older build, and today's draft all
    arrive identical. The renderer can then assume every field exists. */
+/* How many plans a card should claim. Named rather than inlined so a check
+   can call the real thing: a test that re-implements the count passes
+   whatever the card does, however wrong. */
+function shownPlanCount(g){
+  return Array.isArray(g && g.plans) ? g.plans.length : 0;
+}
+
+/* ---------- game plans ----------
+   A plan is a drawing over the rift: routes, markers and freehand ink.
+
+   A STEP IS A PLACE, NOT A POINT, whenever it can be. "blue-buff" survives
+   the map being redrawn, remeasured or reskinned -- all of which happened
+   repeatedly while the map was being built -- where a pixel pair would have
+   silently drifted off the camp it meant. Raw points are still allowed,
+   because not everything worth pointing at is a named place (a bush, a ward
+   spot between two camps), but they are the fallback rather than the norm.
+
+   Colours and marker kinds are ENUMS, not free strings. These values end up
+   in class names, and a guide is author-supplied data; an enum means a
+   hostile value cannot reach the stylesheet at all, rather than relying on
+   escaping being right at every call site.
+
+   The caps are deliberately generous but finite: six plans of forty steps is
+   far more than any real guide needs, and the ink cap exists because a
+   freehand stroke is the one field an author could accidentally make
+   enormous by holding the mouse down. */
+const PLAN_MAX       = 6;
+const PLAN_STEPS_MAX = 40;
+const PLAN_MARKS_MAX = 30;
+const PLAN_INK_MAX   = 40;
+const PLAN_PTS_MAX   = 200;
+const PLAN_KINDS   = ["jungle", "wards", "waves", "roam"];
+const PLAN_COLOURS = ["gold", "blue", "red", "green", "purple"];
+const PLAN_MARKS   = ["ward", "pink", "danger", "objective", "note", "text"];
+/* How long a label on the map may be. Short on purpose: this is a word or
+   two pointing at something drawn, not a second place to write the
+   explanation. The plan already has one of those. */
+const PLAN_TEXT_MAX = 42;
+
 function normaliseGuide(raw){
   const g = raw && typeof raw === "object" ? raw : {};
   /* Plain fields lose their angle brackets and rich fields go through the
@@ -118,6 +157,59 @@ function normaliseGuide(raw){
       diff:  ["easy", "even", "hard"].includes(m && m.diff) ? m.diff : "even",
       note:  str(m && m.note).slice(0, 200)
     })).filter(m => m.champ),
+    /* Plans: see the note above the enums. Everything is clamped rather
+       than rejected -- a plan with one unreadable step is still worth
+       showing without that step, whereas dropping the plan loses work the
+       author did. A step that is neither a known-shaped place key nor a
+       pair of finite numbers is the one thing removed outright. */
+    plans: arr(g.plans).slice(0, PLAN_MAX).map((p, i) => {
+      const pt = v => Math.max(0, Math.min(1, Math.round(v * 1e4) / 1e4));
+      const step = st => {
+        if(!st || typeof st !== "object") return null;
+        const place = str(st.place);
+        if(place && /^[a-z0-9-]{2,24}$/.test(place)) return {place};
+        if(Number.isFinite(st.x) && Number.isFinite(st.y))
+          return {x: pt(st.x), y: pt(st.y)};
+        return null;
+      };
+      return {
+        id:    str(p && p.id) || `m${i}`,
+        title: str(p && p.title) || `Plan ${i + 1}`,
+        kind:  PLAN_KINDS.includes(p && p.kind) ? p.kind : "jungle",
+        note:  rich(p && p.note),
+        routes: arr(p && p.routes).slice(0, 6).map((r, j) => ({
+          id:     str(r && r.id) || `r${j}`,
+          label:  str(r && r.label).slice(0, 60),
+          colour: PLAN_COLOURS.includes(r && r.colour) ? r.colour : "gold",
+          steps:  arr(r && r.steps).slice(0, PLAN_STEPS_MAX).map(step).filter(Boolean)
+        })).filter(r => r.steps.length > 1),
+        markers: arr(p && p.markers).slice(0, PLAN_MARKS_MAX).map(m => {
+          const at = step(m);
+          if(!at) return null;
+          /* No label. The field was sanitised, capped and stored for a
+             while, and never rendered or editable anywhere -- a marker says
+             what it is by its shape, and anything more goes in the plan's
+             explanation. Carrying a field nothing reads is a liability: it
+             looks supported, so the next person wires a UI to it rather
+             than asking whether it should exist. */
+          const kind = PLAN_MARKS.includes(m && m.kind) ? m.kind : "note";
+          /* Text is the one marker that carries words, and they are PLAIN:
+             it is a label drawn into an SVG, not a field anyone renders as
+             markup, so rich() would let through tags nothing would ever
+             honour while looking as though it supported them. */
+          return kind === "text"
+            ? {...at, kind, text: str(m && m.text).slice(0, PLAN_TEXT_MAX)}
+            : {...at, kind};
+        }).filter(m => m && (m.kind !== "text" || m.text)),
+        ink: arr(p && p.ink).slice(0, PLAN_INK_MAX).map(k => ({
+          colour: PLAN_COLOURS.includes(k && k.colour) ? k.colour : "gold",
+          w:      Math.max(2, Math.min(40, Number(k && k.w) || 8)),
+          pts:    arr(k && k.pts).slice(0, PLAN_PTS_MAX)
+                    .filter(q => Array.isArray(q) && Number.isFinite(q[0]) && Number.isFinite(q[1]))
+                    .map(q => [pt(q[0]), pt(q[1])])
+        })).filter(k => k.pts.length > 1)
+      };
+    }).filter(p => p.routes.length || p.markers.length || p.ink.length),
     /* The per-builder notes, keyed by section. Values are rich text and
        get the same treatment; unknown keys are dropped rather than carried
        through unread. */
@@ -269,6 +361,9 @@ function listPublished({mine = false} = {}){
                           /* The count, not the rows: a card says "7
                              matchups" and the guide page shows them. */
                           matchups: Array.isArray(g.matchups) ? g.matchups.length : 0,
+                          /* likewise: the card says "2 plans", the guide
+                             page draws them */
+                          plans: shownPlanCount(g),
                           author: g.author || "", authorId: g.authorId || ""}))
     .sort((a, b) => b.at - a.at);
 }

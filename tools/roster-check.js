@@ -31,10 +31,16 @@ const DD_CHAMPS = {data: {
   MonkeyKing:   {id: "MonkeyKing",   key: "62",  name: "Wukong",       tags: ["Fighter"]},
   Nunu:         {id: "Nunu",         key: "20",  name: "Nunu",         tags: ["Tank"]},
   FiddleSticks: {id: "FiddleSticks", key: "9",   name: "Fiddlesticks", tags: ["Mage"]},
-  Shyvana:      {id: "Shyvana",      key: "102", name: "Shyvana",      tags: ["Fighter"]},
+  Jadewick:     {id: "Jadewick",     key: "999", name: "Jadewick",     tags: ["Fighter"]},
   Viktor:       {id: "Viktor",       key: "112", name: "Viktor",       tags: ["Mage"]}
 }};
-/* Shyvana is in the mode and was missing from the hand-written list.
+/* Jadewick is INVENTED: a champion the mode has and the hand-written list
+   does not. It used to be Shyvana, who really was missing from the list --
+   until she was added, at which point four checks here failed. The absence
+   of a particular champion is a fact about today's data, not a property of
+   the mechanism, and a fixture that encodes one expires. A made-up name
+   can never be added to CLASSIC_ROSTER, so these checks now test the join
+   and nothing else.
    Viktor is in the 2013 archive and NOT in the mode — the case that proves
    the filter still filters. */
 const SUMMARY = [
@@ -42,9 +48,29 @@ const SUMMARY = [
   {id: 60062, name: "Wukong",          alias: "Jade_Wukong"},
   {id: 60020, name: "Nunu & Willump",  alias: "Jade_Nunu"},
   {id: 60009, name: "Fiddlesticks",    alias: "Jade_Fiddlesticks"},
-  {id: 60102, name: "Shyvana",         alias: "Jade_Shyvana"},
+  {id: 60999, name: "Jadewick",        alias: "Jade_Jadewick"},
   {id: 1,     name: "Teemo",           alias: "Teemo"}   /* not a Jade row */
 ];
+
+/* ---- the mode's item table and its OWN shop list ----
+   Three cases in one fixture:
+     772003  a normal item, in both           -> kept
+     773512  named like a pattern the site excludes, but the mode LISTS it
+             -> must be kept. This is Zz'Rot Portal: the mode added it to
+                the shop and the hand-kept pattern went on hiding it.
+     773521  in the id range, mode does NOT list it -> must be dropped.
+                This is the second Health Potion. */
+const ITEMS = [
+  {id: 772003, name: "Health Potion", description: "", price: 35,  priceTotal: 35,
+   from: [], to: [], categories: [], inStore: true,  iconPath: "/a.png"},
+  {id: 773512, name: "Zz'Rot Portal", description: "", price: 1000, priceTotal: 2700,
+   from: [], to: [], categories: [], inStore: true,  iconPath: "/b.png"},
+  {id: 773521, name: "Health Potion", description: "", price: 35,  priceTotal: 35,
+   from: [], to: [], categories: [], inStore: true,  iconPath: "/c.png"},
+  {id: 773513, name: "Prototype Hex Core", description: "", price: 750, priceTotal: 750,
+   from: [], to: [], categories: [], inStore: true,  iconPath: "/d.png"}
+];
+const SHOP = [{items: [{value:{itemId:772003}}, {value:{itemId:773512}}]}];
 
 /* ---- environment ---- */
 class El {
@@ -112,6 +138,16 @@ global.fetch = async url => {
         description:"", tooltip:"", cooldownBurn:"1", costBurn:"1",
         rangeBurn:"1", effectBurn:[], vars:[]}))}}});
   }
+  if(/v1\/items\.json/.test(u)){
+    if(world.items === "down") throw new Error("offline");
+    return json(ITEMS);
+  }
+  if(/jade-items\.json/.test(u)){
+    if(world.shop === "down")  throw new Error("offline");
+    if(world.shop === "404")   return {ok:false, status:404, json: async()=>null};
+    if(world.shop === "empty") return json([{items: []}]);
+    return json(SHOP);
+  }
   if(/versions\.json/.test(u))   return json(["16.19.1"]);
   throw new Error("unexpected fetch: " + u);
 };
@@ -121,6 +157,7 @@ global.fetch = async url => {
    globals. Same reason home-check.js hands its store over this way. */
 global.__setWorld = how => { world = how; };
 global.__memClear = () => mem.clear();
+global.__memGet   = k => (mem.has(k) ? mem.get(k) : null);
 global.__DD = DD_CHAMPS;
 global.__SUMMARY = SUMMARY;
 
@@ -171,14 +208,15 @@ const names = list => list.map(c => c.name).sort();
   await acheck("the catalogue decides who is in", async () => {
     const r = await fresh({});
     return JSON.stringify(names(r)) ===
-      JSON.stringify(["Ashe","Fiddlesticks","Nunu","Shyvana","Wukong"]);
+      JSON.stringify(["Ashe","Fiddlesticks","Jadewick","Nunu","Wukong"]);
   });
 
-  /* The whole point. Shyvana is not in CLASSIC_ROSTER. */
+  /* The whole point: the catalogue can seat a champion the list has never
+     heard of. Jadewick is invented precisely so this stays true. */
   await acheck("  including one the built-in list never heard of", async () => {
     const r = await fresh({});
-    return r.some(c => c.name === "Shyvana")
-        && !CLASSIC_ROSTER.some(n => n === "Shyvana");
+    return r.some(c => c.name === "Jadewick")
+        && !CLASSIC_ROSTER.some(n => n === "Jadewick");
   });
 
   await acheck("  and a champion the mode does not have stays out", async () => {
@@ -196,7 +234,7 @@ const names = list => list.map(c => c.name).sort();
   await acheck("inRoster works as a bare .filter() callback", async () => {
     await fresh({});
     const all = Object.values(__DD.data).filter(inRoster);
-    return all.length === 5 && all.some(c => c.name === "Shyvana");
+    return all.length === 5 && all.some(c => c.name === "Jadewick");
   });
 
   check("  and it takes exactly one argument, so .filter cannot confuse it", () =>
@@ -205,8 +243,8 @@ const names = list => list.map(c => c.name).sort();
   await acheck("  the index .filter passes cannot be mistaken for a roster", async () => {
     await fresh({});
     /* Called the way .filter calls it, with an index and the array. */
-    const shyvana = __DD.data.Shyvana;
-    return inRoster(shyvana, 0, []) === true && inRoster(shyvana, 3, []) === true;
+    const made = __DD.data.Jadewick;
+    return inRoster(made, 0, []) === true && inRoster(made, 3, []) === true;
   });
 
   /* Three joins that break if you match on the name. */
@@ -233,8 +271,9 @@ const names = list => list.map(c => c.name).sort();
   const fallbackWorks = async how => {
     const r = await fresh(how);
     /* The built-in list has Ashe, Wukong, Nunu and Fiddlesticks in it and
-       has never had Shyvana — so falling back is visible as her absence. */
-    return r.some(c => c.name === "Ashe") && !r.some(c => c.name === "Shyvana");
+       cannot have Jadewick, who does not exist — so falling back to it is
+       visible as that name's absence, whatever the real roster gains. */
+    return r.some(c => c.name === "Ashe") && !r.some(c => c.name === "Jadewick");
   };
 
   await acheck("a refused connection falls back to the built-in list", () => fallbackWorks({catalogue:"down"}));
@@ -313,9 +352,60 @@ const names = list => list.map(c => c.name).sort();
 
   /* rosterNames() is the union, so a live catalogue can only ever reveal
      items, never hide them. */
+  /* ---- the shop comes from the mode's own list ----
+     These exercise loadItems() end to end, not CLASSIC.shopList() on its
+     own: the bug both ways lived at the call site, in which filter
+     loadItems chose, and a check that called shopList directly would have
+     passed throughout. */
+  console.log("\\nthe shop list:");
+  const shopFresh = async how => {
+    __setWorld(how);
+    CLASSIC._items = null; CLASSIC._shop = null; ITEM_BY_ID = new Map();
+    __memClear();
+    const {byId} = await loadItems();
+    return byId;
+  };
+
+  await acheck("an item the mode lists is kept even if a pattern matches it", async () => {
+    const byId = await shopFresh({});
+    /* byId is keyed by the short id */
+    return byId.has(String(773512 - CLASSIC.itemOffset));
+  });
+
+  await acheck("  and one in the id range that the mode does NOT list is dropped", async () => {
+    const byId = await shopFresh({});
+    return !byId.has(String(773521 - CLASSIC.itemOffset))
+        &&  byId.has(String(772003 - CLASSIC.itemOffset));
+  });
+
+  await acheck("  so the shop is exactly the mode's list", async () => {
+    const byId = await shopFresh({});
+    return byId.size === 2;
+  });
+
+  /* The fallback has to stay a fallback: unreachable means "infer", never
+     "the shop is empty". An empty shop is the one outcome worse than a
+     slightly wrong one. */
+  const inferred = async how => {
+    const byId = await shopFresh(how);
+    return byId.size > 0
+        && !byId.has(String(773513 - CLASSIC.itemOffset))   /* Hex Core, still excluded */
+        &&  byId.has(String(772003 - CLASSIC.itemOffset));
+  };
+  await acheck("a refused shop list falls back to the id range and the patterns",
+    () => inferred({shop:"down"}));
+  await acheck("  a 404 falls back too", () => inferred({shop:"404"}));
+  await acheck("  and an EMPTY list is treated as unknown, not as an empty shop",
+    () => inferred({shop:"empty"}));
+
+  await acheck("  the empty list is never cached", async () => {
+    await shopFresh({shop:"empty"});
+    return CLASSIC._shop.size === 0 && __memGet("cd:classic-shop:v1") == null;
+  });
+
   await acheck("an item locked to a champion in the mode is kept", async () => {
     await fresh({});
-    return isExcludedItem("Dragonheart", "Shyvana") === false;
+    return isExcludedItem("Dragonheart", "Jadewick") === false;
   });
   await acheck("  one locked to a champion outside it is dropped", async () => {
     await fresh({});

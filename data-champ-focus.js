@@ -21,7 +21,28 @@
    champions it was out by up to 43 points, and agreed closely on only two.
    Nine plausible wrong numbers would have been worse than none.
 
-   All 72 champions are measured; nothing is on a default. */
+   The five added in patch 26.20 (7 Oct 2026) -- Aatrox, Caitlyn, Irelia,
+   Karma and Quinn -- were measured the same way, against the mode's OWN
+   Classic art rather than Data Dragon's splash endpoint. That endpoint is
+   unversioned and serves today's painting whatever patch you ask for, which
+   for a champion reworked since 2013 is a different character: the first
+   version of the measuring tool used it and framed the wrong art.
+
+   Quinn at 52, Nami at 44 and Aatrox at 40 are far off the pack, which is
+   the art rather than a slip -- all three splashes put the face low, and a
+   middling number would crop to a shoulder.
+
+   NAMI WAS LISTED ABOVE AS MEASURED FOR MONTHS WITHOUT HAVING A ROW. The
+   paragraph claimed nine; the table held eight. Nothing failed, because a
+   missing id silently falls back to the default crop -- it just framed her
+   badly. Found on 10 Oct 2026 by diffing this table against the champion
+   ids in a game-file extract rather than against the sentence above it,
+   and measured the same day. tools/extract-check.js does that diff now.
+
+   face-offsets.html works out who is unmeasured and shows each one at the
+   real banner width. Measuring by correlation was tried for an earlier
+   batch and was out by up to 43 points against known values, which is why
+   this is done by eye. */
 const CHAMP_FACE_Y = {
   "60001":25,
   "60002":28,
@@ -58,11 +79,14 @@ const CHAMP_FACE_Y = {
   "60036":18,
   "60037":15,
   "60038":26,
+  "60039":23,
   "60040":22,
   "60041":20,
   "60042":31,
+  "60043":22,
   "60044":22,
   "60045":57,
+  "60051":24,
   "60053":38,
   "60054":24,
   "60055":30,
@@ -94,7 +118,9 @@ const CHAMP_FACE_Y = {
   "60111":22,
   "60114":14,
   "60117":36,
-  "60267":30
+  "60133":52,
+  "60266":40,
+  "60267":44
 };
 /* Only a champion added after the last game-data export would land here. */
 const champFaceY = id => CHAMP_FACE_Y[String(id)] ?? 22;

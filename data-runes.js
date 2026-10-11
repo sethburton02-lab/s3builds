@@ -18,6 +18,14 @@
    Armor seal was 0.15 here against 0.17 in the file, and the Cooldown
    Reduction quintessence had been missed altogether.
 
+   Re-checked 10 Oct 2026 against a fresh extract (patch 26.20). All 53
+   rows still match by name; two values had moved since August and were
+   corrected: the Cooldown Reduction glyph 0.8% -> 0.83%, and the Health
+   Regeneration quintessence +1.3 -> +3 per 5 sec. Nothing was added or
+   removed. Because this file is transcribed rather than fetched, a rune
+   change is invisible until someone diffs it — tools/rune-check.js does
+   that against an extract so the next patch is one command, not a reread.
+
    jade-perks.json also carries six rows titled "Empty Rune" with no icon
    and no content id — a minor-tier Attack Speed mark, Armor seal, CDR
    glyph and three quintessences. They are unfinished records rather than
@@ -79,7 +87,7 @@ const CLASSIC_RUNES = [
   /* ---------- Glyphs: magic and utility ---------- */
   {slot:"glyph", tier:"standard", stat:"Magic Resist",        value:1.4,  unit:""},
   {slot:"glyph", tier:"standard", stat:"Magic Resist",        perLevel:0.2,  unit:"", scaling:true},
-  {slot:"glyph", tier:"standard", stat:"Cooldown Reduction",  value:0.8,  unit:"%"},
+  {slot:"glyph", tier:"standard", stat:"Cooldown Reduction",  value:0.83, unit:"%"},
   {slot:"glyph", tier:"standard", stat:"Cooldown Reduction",  perLevel:0.1,  unit:"%", scaling:true},
   {slot:"glyph", tier:"standard", stat:"Ability Power",       value:1.2,  unit:""},
   {slot:"glyph", tier:"standard", stat:"Ability Power",       perLevel:0.2,  unit:"", scaling:true},
@@ -109,7 +117,7 @@ const CLASSIC_RUNES = [
   {slot:"quint", tier:"standard", stat:"Energy",              value:6,    unit:""},
   {slot:"quint", tier:"standard", stat:"Energy Regeneration", value:1.8,  unit:"", rate:"/ 5 sec"},
   {slot:"quint", tier:"standard", stat:"Health Regen", nameStat:"Health Regeneration",
-                                                              value:1.3,  unit:"", rate:"/ 5 sec"},
+                                                              value:3,    unit:"", rate:"/ 5 sec"},
   {slot:"quint", tier:"standard", stat:"Mana",                value:38,   unit:""}
 ];
 

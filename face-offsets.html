@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Measure splash face offsets — S3 Builds</title>
+<!-- A DEVELOPMENT PAGE. Nothing links to it. champFaceY is the one champion
+     number that cannot be derived: it says where the face sits in a splash,
+     which only looking at the splash can tell you.
+
+     IT CALLS THE SITE'S OWN LOADER. The first version built a Data Dragon
+     splash URL by hand and showed the wrong painting entirely: that endpoint
+     is unversioned, so it serves today's art whatever patch you ask for, and
+     for a champion reworked since 2013 that is a different character. The
+     site instead prefers the MODE'S OWN Classic skin from the champion JSON,
+     and specifically its UNCENTERED splash, which is the framing the table
+     was measured against. Reimplementing any of that here would mean two
+     ideas of what the art is, and this one would be the wrong one.
+
+     In the root, not tools/, because site.css and the scripts are addressed
+     relatively. -->
+<link rel="stylesheet" href="site.css?v=184">
+<style>
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:var(--font-jade-body,Georgia,serif);padding:20px}
+  h1{font-family:var(--font-jade,Georgia,serif);color:var(--title);margin:0 0 4px;font-size:21px}
+  p.lede{color:var(--muted);max-width:780px;line-height:1.55;margin:0 0 16px}
+  .row{display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .band{position:relative;width:640px;height:116px;overflow:hidden;border-radius:10px;
+        border:1px solid var(--line);flex:none;background:#1b1812}
+  .band img{position:absolute;left:0;width:100%;display:block}
+  .band .none{position:absolute;inset:0;display:grid;place-items:center;
+              color:var(--muted-2);font-size:13px}
+  .side{width:280px}
+  .side b{display:block;font-size:16px;font-family:var(--font-jade,Georgia,serif)}
+  .side code{color:var(--muted-2);font-size:11.5px}
+  .side .src{font-size:11.5px;color:var(--muted-2);display:block;margin:2px 0 6px}
+  input[type=range]{width:190px;vertical-align:middle}
+  .val{display:inline-block;width:34px;text-align:right;color:var(--gold-hi);font-weight:700}
+  textarea{width:100%;max-width:940px;height:140px;background:var(--bg-2);color:var(--text);
+    font:12.5px ui-monospace,monospace;border:1px solid var(--line);border-radius:8px;
+    padding:9px;margin-top:10px}
+</style>
+</head>
+<body>
+<h1>Splash face offsets</h1>
+<p class="lede">Each strip is the guide banner at its real width, showing the art the site
+  itself would load. Slide until the face sits where you want it; the number is the
+  percentage of the splash height that lands at the top of the strip, which is exactly what
+  <code>champFaceY</code> stores. Then paste the block below into
+  <code>data-champ-focus.js</code>.</p>
+
+<div id="list"></div>
+<textarea id="out" readonly></textarea>
+
+<script src="site.js?v=184"></script>
+<script src="data-champ-focus.js?v=184"></script>
+<script src="config.js?v=184"></script>
+<script src="guide-store.js?v=184"></script>
+<script>
+renderChrome("Champions");
+if(typeof loadStore === "function") loadStore();
+
+/* Who is unmeasured. Worked out rather than hard-coded, so this page keeps
+   being useful on the next patch without being edited: anything in the
+   roster with no row in the table needs a number. */
+const state = {};
+
+boot("#list", async (el) => {
+  const idx = await CLASSIC.rosterIndex().catch(() => null);
+  const all = Object.values((await DD.champions()).data).filter(inRoster);
+  const missing = all.filter(c => CHAMP_FACE_Y[String(CLASSIC.champId(c.key))] === undefined)
+                     .sort((a, b) => a.name.localeCompare(b.name));
+
+  if(!missing.length){
+    el.innerHTML = `<p class="lede">Every champion in the roster has a measured
+      offset. Nothing to do.</p>`;
+    return;
+  }
+
+  el.innerHTML = missing.map(c => `
+    <div class="row" data-id="${esc(c.id)}">
+      <div class="band"><span class="none">loading the mode's art…</span></div>
+      <div class="side">
+        <b>${esc(c.name)}</b>
+        <code>${CLASSIC.champId(c.key)}</code>
+        <span class="src"></span>
+        <div><input type="range" min="0" max="60" value="22">
+          <span class="val">22</span></div>
+      </div>
+    </div>`).join("");
+
+  for(const c of missing){
+    const row = el.querySelector(`[data-id="${CSS.escape(c.id)}"]`);
+    state[CLASSIC.champId(c.key)] = 22;
+    row.querySelector("input").addEventListener("input", e => {
+      const v = +e.target.value;
+      state[CLASSIC.champId(c.key)] = v;
+      row.querySelector(".val").textContent = v;
+      const img = row.querySelector("img");
+      if(img) img.style.top = "-" + v + "%";
+      dump();
+    });
+    /* the site's own loader decides which art this is */
+    loadChampSpells(c).then(info => {
+      const band = row.querySelector(".band");
+      const src = row.querySelector(".src");
+      if(!info || !info.splash){
+        band.innerHTML = `<span class="none">no period splash for this champion</span>`;
+        src.textContent = info ? "source: " + info.source + ", no splash" : "unavailable";
+        return;
+      }
+      band.innerHTML = `<img alt="" style="top:-22%">`;
+      band.querySelector("img").src = info.splash;
+      src.textContent = "source: " + info.source;
+    });
+  }
+  dump();
+});
+
+function dump(){
+  document.getElementById("out").value = Object.keys(state).sort()
+    .map(id => '  "' + id + '":' + state[id] + ',').join("\n");
+}
+</script>
+</body>
+</html>

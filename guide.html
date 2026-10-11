@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=129">
+<link rel="stylesheet" href="site.css?v=184">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -544,16 +544,17 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=129"></script>
-<script src="data-rune-icons.js?v=129"></script>
-<script src="data-runes.js?v=129"></script>
-<script src="data-champ-focus.js?v=129"></script>
-<script src="data-mastery-tree.js?v=129"></script>
-<script src="data-masteries.js?v=129"></script>
-<script src="guide-sanitise.js?v=129"></script>
-<script src="config.js?v=129"></script>
-<script src="guide-store.js?v=129"></script>
-<script src="guide-load.js?v=129"></script>
+<script src="site.js?v=184"></script>
+<script src="data-rune-icons.js?v=184"></script>
+<script src="data-runes.js?v=184"></script>
+<script src="data-champ-focus.js?v=184"></script>
+<script src="data-mastery-tree.js?v=184"></script>
+<script src="data-masteries.js?v=184"></script>
+<script src="data-map.js?v=184"></script>
+<script src="guide-sanitise.js?v=184"></script>
+<script src="config.js?v=184"></script>
+<script src="guide-store.js?v=184"></script>
+<script src="guide-load.js?v=184"></script>
 <script>
 renderChrome("");
 
@@ -567,7 +568,7 @@ renderChrome("");
 
 let G = null;                 /* the guide being shown */
 let ABILITIES_DOC = null;     /* its champion's kit, once fetched */
-const view = {setup: 0, skills: 0, spells: 0};   /* which tab of each */
+const view = {setup: 0, skills: 0, spells: 0, plan: 0};   /* which tab of each */
 
 const KEYS = [{k:"Q",color:"#4d74a4",ink:"#010a13"},{k:"W",color:"#0ac8b9",ink:"#010a13"},
               {k:"E",color:"#c89b3c",ink:"#010a13"},{k:"R",color:"#c73e00",ink:"#f0e6d2"}];
@@ -617,8 +618,12 @@ function guidePatchText(){
   if(!wrote) return "";
   const live = typeof livePatch === "function" ? livePatch() : null;
   const stale = !!live && live !== wrote;
-  return `Checked on patch ${esc(wrote)}`
-       + (stale ? ` · <span class="g-stale">live is ${esc(live)}</span>` : "");
+  /* Both sides shown the way the mode shows them. The comparison stays on
+     the raw values: two stamps that map to the same displayed patch are the
+     same patch, and mapping before comparing would say so twice. */
+  const show = typeof classicPatch === "function" ? classicPatch : (x => x);
+  return `Checked on patch ${esc(show(wrote))}`
+       + (stale ? ` · <span class="g-stale">live is ${esc(show(live))}</span>` : "");
 }
 
 /* The byline, assembled from whichever parts exist.
@@ -1135,6 +1140,39 @@ function matchupsHtml(){
    guide whose author hadn't filled any in showed an empty 340px column —
    which was most guides, and was the whole reason the space still looked
    blank after the last pass. */
+/* ---- the game plan ----
+   A drawing over the rift: a jungle route, a ward setup, a wave plan.
+
+   The map is the SAME figure the rest of the site uses, with the plan drawn
+   into a layer on top — so a plan cannot disagree with the map it is drawn
+   on, and reskinning the map (photo to schematic, or a new plate) moves
+   every plan with it.
+
+   Drawn full width of the content column rather than in the rail: at rail
+   width the camp glyphs are a few pixels across and a route through them is
+   unreadable, which was measured rather than assumed. */
+function plansHtml(){
+  const plans = (G.plans || []).filter(p => p);
+  if(!plans.length || typeof mapFigure !== "function") return "";
+  const p = plans[Math.min(view.plan, plans.length - 1)];
+  const named = plans.map(x => ({name: x.title}));
+  const legend = mapPlanLegend(p);
+  return `<section class="g-sec" id="plan">
+    <h2>Game plan</h2>
+    ${tabs("plan", named, view.plan)}   <!-- tabs() already returns "" for one page -->
+    <!-- The author's own name for the plan, not a category chip. "Full clear
+         from blue" tells a reader more than "Jungle route" does, and it
+         meant one fewer control in the editor. With several plans the tab
+         strip already carries the names, so this would be saying it twice. -->
+    <div class="plan-head">
+      ${plans.length > 1 ? "" : `<b class="plan-name">${esc(p.title || "")}</b>`}
+      ${legend}
+    </div>
+    <div class="plan-fig">${mapFigure("photo", mapPlanSvg(p))}</div>
+    ${p.note ? `<div class="g-prose plan-note">${p.note}</div>` : ""}
+  </section>`;
+}
+
 function railHtml(){
   /* Order is what a reader reaches for most, first. Build and kit are
      always there once the catalogues land, so the column fills on every
@@ -1535,7 +1573,8 @@ function paint(){
     ["spells",    "Summoner spells",  spellsHtml()],
     ["skills",    "Skill order",      skillsHtml()],
     ["runes",     "Runes",            runesHtml()],
-    ["masteries", "Masteries",        masteriesHtml()]
+    ["masteries", "Masteries",        masteriesHtml()],
+    ["plan",      "Game plan",        plansHtml()]
   ].filter(p => p[2]);
 
   /* Comments are always present, unlike the builders — an empty comments
@@ -1633,6 +1672,7 @@ function listCardHtml(r, me){
   const facts = [
     r.views  ? `${r.views} view${r.views === 1 ? "" : "s"}` : "",
     r.matchups ? `${r.matchups} matchup${r.matchups === 1 ? "" : "s"}` : "",
+    r.plans ? `${r.plans} plan${r.plans === 1 ? "" : "s"}` : "",
     r.patch  ? `patch ${esc(r.patch)}` : "",
     r.at     ? new Date(r.at).toLocaleDateString(undefined,
                  {day: "numeric", month: "short", year: "numeric"}) : ""

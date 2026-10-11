@@ -1,13 +1,39 @@
-# Files in this repo that are not part of the website.
+# What does NOT get served, even though it lives in the repo.
 #
-# Everything in the project directory is uploaded as a static asset, which
-# is how tools/ and supabase/ have always been fetchable — that predates
-# this file and is left alone deliberately, because quietly changing what
-# the site serves is not this change's business.
+# wrangler.jsonc points the asset directory at "./" — the repo is the site —
+# so by default every file here is a public URL. That was fine while the repo
+# was only the site, and stopped being fine once it also held development
+# pages, test harnesses and the database schema.
 #
-# What is listed here is only the machinery added for the worker, which has
-# no reason to be downloadable and would otherwise sit at /wrangler.jsonc
-# and /worker/index.mjs.
-worker
-wrangler.jsonc
-.assetsignore
+# gitignore syntax, read by Cloudflare at deploy time.
+
+# ---- development pages ----
+# Neither is linked from anywhere, but an unlinked page is still a URL, and
+# demo-plans.html writes straight to the draft key: a visitor who found it
+# and pressed the button would lose the guide they were writing. It exists to
+# put real plans in front of the editor locally, which does not need the
+# public internet.
+demo-plans.html
+face-offsets.html
+
+# ---- the test harnesses and build scripts ----
+# Harmless to read and pointless to serve. serve.ps1 and serve.js are local
+# development servers; nobody should be fetching those from the live site.
+tools/
+
+# ---- the database ----
+# schema.sql is not a secret — it contains no keys, and the policies in it
+# are enforced by Postgres whether or not anyone has read them — but there is
+# no reason to hand out the table layout and the exact policy predicates.
+supabase/
+
+# ---- measurement sources ----
+# art/src holds the untouched Riot ward icons the recoloured ones were made
+# from. The site renders the recoloured copies; these are kept so the tint can
+# be redone, and are not part of the site.
+art/src/
+
+# ---- local tooling ----
+serve.bat
+TESTING.md
+data-freshness.html
