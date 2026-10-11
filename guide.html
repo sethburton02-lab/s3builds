@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=187">
+<link rel="stylesheet" href="site.css?v=188">
 <style>
   /* This page reads a guide. It never writes one, so there are no fields,
      no pickers and no controls here — only the builders in their finished
@@ -293,6 +293,24 @@
   .g-mu-row .n{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
     font-size:14px;color:var(--text)}
   .g-mu-row .note{margin:3px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
+
+  /* ---- matchups as a section ----
+     At rail width a matchup was a 300px row with a 12.5px note. In the
+     content column there is room for several per row and for the note to
+     be read, so rows become small plates in an auto-filling grid rather
+     than a single ruled list -- separator lines only work in one column,
+     and the column count here depends on the viewport. */
+  .g-sec.g-mu .g-mu-sub{margin:0 0 12px;font-size:13px;color:var(--muted-2);
+    text-transform:uppercase;letter-spacing:.05em}
+  .g-sec.g-mu .g-mu-grid{display:grid;gap:10px;
+    grid-template-columns:repeat(auto-fill,minmax(288px,1fr))}
+  .g-sec.g-mu .g-mu-row{border-top:0;align-items:start;gap:11px;
+    grid-template-columns:40px minmax(0,1fr);padding:11px 13px;
+    border:1px solid var(--line-soft);border-radius:var(--radius);
+    background:hsla(43,47%,60%,.16)}
+  .g-sec.g-mu .g-mu-row .por{width:40px;height:40px}
+  .g-sec.g-mu .g-mu-row .n{font-size:15px}
+  .g-sec.g-mu .g-mu-row .note{font-size:13.5px;line-height:1.5}
   /* Light plate, dark ink. Written first as pale text on a saturated plate,
      which is the dark-theme habit and measures about 2.5:1 on parchment. */
   .g-diff{flex:none;padding:1px 7px;border-radius:999px;font-size:11px;
@@ -544,17 +562,17 @@
 <body>
 <div id="main"></div>
 
-<script src="site.js?v=187"></script>
-<script src="data-rune-icons.js?v=187"></script>
-<script src="data-runes.js?v=187"></script>
-<script src="data-champ-focus.js?v=187"></script>
-<script src="data-mastery-tree.js?v=187"></script>
-<script src="data-masteries.js?v=187"></script>
-<script src="data-map.js?v=187"></script>
-<script src="guide-sanitise.js?v=187"></script>
-<script src="config.js?v=187"></script>
-<script src="guide-store.js?v=187"></script>
-<script src="guide-load.js?v=187"></script>
+<script src="site.js?v=188"></script>
+<script src="data-rune-icons.js?v=188"></script>
+<script src="data-runes.js?v=188"></script>
+<script src="data-champ-focus.js?v=188"></script>
+<script src="data-mastery-tree.js?v=188"></script>
+<script src="data-masteries.js?v=188"></script>
+<script src="data-map.js?v=188"></script>
+<script src="guide-sanitise.js?v=188"></script>
+<script src="config.js?v=188"></script>
+<script src="guide-store.js?v=188"></script>
+<script src="guide-load.js?v=188"></script>
 <script>
 renderChrome("");
 
@@ -1114,10 +1132,10 @@ function matchupsHtml(){
     .filter(k => counts[k]).map(k => `${counts[k]} ${DIFF_LABEL[k].toLowerCase()}`)
     .join(" · ");
 
-  return `<div class="g-rc g-mu" id="matchups">
-    <h3>Matchups</h3>
-    <p class="g-rc-sub">${esc(sub)}</p>
-    ${rows.map(m => {
+  return `<section class="g-sec g-mu" id="matchups">
+    <h2>Matchups</h2>
+    <p class="g-mu-sub">${esc(sub)}</p>
+    <div class="g-mu-grid">${rows.map(m => {
       /* Matched by name against the roster, exactly as the card and the
          hero do. An unmatched name still renders — the author may have
          written a champion the archive spells differently, and dropping
@@ -1131,8 +1149,8 @@ function matchupsHtml(){
           ${m.note ? `<p class="note">${esc(m.note)}</p>` : ""}
         </div>
       </div>`;
-    }).join("")}
-  </div>`;
+    }).join("")}</div>
+  </section>`;
 }
 
 /* The rail itself: whichever cards have something to say, in the order a
@@ -1177,7 +1195,7 @@ function railHtml(){
   /* Order is what a reader reaches for most, first. Build and kit are
      always there once the catalogues land, so the column fills on every
      guide rather than only on ones whose author wrote matchups. */
-  const cards = [railBuildHtml(), railKitHtml(), matchupsHtml(),
+  const cards = [railBuildHtml(), railKitHtml(),
                  railStatsHtml(), railMoreHtml()].filter(Boolean);
   if(!cards.length) return "";
   return `<aside class="g-rail">${cards.join("")}</aside>`;
@@ -1574,7 +1592,13 @@ function paint(){
     ["skills",    "Skill order",      skillsHtml()],
     ["runes",     "Runes",            runesHtml()],
     ["masteries", "Masteries",        masteriesHtml()],
-    ["plan",      "Game plan",        plansHtml()]
+    ["plan",      "Game plan",        plansHtml()],
+    /* Last of the written sections: a matchup list is looked up rather than
+       read through, so it sits after the material you read in order. It was
+       a rail card until the notes made the case against it — the prose
+       column is capped at 66 characters for a reason, and a matchup note is
+       prose; 300px of sticky rail is the wrong container for it. */
+    ["matchups",  "Matchups",         matchupsHtml()]
   ].filter(p => p[2]);
 
   /* Comments are always present, unlike the builders — an empty comments
@@ -1590,10 +1614,10 @@ function paint(){
      makes it findable without scrolling past the whole guide. */
   const rail = railHtml();
   const nav = parts.concat([commentsPart]).map(p => [p[0], p[1]]);
-  /* Only matchups earn a jump link — the build card and the champion's
-     other guides are reference, not sections you navigate to, and listing
-     them would make the nav claim the guide has chapters it doesn't. */
-  if(G.matchups && G.matchups.length) nav.push(["matchups", "Matchups"]);
+  /* Nothing in the rail earns a jump link: the build card and the
+     champion's other guides are reference, not chapters. Matchups used to
+     be the exception because it lived in the rail; it is a section now, so
+     parts supplies its nav entry like every other one. */
 
   document.getElementById("main").innerHTML = heroHtml() + `
     <div class="guide-wrap"><div class="g-body ${

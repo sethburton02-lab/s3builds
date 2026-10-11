@@ -575,18 +575,43 @@ const PAGE_CSS = ${JSON.stringify(PAGE_STYLE)};
     const g = normaliseGuide(DRAFT_FIXTURE);
     return g.matchups.find(m => m.champ === "Teemo").note.length === 200;
   });
-  await check("the rail renders, hardest first", async () => {
+  await check("matchups render hardest first", async () => {
     G = normaliseGuide(DRAFT_FIXTURE); paint();
     const out = document.getElementById("main").innerHTML;
     const i = n => out.indexOf(">" + n + "<");
-    return out.includes("g-rail") && out.includes('id="matchups"')
+    return out.includes('id="matchups"')
         && i("Ahri") < i("Zed") && i("Zed") < i("Ashe");
   });
-  await check("  and the body makes room for it", async () => {
-    return document.getElementById("main").innerHTML.includes("has-rail");
+  /* They were a rail card until the notes made the case against it. The
+     check that used to live here asserted g-rail AND id=matchups were both
+     somewhere in the page, which stayed true after the move -- it would
+     have passed either way. Position is the thing to assert, so: the rail
+     <aside> is emitted after <main>, therefore matchups appearing BEFORE
+     it is proof it sits in the content column. */
+  await check("  as a section in the content column, not in the rail", async () => {
+    const out = document.getElementById("main").innerHTML;
+    const mu = out.indexOf('id="matchups"');
+    const rail = out.indexOf("g-rail");
+    /* ONCE, not just somewhere before the rail. Rendering it in both
+       places leaves the section ahead of the aside, so a position-only
+       test passes on a page that prints the whole matchup list twice --
+       which is exactly what putting it back in the rail does, because
+       parts still supplies it. Mutation testing caught that. */
+    const copies = out.split('id="matchups"').length - 1;
+    return out.includes('<section class="g-sec g-mu" id="matchups"')
+        && copies === 1 && mu > -1 && rail > -1 && mu < rail;
   });
-  await check("  and it earns a jump link", async () => {
-    return document.getElementById("main").innerHTML.includes('href="#matchups"');
+  await check("  and the rail still renders its own cards", async () => {
+    const out = document.getElementById("main").innerHTML;
+    return out.includes("g-rail") && out.includes("has-rail")
+        && out.indexOf("g-rc", out.indexOf("g-rail")) > -1;
+  });
+  /* The nav entry now comes from parts like every other section. When it
+     came from the rail it was pushed separately -- leaving both in place
+     would list Matchups twice, which no check would otherwise notice. */
+  await check("  with exactly one jump link, not two", async () => {
+    const out = document.getElementById("main").innerHTML;
+    return out.split('href="#matchups"').length - 1 === 1;
   });
   /* The note is the one author field here that is NOT rich text. If it ever
      goes through the rich sanitiser instead, markup starts rendering in a
