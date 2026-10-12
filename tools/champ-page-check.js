@@ -131,6 +131,22 @@ DD.Sparse = {id: "Sparse", key: "99", name: "Sparse", title: "the Incomplete",
     description: "d", tooltip: "t", cooldownBurn: "1", costBurn: "1",
     rangeBurn: "1", effectBurn: [], vars: []}))};
 
+/* The mode's own champion file for Lee Sin, deliberately naming its
+   abilities differently from the archive's s1..s4. That difference is the
+   whole point: for eight of the 77 champions League Classic runs an OLDER
+   kit than the 2013 archive records, and the page used to render the
+   archive's. Karma is the clearest real case. */
+const JADE_KIT = {
+  passive: {name: "ModePassive", abilityIconPath: "/p.png", description: "mode passive"},
+  skins: [{id: 60064000, isBase: true, name: "Lee Sin", uncenteredSplashPath: "/s.jpg"}],
+  spells: ["q","w","e","r"].map(k => ({
+    spellKey: k, name: "Mode" + k.toUpperCase(), abilityIconPath: "/" + k + ".png",
+    description: "mode " + k, dynamicDescription: "",
+    cost: "0", costCoefficients: [0,0,0,0,0],
+    cooldownCoefficients: [77,66,55,44,33], range: [600,600,600,600,600]
+  }))
+};
+
 const SUMMARY = [
   {id: 60064, name: "Lee Sin", alias: "Jade_LeeSin"},
   {id: 60086, name: "Garen",   alias: "Jade_Garen"},
@@ -213,7 +229,10 @@ global.fetch = async url => {
   if(/versions\.json/.test(u)) return json(["16.19.1"]);
   /* The mode's kit, skins and item table: not what this harness is about,
      so they answer emptily rather than being stubbed in detail. */
-  if(/\/v1\/champions\/\d+\.json/.test(u)) throw new Error("not under test");
+  if(/\/v1\/champions\/\d+\.json/.test(u)){
+    if(world.kit === "down") throw new Error("offline");
+    return json(JADE_KIT);
+  }
   if(/\/v1\/items\.json/.test(u))          throw new Error("not under test");
   if(/\/v1\/summoner-spells\.json/.test(u)) throw new Error("not under test");
   if(/supabase|rest\/v1|auth\/v1/.test(u)) throw new Error("not under test");
@@ -317,6 +336,52 @@ src += `
     () => (rows().match(/regen/gi) || []).length === 1);
   check("his health regen row survives",
     () => row("Health regen") === "9");
+
+  /* ---------- abilities come from the mode, not the archive ----------
+     This page rendered C.spells straight from Data Dragon 3.13.24 until
+     11 Oct. That is right for 69 champions and wrong for the eight whose
+     Classic kit is OLDER than 2013 -- Karma, Jax and Twisted Fate most
+     visibly -- because the archive holds the version that went on to
+     become the modern one. loadChampSpells already preferred the mode;
+     the page just never called it. */
+  const abilityText = () => document.getElementById("main").innerHTML;
+
+  fresh(); __setWorld({champ: "LeeSin", stats: "ok", kit: "ok"});
+  C = (await DD_CHAMP_FOR_TEST("LeeSin"));
+  KIT = await loadChampSpells({id: C.id, key: C.key, name: C.name});
+  BIN = null;
+  paint(document.getElementById("main"));
+  check("the ability block renders the MODE's kit", () => {
+    const h = abilityText();
+    return h.includes("ModeQ") && h.includes("ModeR") && h.includes("ModePassive");
+  });
+  check("  and not the archive's, which is the bug this replaced", () => {
+    const h = abilityText();
+    /* the archive fixture names its abilities s1..s4 */
+    return h.indexOf(">s1<") === -1 && h.indexOf(">s4<") === -1;
+  });
+  check("  with the mode's cooldowns, not the archive's flat 1s", () =>
+    abilityText().indexOf("77") > -1);
+  check("  and no fallback notice when the mode answered", () =>
+    abilityText().indexOf("couldn't be reached") === -1);
+
+  /* The fallback still has to work, and has to admit what it is: a page
+     silently showing archive kits is how this went unnoticed in the first
+     place. */
+  fresh(); __setWorld({champ: "LeeSin", stats: "ok", kit: "down"});
+  /* loadChampSpells memoises per champion id, so without this the second
+     scenario gets the first one's answer and the fallback is never tested.
+     The cache is right for the browser and wrong for a harness that changes
+     the world between checks. */
+  _champSpells.clear();
+  C = (await DD_CHAMP_FOR_TEST("LeeSin"));
+  KIT = await loadChampSpells({id: C.id, key: C.key, name: C.name});
+  BIN = null;
+  paint(document.getElementById("main"));
+  check("with the mode's kit unreachable it falls back to the archive", () =>
+    abilityText().indexOf("s1") > -1);
+  check("  and says so rather than passing it off as Classic", () =>
+    abilityText().indexOf("couldn't be reached") > -1);
 
   /* ---------- paint() has to start the load itself ----------
      Every check above calls loadClassicStats() by hand, so all of them stay

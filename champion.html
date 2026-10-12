@@ -14,21 +14,21 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=188">
+<link rel="stylesheet" href="site.css?v=189">
 </head>
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=188"></script>
-<script src="guide-sanitise.js?v=188"></script>
-<script src="config.js?v=188"></script>
-<script src="guide-store.js?v=188"></script>
-<script src="guide-load.js?v=188"></script>
+<script src="site.js?v=189"></script>
+<script src="guide-sanitise.js?v=189"></script>
+<script src="config.js?v=189"></script>
+<script src="guide-store.js?v=189"></script>
+<script src="guide-load.js?v=189"></script>
 <script>
 renderChrome("Champions");
 
 const ID = qs("c");
-let C = null, level = 1;
+let C = null, level = 1, KIT = null, BIN = null;
 
 boot("#main", async (el) => {
   if(!ID) throw new Error("No champion given in the address.");
@@ -40,6 +40,23 @@ boot("#main", async (el) => {
   const res = await DD.champion(ID);
   C = res.data[Object.keys(res.data)[0]];
   document.title = `${C.name}, ${C.title} — S3 Builds`;
+  /* ABILITIES COME FROM THE MODE, NOT THE ARCHIVE. This page used to render
+     C.spells straight from Data Dragon 3.13.24, which is right for 69 of the
+     77 champions and wrong for the rest: where League Classic kept an OLDER
+     kit than 2013, the archive holds the version that survived into modern
+     League. Karma was the clearest case — the archive has the 2013 rework
+     (Inner Flame / Focused Resolve / Inspire), the mode runs the one before
+     it (Heavenly Wave / Spirit Bond / Soul Shield). Jax and Twisted Fate
+     differ the same way. loadChampSpells already preferred the mode's files;
+     this page simply never called it.
+
+     The bin comes too, so the ability text can have its numbers filled in
+     the way the guide tooltips do. Both are allowed to fail: the renderer
+     falls back to the archive, and says so. */
+  [KIT, BIN] = await Promise.all([
+    loadChampSpells({id: C.id, key: C.key, name: C.name}).catch(() => null),
+    CLASSIC.champBin(C.key).catch(() => null)
+  ]);
   paint(el);
 });
 
@@ -58,9 +75,56 @@ const STATS = [
   ["Attack range",   "attackrange",  null]
 ];
 
+/* One ability row, from the unified shape loadChampSpells returns.
+   Resolved effect text when the character record is here and the ability's
+   formulas are a shape the evaluator understands, the one-line summary
+   otherwise -- the same fallback the guide tooltips use, and for the same
+   reason: the summary always exists, so a row is never empty.
+
+   esc() goes on the summary and NOT on the resolved text, because tipText
+   escapes its own output and doing it twice prints the tags. */
+function abilityHtml(sp, letter){
+  if(!sp) return "";
+  const passive = letter === "P";
+  let body = "";
+  if(!passive && BIN && sp.dyn){
+    const scope = CLASSIC.spellScope(BIN, letter);
+    if(scope) body = CLASSIC.tipText(sp.dyn, scope, sp.ranks || 5);
+  }
+  const nums = passive ? "" : `<div class="nums">
+    <span>Cooldown <b>${esc(sp.cooldown || "–")}${sp.cooldown ? "s" : ""}</b></span>
+    <span>Cost <b>${esc(sp.cost || "–")}</b></span>
+    <span>Range <b>${esc(sp.range || "–")}</b></span>
+    <span>Max rank <b>${esc(String(sp.ranks || 5))}</b></span>
+  </div>`;
+  return `<div class="ability">
+    <div class="ico">${sp.icon ? `<img src="${esc(sp.icon)}" alt="">` : ""}
+      <span class="key">${esc(letter)}</span></div>
+    <div style="min-width:0">
+      <h4>${esc(sp.name)}</h4>
+      <div class="dd">${body || esc(sp.desc || "")}</div>
+      ${nums}
+    </div>
+  </div>`;
+}
+
 function paint(el){
   const s = C.stats, info = C.info || {};
-  const spells = C.spells || [];
+  /* The mode's kit when it loaded, the archive's shape mapped onto the same
+     fields when it didn't, so the markup below has one shape to render. */
+  const kitPassive = (KIT && KIT.passive) || (C.passive ? {
+    letter: "P", name: C.passive.name,
+    icon: C.passive.image ? DD.passImg(C.passive.image.full) : null,
+    desc: ddText(C.passive.description || "").replace(/<[^>]+>/g, " ").trim()
+  } : null);
+  const kitSpells = (KIT && KIT.spells) || (C.spells || []).slice(0, 4)
+    .map((sp, i) => ({
+      letter: "QWER"[i], name: sp.name,
+      icon: sp.image ? DD.spellImg(sp.image.full) : null,
+      desc: ddText(sp.description || "").replace(/<[^>]+>/g, " ").trim(),
+      cooldown: sp.cooldownBurn || null, cost: sp.costBurn || null,
+      range: sp.rangeBurn || null, ranks: sp.maxrank || 5
+    }));
 
   el.innerHTML = `
   <p class="crumb" style="padding-top:20px">
@@ -118,30 +182,12 @@ function paint(el){
       <div class="card" style="margin-top:18px">
         <h3>Abilities</h3>
 
-        <div class="ability">
-          <div class="ico"><img src="${DD.passImg(C.passive.image.full)}" alt="">
-            <span class="key">P</span></div>
-          <div>
-            <h4>${esc(C.passive.name)}</h4>
-            <div class="dd">${ddText(C.passive.description)}</div>
-          </div>
-        </div>
-
-        ${spells.map((sp, i) => `
-          <div class="ability">
-            <div class="ico"><img src="${DD.spellImg(sp.image.full)}" alt="">
-              <span class="key">${"QWER"[i]}</span></div>
-            <div style="min-width:0">
-              <h4>${esc(sp.name)}</h4>
-              <div class="dd">${ddText(sp.description)}</div>
-              <div class="nums">
-                <span>Cooldown <b>${esc(sp.cooldownBurn || "–")}s</b></span>
-                <span>Cost <b>${esc(sp.costBurn || "–")}</b> ${esc(sp.costType || "")}</span>
-                <span>Range <b>${esc(sp.rangeBurn || "–")}</b></span>
-                <span>Max rank <b>${sp.maxrank}</b></span>
-              </div>
-            </div>
-          </div>`).join("")}
+        ${abilityHtml(kitPassive, "P")}
+        ${kitSpells.map(sp => abilityHtml(sp, sp.letter)).join("")}
+        ${KIT && KIT.source !== "classic" ? `<p class="dd" style="margin:10px 0 0;
+          color:var(--muted-2);font-size:12.5px">The mode's own ability files
+          couldn't be reached, so these are the Season 3 archive's. A few
+          champions run an older kit in Classic than the archive records.</p>` : ""}
       </div>
 
       ${(C.allytips || []).length ? tipCard("Playing as " + C.name, C.allytips) : ""}
