@@ -551,6 +551,28 @@ const STORE = {
     return !!featured;
   },
 
+  /* ---- engagement counts, for the moderation page ----
+     Aggregates from a definer function rather than counts taken here,
+     because taking them here would mean granting the browser select on
+     profiles and guide_views. Same reasoning as setFeatured: the server
+     decides who may ask, and the answer that comes back is a number
+     rather than the rows behind it.
+
+     Returns null rather than throwing when the backend is absent, so the
+     moderation page's guide list still renders without it. */
+  async engagement(){
+    if(!ME) throw new Error("Sign in first.");
+    /* SB.on && LOADED, the store's own flag -- not backendLive(), which
+       lives in guide-load.js and would make the store depend on a layer
+       above it. */
+    if(!(SB.on && LOADED)) return null;
+    const rows = await sbFetch("/rest/v1/rpc/site_engagement", {
+      method: "POST", body: {}
+    });
+    /* PostgREST returns a set-returning function as an array of one row. */
+    return Array.isArray(rows) ? (rows[0] || null) : (rows || null);
+  },
+
   /* ---- comments ----
      Not cached with the guides. A guide record is read by every list on
      the site and is worth holding; comments are read on one page, change

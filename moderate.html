@@ -9,10 +9,21 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=190">
+<link rel="stylesheet" href="site.css?v=191">
 <style>
   .mod-page{max-width:1080px;padding-bottom:60px}
   .mod-count{font-size:14px;color:var(--muted)}
+  /* Engagement counts. Auto-fitting rather than a fixed column count:
+     there are six now and that number will change. */
+  .eng-grid{display:grid;gap:10px;margin-top:4px;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .eng-cell{padding:11px 13px;border:1px solid var(--line-soft);
+    border-radius:var(--radius);background:hsla(43,47%,60%,.16)}
+  .eng-cell b{display:block;font-family:var(--font-jade,Georgia,serif);
+    font-size:27px;line-height:1.1;color:var(--title)}
+  .eng-cell span{display:block;margin-top:2px;font-size:13px;color:var(--muted)}
+  .eng-cell em{display:block;margin-top:3px;font-size:12px;font-style:normal;
+    color:var(--muted-2)}
 
   .mod-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;
     align-items:center;padding:11px 13px;border:1px solid var(--line);
@@ -48,11 +59,11 @@
 <body>
 <div id="main" class="wrap"></div>
 
-<script src="site.js?v=190"></script>
-<script src="config.js?v=190"></script>
-<script src="guide-sanitise.js?v=190"></script>
-<script src="guide-store.js?v=190"></script>
-<script src="guide-load.js?v=190"></script>
+<script src="site.js?v=191"></script>
+<script src="config.js?v=191"></script>
+<script src="guide-sanitise.js?v=191"></script>
+<script src="guide-store.js?v=191"></script>
+<script src="guide-load.js?v=191"></script>
 <script>
 renderChrome("Guides");
 
@@ -130,6 +141,11 @@ function paint(){
   el.innerHTML = `
   <p class="crumb" style="padding-top:20px"><a href="index.html">Home</a> › Moderation</p>
   <div class="mod-page">
+    <section class="card" id="engagement">
+      <h3>Engagement</h3>
+      <div id="engBody"><p class="mod-count">Counting…</p></div>
+    </section>
+
     <section class="card">
       <h3>Every guide</h3>
       <p class="mod-count">${all.length} published${hidden ? ` · ${hidden} hidden` : ""}${
@@ -142,6 +158,61 @@ function paint(){
       ? all.map(([slug, g]) => rowHtml(slug, g)).join("")
       : `<div class="state"><h3>Nothing published yet</h3></div>`}
   </div>`;
+
+  /* After the markup exists, and not awaited: the guide list is the point
+     of this page and shouldn't wait on a count. */
+  paintEngagement();
+}
+
+/* ---- engagement ----
+   Rendering is kept apart from fetching so it can be checked without a
+   backend: engagementHtml() is a pure function of one object.
+
+   The wording is deliberate. The site counts views of GUIDE pages and
+   nothing else -- no visit to the home page, the shop or a champion page
+   is recorded anywhere -- so this says "guide views" and says what isn't
+   counted. Labelling it "site visits" would be a number that looks like
+   traffic and isn't. */
+const n = v => (v === null || v === undefined) ? "\u2013" : Number(v).toLocaleString();
+
+function engagementHtml(e){
+  if(!e) return `<p class="mod-count">Engagement counts need the database.
+    They are unavailable while the site is running on local storage.</p>`;
+
+  const span = (e.first_day && e.last_day)
+    ? `${esc(String(e.first_day))} to ${esc(String(e.last_day))}` : "no views yet";
+  const cell = (label, value, note) => `<div class="eng-cell">
+      <b>${esc(n(value))}</b><span>${esc(label)}</span>
+      ${note ? `<em>${esc(note)}</em>` : ""}
+    </div>`;
+
+  return `<div class="eng-grid">
+      ${cell("Accounts", e.accounts, e.accounts_7d ? "+" + n(e.accounts_7d) + " this week" : null)}
+      ${cell("Guide views", e.guide_views, e.views_7d ? n(e.views_7d) + " this week" : null)}
+      ${cell("Distinct viewers", e.viewers, "by anonymous id")}
+      ${cell("Comments", e.comments_live,
+             Number(e.comments_hidden) ? n(e.comments_hidden) + " hidden" : null)}
+      ${cell("Votes", e.votes, null)}
+      ${cell("Guides", e.guides_live,
+             Number(e.guides_hidden) ? n(e.guides_hidden) + " hidden" : null)}
+    </div>
+    <p class="mod-count" style="margin-top:10px">Views recorded ${span}.
+      Only guide pages are counted \u2014 nothing records a visit to the home
+      page, the shop or a champion page.</p>`;
+}
+
+async function paintEngagement(){
+  const box = document.getElementById("engBody");
+  if(!box) return;
+  try{
+    box.innerHTML = engagementHtml(await STORE.engagement());
+  }catch(err){
+    /* A moderator who is signed in but not actually a moderator server-side
+       gets the function's own refusal. Worth showing rather than swallowing:
+       it is the difference between "no data" and "you are not allowed". */
+    box.innerHTML = `<p class="mod-count">Couldn\u2019t read the counts: ${
+      esc(err.message || "unknown error")}</p>`;
+  }
 }
 
 /* One delegated handler for the whole list — the rows are rebuilt on every

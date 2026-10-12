@@ -677,3 +677,64 @@ end $$;
 
 revoke execute on function public.set_comment_hidden(bigint, boolean) from anon, public;
 grant  execute on function public.set_comment_hidden(bigint, boolean) to authenticated;
+
+
+-- ============================================================
+-- ENGAGEMENT COUNTS FOR THE MODERATION PAGE
+--
+-- Aggregates only. The moderation page wants to know how many accounts,
+-- views and comments there are; it has no business reading the rows. A
+-- definer function returning one row of counts gives it the number without
+-- granting select on profiles or guide_views to anyone -- the same reason
+-- set_comment_hidden exists rather than a column grant.
+--
+-- NOTE ON "SITE VISITS": there is no such number here, and this function
+-- does not invent one. guide_views records views of GUIDE pages only, so
+-- what it can honestly report is guide views and distinct viewers. Nothing
+-- counts a visit to the home page, the shop or a champion page.
+-- ============================================================
+create or replace function public.site_engagement()
+returns table (
+  accounts        bigint,
+  accounts_7d     bigint,
+  guide_views     bigint,
+  viewers         bigint,
+  views_7d        bigint,
+  comments_live   bigint,
+  comments_hidden bigint,
+  votes           bigint,
+  guides_live     bigint,
+  guides_hidden   bigint,
+  first_day       date,
+  last_day        date
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Runs as the table owner and bypasses RLS, so this line is the whole
+  -- permission check.
+  if not public.is_moderator() then
+    raise exception 'Only a moderator can read site engagement.' using errcode = '42501';
+  end if;
+
+  return query
+  select
+    (select count(*) from public.profiles),
+    (select count(*) from public.profiles where created_at >= now() - interval '7 days'),
+    (select count(*) from public.guide_views),
+    (select count(distinct v.viewer) from public.guide_views v),
+    (select count(*) from public.guide_views where day >= current_date - 6),
+    (select count(*) from public.comments where not coalesce(hidden, false)),
+    (select count(*) from public.comments where coalesce(hidden, false)),
+    (select count(*) from public.guide_votes),
+    (select count(*) from public.guides where not coalesce(hidden, false)),
+    (select count(*) from public.guides where coalesce(hidden, false)),
+    (select min(day) from public.guide_views),
+    (select max(day) from public.guide_views);
+end;
+$$;
+
+revoke execute on function public.site_engagement() from public, anon;
+grant  execute on function public.site_engagement() to authenticated;
