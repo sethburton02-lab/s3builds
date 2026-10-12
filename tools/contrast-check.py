@@ -99,7 +99,15 @@ def main():
         # else isn't part of this pairing and isn't this script's business.
         if dark_shell.search(sel):
             where = ["tooltip panel"]
-        elif re.search(r"(^|[\s,])\.dd(\b|[\s.,:>])", sel) or sel.startswith(".tag"):
+        elif (re.search(r"(^|[\s,])\.dd(\b|[\s.,:>])", sel)
+              or sel.startswith(".tag")
+              # .tip-kw spans are the CLIENT's own colour tags, emitted by
+              # CLASSIC.tipText. They began life tooltip-only, so the whole
+              # palette was the game's bright inks -- then the champion page
+              # started rendering resolved ability text on a parchment card
+              # and magic damage measured 1.24:1 there. Unscoped means
+              # parchment now, exactly like .dd.
+              or sel.startswith(".tip-kw")):
             where = ["parchment card", "bare sheet"]
         else:
             continue
@@ -119,6 +127,11 @@ def main():
     for sel, _ in rules(css):
         for cls in re.findall(r"\.dd\s+\.([\w-]+)", sel):
             (tip_classes if dark_shell.search(sel) else page_classes).add(cls)
+        # Same pairing rule for the keyword spans: a .tip-kw colour with no
+        # tooltip counterpart renders the parchment ink on near-black, which
+        # is the identical bug pointing the other way.
+        for cls in re.findall(r"\.tip-kw\.([\w-]+)", sel):
+            (tip_classes if dark_shell.search(sel) else page_classes).add("tip-kw." + cls)
     orphans = sorted(page_classes - tip_classes)
 
     print(f"Checked {checked} colour/surface pairs in site.css")

@@ -589,16 +589,23 @@ section{padding:26px 0 60px}
    them to separate a damage number from the sentence around it. Only the
    tags CLASSIC.tipText allows through can reach these — everything else is
    escaped before it gets near the page. */
+/* PARCHMENT IS THE BASE, tooltips override -- the same way .dd .cd-* works
+   a few hundred lines up, and for the reason this file keeps relearning:
+   a colour written for one surface is invisible on the other.
+
+   These were the client's own inks with no parchment variant, which was
+   fine while only the dark tooltips used them. The champion page now
+   renders resolved ability text on a parchment card, and #8fd6ff on
+   #f0e4b1 measures about 1.4:1 -- not hard to read, absent. Values below
+   are the ones .dd .cd-* already proved on this surface. */
 .tip-kw{color:inherit}
-.tip-kw.physicaldamage{color:#ff9d6b}
-.tip-kw.magicdamage{color:#8fd6ff}
-.tip-kw.truedamage{color:#ffe9a8}
-.tip-kw.healing,.tip-kw.shield{color:#9ae6a0}
-.tip-kw.scaleap{color:#8fd6ff}
-.tip-kw.scalead{color:#ff9d6b}
+.tip-kw.physicaldamage,.tip-kw.scalead{color:#8c3410;font-weight:600}
+.tip-kw.magicdamage,.tip-kw.scaleap{color:#0b4c93;font-weight:600}
+.tip-kw.truedamage{color:#3b3a36;font-weight:600}
+.tip-kw.healing,.tip-kw.shield{color:#135d2e;font-weight:600}
 .tip-kw.keywordstealth,.tip-kw.keywordmajor,.tip-kw.attention,
-.tip-kw.speed,.tip-kw.onhit,.tip-kw.status{color:#c8aa6e}
-.tip-kw.rules{color:#a09b8c;font-style:italic}
+.tip-kw.speed,.tip-kw.onhit,.tip-kw.status{color:#6b400f;font-weight:600}
+.tip-kw.rules{color:#5c4335;font-style:italic}
 .mast-tip .tip-body b,.spell-tip .tip-body b,.item-tip .tip-body b{color:#f0e6d2;font-weight:400}
 .mast-tip .tip-ladder,.spell-tip .tip-ladder,.item-tip .tip-ladder{margin:6px 0 0;font-size:13px;color:#a09b8c}
 .mast-tip .tip-ladder s,.spell-tip .tip-ladder s,.item-tip .tip-ladder s{text-decoration:none}
@@ -662,6 +669,22 @@ section{padding:26px 0 60px}
    which is what "colourless" looks like against black. */
 .mast-tip .dd .cd-magic,.spell-tip .dd .cd-magic,.item-tip .dd .cd-magic{color:#8dbdf0}
 .mast-tip .dd .cd-phys,.spell-tip .dd .cd-phys,.item-tip .dd .cd-phys{color:#e8a37a}
+/* ...and the same pairing for the keyword spans, which are the client's
+   tags rather than ours. On near-black these go back to the game's inks. */
+.mast-tip .tip-kw.physicaldamage,.spell-tip .tip-kw.physicaldamage,.item-tip .tip-kw.physicaldamage,
+.mast-tip .tip-kw.scalead,.spell-tip .tip-kw.scalead,.item-tip .tip-kw.scalead{color:#ff9d6b}
+.mast-tip .tip-kw.magicdamage,.spell-tip .tip-kw.magicdamage,.item-tip .tip-kw.magicdamage,
+.mast-tip .tip-kw.scaleap,.spell-tip .tip-kw.scaleap,.item-tip .tip-kw.scaleap{color:#8fd6ff}
+.mast-tip .tip-kw.truedamage,.spell-tip .tip-kw.truedamage,.item-tip .tip-kw.truedamage{color:#ffe9a8}
+.mast-tip .tip-kw.healing,.spell-tip .tip-kw.healing,.item-tip .tip-kw.healing,
+.mast-tip .tip-kw.shield,.spell-tip .tip-kw.shield,.item-tip .tip-kw.shield{color:#9ae6a0}
+.mast-tip .tip-kw.keywordstealth,.spell-tip .tip-kw.keywordstealth,.item-tip .tip-kw.keywordstealth,
+.mast-tip .tip-kw.keywordmajor,.spell-tip .tip-kw.keywordmajor,.item-tip .tip-kw.keywordmajor,
+.mast-tip .tip-kw.attention,.spell-tip .tip-kw.attention,.item-tip .tip-kw.attention,
+.mast-tip .tip-kw.speed,.spell-tip .tip-kw.speed,.item-tip .tip-kw.speed,
+.mast-tip .tip-kw.onhit,.spell-tip .tip-kw.onhit,.item-tip .tip-kw.onhit,
+.mast-tip .tip-kw.status,.spell-tip .tip-kw.status,.item-tip .tip-kw.status{color:#c8aa6e}
+.mast-tip .tip-kw.rules,.spell-tip .tip-kw.rules,.item-tip .tip-kw.rules{color:#a09b8c}
 .mast-tip .dd .cd-true,.spell-tip .dd .cd-true,.item-tip .dd .cd-true{color:#e6edf5}
 .mast-tip .dd .cd-heal,.spell-tip .dd .cd-heal,.item-tip .dd .cd-heal{color:#7fd8a0}
 .mast-tip .dd .cd-shield,.spell-tip .dd .cd-shield,.item-tip .dd .cd-shield{color:#d9cf7a}
