@@ -128,3 +128,39 @@ filename (eighteen imaginary missing assets, which buried the one real
 finding), and grepping for the word `service_role` flags `config.js`, whose
 comment warns never to put one there. It now decodes JWTs and judges a key by
 its own claimed role instead, so only `anon` passes.
+
+## What a failure says to the reader
+
+`node tools/auth-error-check.js`
+
+Every error path in this repo passes through `friendlyError`, which turns a
+server's vocabulary into a sentence. It read `data.message`, which is
+PostgREST's field. GoTrue's is `msg`. So *every* authentication failure —
+wrong password, email already taken — arrived with a blank message and fell
+through to `Something went wrong (400).`
+
+The outage was not the wording. `site.js` carries hand-written sentences for
+exactly those two cases, and it chose them by matching the message text, so
+with the text blank **neither had ever been shown to anybody**. Fourteen
+accounts existed and not one password reset had ever been requested — not
+because nobody forgot a password, but because nobody was ever told that
+resetting one was the way out. The site reported itself as broken, and a
+reader believed it and wrote in.
+
+Two lessons worth keeping, both of which this repo has now learned twice:
+
+- **A check on the helper would have passed.** `friendlyError` was correct
+  for the shape it was tested with. The property worth asserting is the one
+  the reader experiences, so this check runs the real submit handler's choice
+  of sentence against the error body GoTrue really sends — the bodies in it
+  were copied out of the project's auth logs, not out of the documentation.
+- **Branch on codes, not on prose.** The dialogs now test
+  `err.code === "invalid_credentials"`, which `sbFetch` lifts from
+  `error_code`. The text match is kept as a fallback, so the fix has two
+  independent halves; `tools/auth-error-check.js` pins each one separately
+  and fails on all four counts when both are reverted.
+
+The generalised assertion, and the one that would have caught this on day
+one, is that no authentication failure may reach a reader as a status code.
+It runs over every GoTrue failure the site can provoke, not just the two with
+bespoke wording.

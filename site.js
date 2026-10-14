@@ -2021,7 +2021,8 @@ document.addEventListener("submit", async e => {
        an email that has no password set — which is every account made
        before this existed. Point at the way out rather than insisting the
        password is wrong. */
-    signInError(form, /invalid login/i.test(err.message)
+    signInError(form, (err.code === "invalid_credentials" ||
+                       /invalid login/i.test(err.message))
       ? "That email and password don't match. If your account is older than passwords here, use “Forgot your password?” to get in by email."
       : err.message);
   }
@@ -2050,7 +2051,8 @@ document.addEventListener("submit", async e => {
         sends a handful of these an hour.</p>`);
   }catch(err){
     btn.disabled = false; btn.textContent = "Create account";
-    signInError(form, /already registered|already been/i.test(err.message)
+    signInError(form, (err.code === "user_already_exists" ||
+                       /already registered|already been/i.test(err.message))
       ? "There's already an account on that email. Sign in, or use “Forgot your password?”."
       : err.message);
   }

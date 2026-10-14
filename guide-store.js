@@ -72,13 +72,36 @@ async function sbFetch(path, {method = "GET", body, auth = true, headers = {}} =
   });
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-  if(!res.ok) throw new Error(friendlyError(data, res.status));
+  if(!res.ok){
+    const err = new Error(friendlyError(data, res.status));
+    /* GoTrue names the failure in error_code ("invalid_credentials",
+       "user_already_exists"); PostgREST has no equivalent. Callers that
+       need to tell one auth failure from another branch on THIS, not on
+       the message text — matching prose is what broke the sign-in dialog
+       for every account on the site. See friendlyError below. */
+    err.code = String((data && data.error_code) || "");
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
 /* Postgres speaks in constraint names. A reader should not have to. */
 function friendlyError(data, status){
-  const msg = String((data && (data.message || data.error_description || data.error)) || "");
+  /* `msg` is GoTrue's field and it was missing from this list for as long
+     as passwords have existed on the site. PostgREST says {message},
+     GoTrue says {code, error_code, msg} — so every auth failure fell
+     through to the status-code fallback and read "Something went wrong
+     (400)." The dialogs in site.js carry hand-written sentences for a
+     wrong password and for an email that already has an account, and
+     they select them by matching this string; with the string blank
+     neither had ever once been shown. A reader who mistyped a password
+     was told the site was broken, and believed it.
+
+     NOT data.code: on a GoTrue error that is the numeric HTTP status, so
+     including it here would put "400" in front of readers as a message. */
+  const msg = String((data && (data.message || data.msg ||
+                               data.error_description || data.error)) || "");
   if(/duplicate key/i.test(msg) && /guide_votes/i.test(msg))
     return "You've already voted on this guide.";
   if(/duplicate key/i.test(msg))       return "A guide with that address already exists.";
