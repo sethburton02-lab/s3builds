@@ -14,7 +14,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="site.css?v=192">
+<link rel="stylesheet" href="site.css?v=193">
 <style>
   .spell-layout{display:grid;grid-template-columns:1fr 420px;gap:26px;align-items:start;padding-bottom:60px}
   .spell-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:14px}
@@ -37,6 +37,12 @@
   .retired{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;
     text-transform:uppercase;color:var(--purple);border:1px solid rgba(164,143,212,.45);
     border-radius:4px;padding:2px 6px;margin-top:6px}
+  /* The mastery rider, set apart from the spell's own text because it is
+     a different claim: what the spell does, versus what a mastery does to
+     it. Running them together is how the numbers got lost in the first
+     place. */
+  .spell-mastery{margin:10px 0 0;padding-left:10px;font-size:13px;
+    color:var(--muted);border-left:2px solid var(--gold-dim, var(--line))}
   @media(max-width:900px){
     .spell-layout{grid-template-columns:1fr}
     .spell-detail{position:static}
@@ -60,9 +66,9 @@
   </div>
 </section>
 
-<script src="site.js?v=192"></script>
-<script src="config.js?v=192"></script>
-<script src="guide-store.js?v=192"></script>
+<script src="site.js?v=193"></script>
+<script src="config.js?v=193"></script>
+<script src="guide-store.js?v=193"></script>
 <script>
 renderChrome("Spells");
 
@@ -131,6 +137,7 @@ function paintDetail(){
         </div>
       </div>
       <div class="dd">${ddText(s.description)}</div>
+      ${s.masteryNote ? `<p class="spell-mastery">${ddText(s.masteryNote)}</p>` : ""}
       ${retired ? `<p style="margin:12px 0 0;color:var(--muted-2);font-size:12.5px">${esc(retired)}</p>` : ""}
     </div>
 

@@ -934,13 +934,41 @@ CLASSIC.spellIcon = id => (CLASSIC.spellRow(id) || {}).icon || null;
 
 /* Fold the mode's own values over the archive's for one spell. Range isn't
    in the mode's file, so that stays with Data Dragon. */
+/* The mode's description is the CLIENT'S PICKER BLURB, and a blurb is
+   written not to have numbers in it: the client shows those elsewhere.
+   "Restores Health to your champion and to nearby allies." Taking it
+   wholesale cost the page every figure it had — the archive's own
+   sentence for Heal is "Restores 90-345 Health (depending on champion
+   level)", and fifteen of the sixteen spells were replaced this way.
+   Reported from Reddit as "All of the Summoner Spells don't even say
+   what they do", which was exactly right.
+
+   What the mode's string has and the archive's hasn't is the mastery
+   rider — "Summoner's Resolve: Smite grants 10 gold per cast" — which is
+   mode-specific and worth keeping. So split it: take the rider from the
+   mode, and take the sentence from whichever source actually states a
+   number, preferring the mode when it does. */
+const MASTERY_CLAUSE = /\s*(Summoner's (?:Wrath|Resolve|Insight):.*)$/s;
+function splitMasteryNote_(text){
+  const m = String(text || "").match(MASTERY_CLAUSE);
+  return m ? {body: text.slice(0, m.index).trim(), note: m[1].trim()}
+           : {body: String(text || "").trim(), note: ""};
+}
 function classicSpell_(sp){
   const row = CLASSIC.spellByName(sp.name);
   if(!row) return sp;
+  const mode = splitMasteryNote_(row.description);
+  /* The archive's sentence is Season 3's, which is the era the mode runs,
+     so it is the right fallback rather than merely an available one. The
+     mode's cooldowns still win below — those it does state. */
+  const body = /\d/.test(mode.body) ? mode.body
+             : (splitMasteryNote_(sp.description).body || mode.body);
   return {...sp,
     classicId: row.id,          /* the mode's real id, for its art */
     name: row.name || sp.name,
-    description: row.description || sp.description,
+    description: body,
+    /* Rendered as its own line. Empty for spells with no mastery rider. */
+    masteryNote: mode.note,
     cooldown: row.cooldown || sp.cooldown,
     source: "classic"};
 }

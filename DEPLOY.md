@@ -184,6 +184,7 @@ node tools/ability-coverage.js . # how many tooltip numbers resolve (NEEDS NETWO
 node tools/champstats-check.js . # reading the mode's stat files
 node tools/champ-page-check.js . # and putting them on the champion page
 node tools/auth-error-check.js   # what a failed sign-in actually says
+node tools/numbers-check.js --live  # do the ability texts carry numbers (NEEDS NETWORK)
 python3 tools/contrast-check.py .          # WCAG AA on both surfaces
 python3 tools/check-data.py <lol-game-data> # data vs. the client's own files
 python3 tools/fetch-classic-data.py --self-test  # the stat trimming, offline
