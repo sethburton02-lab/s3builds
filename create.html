@@ -1534,6 +1534,10 @@ function clearDraftAfterPublish(){
   }
   return {cleared: saveKey(), blankedNewDraft: !editingSlug};
 }
+/* Set when load() threw rather than finding nothing. Declared here, not at
+   the catch, so it exists before the first call however the file is
+   evaluated. */
+let loadFailed=null;
 function load(){
   try{
     let raw=null, legacy=false;
@@ -1588,7 +1592,14 @@ function load(){
     if(!Array.isArray(S.sections)||!S.sections.length) S.sections=structuredClone(BLANK.sections);
     /* Bodies written against the old Markdown editor become HTML once, on
        the way in; anything already HTML is sanitised and left alone. */
-    S.sections=S.sections.map(sec=>({h:String(sec.h||""), b:cleanRich(mdToHtml(sec.b))}));
+    /* sec.b has to be coerced before it reaches mdToHtml: a section stored
+       without a body hands it undefined, mdToHtml passes that through, and
+       cleanRich throws on .length. That throw lands in this function's own
+       catch, which used to return false — so one malformed section read as
+       "there is no draft" and the whole guide went unrestored. The empty
+       string is what BLANK seeds anyway. */
+    S.sections=S.sections.map(sec=>({h:String((sec&&sec.h)||""),
+                                     b:cleanRich(mdToHtml((sec&&sec.b!=null)?sec.b:""))}));
     /* Same treatment for the per-section notes, and only the keys we know. */
     S.notes = {};
     for(const k of NOTE_KEYS)
@@ -1633,7 +1644,22 @@ function load(){
     }));
     S.planActive = 0;
     return true;
-  }catch(e){ return false; }
+  }catch(e){
+    /* A throw in here used to be indistinguishable from "there was no
+       draft": both returned false, the editor opened blank, and the only
+       difference was that one of them had just failed to read work that
+       was sitting right there. That is how a restore bug hides — the
+       symptom is an empty form, which is also what a first visit looks
+       like.
+
+       So say so. loadFailed is what tells save() and the boot path that
+       blank is a failure state rather than a fresh start, and the console
+       line is there because this is the one place where knowing the
+       message is the whole diagnosis. */
+    loadFailed = e;
+    try{ console.error("[create] draft restore failed:", e); }catch(_){}
+    return false;
+  }
 }
 /* v1/v2 stored masteries as three per-tree totals, which can't be mapped
    onto specific masteries. Keep an id->points map, drop the old shape. */
@@ -1721,9 +1747,57 @@ function paintSaveState(){
   b.disabled=!unsaved;
   b.classList.toggle("save-runes-btn--active", unsaved);
 }
+/* Is there anything in here worth keeping? Used only by save(), to decide
+   whether a write is allowed to destroy what is already stored. Deliberately
+   generous about what counts as content: a false "empty" here deletes
+   someone's work, a false "not empty" only persists a draft nobody wanted. */
+function isEmptyDraft(g){
+  if(!g) return true;
+  if(String(g.title||"").trim() || String(g.blurb||"").trim() || g.champ) return false;
+  if((g.items||[]).some(r => (r.items||[]).length)) return false;
+  /* A section counts as content if it has body text, or a heading the
+     author actually chose. The seeded heading does NOT count: BLANK ships
+     with one, so counting it would make every fresh editor "not empty" and
+     the guard below would never fire — which is the whole point of this. */
+  const seededH = String((((BLANK||{}).sections||[])[0]||{}).h || "");
+  if((g.sections||[]).some(s => String(s.b||"").replace(/<[^>]*>/g,"").trim() ||
+       (String(s.h||"").trim() && String(s.h).trim() !== seededH.trim()))) return false;
+  if((g.matchups||[]).length || (g.plans||[]).length) return false;
+  if((g.skillPages||[]).some(p => (p.skills||[]).some(Boolean))) return false;
+  if((g.setups||[]).some(s => Object.keys(s.mast||{}).length ||
+       Object.values(s.runes||{}).some(a => (a||[]).some(Boolean)))) return false;
+  if((g.spellSets||[]).some(set => (set||[]).length)) return false;
+  return true;
+}
+let blankSaveBlocked=false;
+/* An empty editor must never overwrite a draft that has something in it.
+
+   The failure this exists to stop, seen on production while the same build
+   restored correctly on localhost: load() returns false for any reason at
+   all, the editor opens blank, hydrate() paints it, painting trips
+   autosave, and 600ms later the draft is replaced by an empty one. The work
+   is gone, nothing says so, and the next reload has nothing left to
+   restore. Silent, total, and invisible wherever you are debugging.
+
+   Refusing the write is always the safe side of the trade. An editor that
+   is genuinely empty has nothing worth persisting, and the moment a real
+   edit happens isEmptyDraft() goes false and saving resumes on its own. */
 function save(quiet){
   try{
-    localStorage.setItem(saveKey(),JSON.stringify(S));
+    const key=saveKey();
+    if(isEmptyDraft(S)){
+      let stored=null;
+      try{ stored=JSON.parse(localStorage.getItem(key)||"null"); }catch(_){}
+      if(stored && !isEmptyDraft(stored)){
+        if(!blankSaveBlocked){
+          blankSaveBlocked=true;
+          note("Your saved draft was left alone — this editor opened empty. Reload before writing anything.");
+        }
+        return;
+      }
+    }
+    blankSaveBlocked=false;
+    localStorage.setItem(key,JSON.stringify(S));
     unsaved=false; paintSaveState();
     if(!quiet) note("Draft saved locally",true);
   }catch(e){
@@ -5719,6 +5793,14 @@ if(editingSlug && readPublished(editingSlug)){
 }
 if(restored && !editingSlug && (S.title||S.champ||totalItems()))
   note("Draft restored from this browser");
+/* The opposite case, which used to be silent: there was a draft, reading it
+   failed, and the editor opened blank as though there had never been one.
+   save() refuses to overwrite it, so the work is still in storage — say
+   that plainly, because an empty form says the opposite. */
+if(loadFailed && !editingSlug)
+  showEditBar(`<p class="edit-bar missing"><b>Couldn't open your saved draft.</b>
+      It is still stored and has not been overwritten — reload to try again.
+      If this keeps happening, the console has the reason.</p>`);
 if(skillsTrimmed) toast(`Removed ${skillsTrimmed} skill point${skillsTrimmed>1?"s":""} that broke the level rules.`);
 }
 
